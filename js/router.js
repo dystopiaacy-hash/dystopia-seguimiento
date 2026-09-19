@@ -24,6 +24,13 @@ export function navegar(path) {
   else location.hash = destino;
 }
 
+/* Igual que navegar() pero sin dejar la ruta actual en el historial (redirecciones). */
+export function reemplazar(path) {
+  const destino = '#/' + String(path).replace(/^#?\/?/, '');
+  if (location.hash === destino) resolver();
+  else location.replace(destino);
+}
+
 function coincide(partesRuta, segmentos) {
   if (partesRuta.length !== segmentos.length) return null;
   const params = {};

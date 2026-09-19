@@ -1,6 +1,5 @@
 /* Caché en memoria por tabla + suscripción realtime.
-   Las vistas leen de acá (get) y se enteran de cambios con onChange.
-   Las tablas cs_* se crean en Fase 1; hasta entonces esto no se usa. */
+   Las vistas leen de acá (get) y se enteran de cambios con onChange. */
 import { sb } from './supabase.js';
 
 const cache = new Map();      // tabla -> Map(id -> fila)
@@ -53,14 +52,18 @@ function aplicarCambio(tabla, payload) {
 }
 
 /* Realtime respeta RLS: cada usuario solo recibe cambios de filas que puede leer.
-   Requiere que las tablas estén en la publicación supabase_realtime (se hace por migración). */
-export function suscribir(tablas) {
+   Requiere que las tablas estén en la publicación supabase_realtime (se hace por migración).
+   onEstado(status): 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED' (para el indicador "En vivo"). */
+export function suscribir(tablas, onEstado) {
   desuscribir();
-  canal = sb.channel('cs-cambios');
+  const este = sb.channel('cs-cambios');
+  canal = este;
   for (const t of tablas) {
-    canal.on('postgres_changes', { event: '*', schema: 'public', table: t }, p => aplicarCambio(t, p));
+    este.on('postgres_changes', { event: '*', schema: 'public', table: t }, p => aplicarCambio(t, p));
   }
-  canal.subscribe();
+  este.subscribe(status => {
+    if (onEstado && canal === este) onEstado(status);
+  });
 }
 
 export function desuscribir() {

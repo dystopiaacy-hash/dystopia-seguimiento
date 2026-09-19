@@ -1,13 +1,29 @@
-/* Punto de entrada de la app interna: gate de sesión, login, layout y router.
+/* Punto de entrada de la app interna: gate de sesión, login, rol, layout y router.
    Login y logout replican a Dystopia: signInWithPassword, mismo mensaje de error,
    logout = signOut + reload. */
 import { sb } from './supabase.js';
 import { esc } from './ui.js';
-import { ruta, rutaNoEncontrada, iniciarRouter } from './router.js';
-import { limpiar } from './state.js';
+import { ruta, rutaNoEncontrada, iniciarRouter, reemplazar, resolver } from './router.js';
+import { limpiar, suscribir, onChange } from './state.js';
+import { yo, cargarSesion, cargarProgramas, esFundador, programa, rutaInicio } from './sesion.js';
+import { renderLayout, renderNav, setHeader, setLive } from './layout.js';
+import { vistaPanel } from './views/panel.js';
+import { vistaPrograma } from './views/programa.js';
 
 const app = document.getElementById('app');
 let appIniciada = false;
+let rutasRegistradas = false;
+let escuchandoCambios = false;
+
+/* Tablas que escucha el realtime (cs_integraciones queda afuera a propósito). */
+const TABLAS_RT = ['cs_programas', 'cs_clientes', 'cs_accionables', 'cs_devoluciones', 'cs_calls',
+  'cs_renovaciones', 'cs_formularios', 'cs_respuestas', 'cs_chequeos', 'cs_alertas'];
+
+async function salir() {
+  limpiar();
+  await sb.auth.signOut();
+  location.reload();
+}
 
 function renderLogin() {
   app.innerHTML = `
@@ -41,42 +57,83 @@ function renderLogin() {
   document.getElementById('login-email').focus();
 }
 
-function renderLayout(session) {
+/* Pantalla sin layout para: sin acceso, o error al cargar la sesión. */
+function renderAviso(titulo, texto, { reintentar = false } = {}) {
   app.innerHTML = `
-    <aside class="sidebar">
-      <div class="brand">
+    <div class="login-wrap">
+      <div class="card login-card aviso-card">
         <div class="brand-mark">DYS<span>TOPIA</span></div>
-        <div class="brand-sub">Seguimiento de clientes</div>
+        <div class="aviso-titulo">${esc(titulo)}</div>
+        <p class="aviso-texto">${esc(texto)}</p>
+        <div class="aviso-acciones">
+          ${reintentar ? '<button type="button" class="btn" id="btn-reintentar">Reintentar</button>' : ''}
+          <button type="button" class="btn btn-accent" id="btn-salir">Salir</button>
+        </div>
       </div>
-      <nav class="nav-list" id="nav"></nav>
-      <div class="sidebar-foot">
-        <span id="user-email">${esc(session.user.email)}</span>
-        <button type="button" class="refresh-btn" id="btn-logout">Salir</button>
-      </div>
-    </aside>
-    <main class="main"><div class="main-inner" id="view"></div></main>`;
-  document.getElementById('btn-logout').onclick = async () => {
-    limpiar();
-    await sb.auth.signOut();
-    location.reload();
-  };
+    </div>`;
+  document.getElementById('btn-salir').onclick = salir;
+  const r = document.getElementById('btn-reintentar');
+  if (r) r.onclick = () => location.reload();
+}
+
+/* ---------- Vistas y refresco en vivo ---------- */
+let genVista = 0;
+let vista = null;   // { refrescar } de la vista actual, si tiene
+
+function montar(render) {
+  const gen = ++genVista;
+  const vigente = () => gen === genVista;
+  vista = render(document.getElementById('view'), vigente) || null;
+}
+
+/* Muchos eventos juntos (un trigger que toca 5 filas) = un solo refresco. */
+let timerRefresco = null;
+let programasCambiaron = false;
+function programarRefresco(tabla) {
+  if (tabla === 'cs_programas') programasCambiaron = true;
+  clearTimeout(timerRefresco);
+  timerRefresco = setTimeout(async () => {
+    if (programasCambiaron) {
+      programasCambiaron = false;
+      try { await cargarProgramas(); } catch (e) { console.error('programas', e); }
+      resolver();
+      return;
+    }
+    if (vista && vista.refrescar) vista.refrescar();
+  }, 500);
 }
 
 function registrarRutas() {
-  const view = () => document.getElementById('view');
-  ruta('', () => {
-    view().innerHTML = `
-      <div class="empty-state">
-        <div class="big">Dystopia Seguimiento</div>
-        <div class="small">Esqueleto (Fase 0). Las vistas se agregan en las fases siguientes.</div>
-      </div>`;
+  if (rutasRegistradas) return;
+  rutasRegistradas = true;
+
+  ruta('', () => reemplazar(rutaInicio()));
+
+  ruta('panel', () => {
+    if (!esFundador()) return reemplazar(rutaInicio());
+    renderNav({ panel: true });
+    montar((el, vigente) => vistaPanel(el, vigente));
   });
+
+  const irPrograma = (params, sub = '') => {
+    const p = programa(params.programa);
+    renderNav({ programaId: p && p.id, sub: params.clienteId ? 'clientes' : sub });
+    montar(el => vistaPrograma(el, { p, sub: params.clienteId ? 'clientes' : sub, clienteId: params.clienteId }));
+  };
+  ruta('p/:programa', params => irPrograma(params));
+  ruta('p/:programa/c/:clienteId', params => irPrograma(params));
+  ruta('p/:programa/:sub', params => irPrograma(params, params.sub));
+
   rutaNoEncontrada(path => {
-    view().innerHTML = `
-      <div class="empty-state">
-        <div class="big">No existe esta sección</div>
-        <div class="small">${esc(path)} · <a href="#/">Volver al inicio</a></div>
-      </div>`;
+    renderNav({});
+    setHeader('No existe esta sección');
+    montar(el => {
+      el.innerHTML = `
+        <div class="card empty-state">
+          <div class="big">No existe esta sección</div>
+          <div class="small">${esc(path)} · <a href="#/">Volver al inicio</a></div>
+        </div>`;
+    });
   });
 }
 
@@ -86,8 +143,26 @@ async function iniciarApp() {
   app.innerHTML = '<div class="loading">Cargando…</div>';
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { appIniciada = false; renderLogin(); return; }
-  renderLayout(session);
+
+  let puede;
+  try {
+    puede = await cargarSesion(session.user);
+  } catch (e) {
+    console.error('sesion', e);
+    renderAviso('No se pudo cargar tu sesión', e.message || String(e), { reintentar: true });
+    return;
+  }
+  if (!puede) {
+    renderAviso('Sin acceso a esta app',
+      `${yo.email} no tiene acceso a Seguimiento. Si creés que es un error, pedíselo al fundador.`);
+    return;
+  }
+
+  renderLayout(app, salir);
   registrarRutas();
+  setLive('CONECTANDO');
+  suscribir(TABLAS_RT, setLive);
+  if (!escuchandoCambios) { onChange(tabla => programarRefresco(tabla)); escuchandoCambios = true; }
   iniciarRouter();
 }
 
