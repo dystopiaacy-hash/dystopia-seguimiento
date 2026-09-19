@@ -1,5 +1,5 @@
 /* Cliente único de Supabase.
-   supabase-js se carga igual que en Dystopia: <script> UMD de jsdelivr (@supabase/supabase-js@2)
+   supabase-js se carga como <script> UMD de jsdelivr fijado a @supabase/supabase-js@2.116.0
    en el HTML, antes de los módulos. Acá solo se crea el cliente sobre window.supabase. */
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 
