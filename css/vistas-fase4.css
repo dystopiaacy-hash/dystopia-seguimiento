@@ -1,0 +1,51 @@
+/* =====================================================================
+   Dystopia Seguimiento — vistas de la Fase 4 (Renovaciones y Config).
+   Se apoya en lo que ya existe (.ren-item, .card, .form-row, .stat-card):
+   acá van solo los agregados. Va DESPUÉS de ficha.css, que es donde se
+   definen .ren-item y compañía.
+   ===================================================================== */
+
+/* ===== RENOVACIONES ===== */
+.ren-tasas{margin-bottom:var(--sp-5);}
+/* Por vencer y sin nadie a cargo: mismo rojo que el resto de "hay que actuar ya". */
+.ren-urgente{background:color-mix(in srgb, var(--sem-rojo) 7%, white);border-radius:var(--radius-sm);}
+.ren-cli{font-weight:600;min-width:0;flex:1;}
+.ren-item .ren-cli + .ren-detalle{flex:2;}
+.ren-item .btn{margin-left:auto;}
+
+/* ===== CONFIG ===== */
+.conf-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 var(--sp-4);}
+.conf-seccion{margin-bottom:var(--sp-5);}
+/* Lista ordenable de etapas: el orden es el dato, por eso se numera. */
+.etapa-item{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-1) 0;}
+.etapa-n{font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-faint);width:20px;flex-shrink:0;}
+.etapa-item input{flex:1;min-width:0;}
+.etapa-item .btn-icono{flex-shrink:0;}
+.btn-icono:disabled{opacity:.35;cursor:default;}
+.btn-icono:disabled:hover{background:transparent;}
+
+/* Plantilla de accionables: tabla editable, una fila por ítem. */
+.plantilla-tabla{width:100%;border-collapse:collapse;}
+.plantilla-tabla th{text-align:left;font-size:var(--fs-micro);letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-faint);font-weight:700;padding:0 var(--sp-2) var(--sp-2);}
+.plantilla-tabla td{padding:2px var(--sp-2);vertical-align:middle;}
+.plantilla-tabla input,.plantilla-tabla select{width:100%;background:var(--surface-2);border:1px solid transparent;
+  border-radius:var(--radius-sm);min-height:var(--control-h);padding:var(--sp-1) var(--sp-2);color:var(--ink);}
+.plantilla-tabla input:focus,.plantilla-tabla select:focus{background:var(--surface);border-color:var(--accent-line);outline:none;}
+.plantilla-tabla input[type=number]{font-variant-numeric:tabular-nums;text-align:right;}
+.col-num{width:96px;}
+.col-acc{width:44px;}
+
+/* Resultado del chequeo manual. */
+.chequeo-res{font-size:var(--fs-meta);color:var(--text-dim);margin-top:var(--sp-2);}
+
+@media(max-width:860px){
+  .conf-grid{grid-template-columns:1fr;}
+  .plantilla-tabla,.plantilla-tabla thead,.plantilla-tabla tbody,.plantilla-tabla tr,.plantilla-tabla td{display:block;width:100%;}
+  .plantilla-tabla thead{display:none;}
+  .plantilla-tabla tr{border-bottom:1px solid var(--border-soft);padding:var(--sp-2) 0;}
+  .plantilla-tabla td{padding:2px 0;}
+  .plantilla-tabla td::before{content:attr(data-label);display:block;font-size:var(--fs-micro);
+    letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);font-weight:700;margin-bottom:2px;}
+  .ren-item .btn{margin-left:0;}
+}

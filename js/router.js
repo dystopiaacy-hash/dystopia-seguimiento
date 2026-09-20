@@ -18,6 +18,12 @@ export function rutaActual() {
   return location.hash.replace(/^#\/?/, '');
 }
 
+/* Query string de la ruta actual: #/p/liam/clientes?estado=activos -> URLSearchParams. */
+export function queryActual() {
+  const q = rutaActual().split('?')[1] || '';
+  return new URLSearchParams(q);
+}
+
 export function navegar(path) {
   const destino = '#/' + String(path).replace(/^#?\/?/, '');
   if (location.hash === destino) resolver();

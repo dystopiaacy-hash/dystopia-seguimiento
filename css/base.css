@@ -1,0 +1,53 @@
+/* =====================================================================
+   Dystopia Seguimiento — variables, tipografías y reset.
+   Extraído del <style> de Dystopia (index.html, líneas 9–423). Paleta y
+   valores idénticos: no cambiar hex acá sin cambiarlos también allá.
+   Se omitieron los bloques propios de Dystopia (calendario, historias,
+   banco, trazabilidad, colores por plataforma).
+   Parte de la hoja de estilos partida. ORDEN DE CARGA (no cambiarlo,
+   la cascada depende de él): base, layout, componentes, responsive,
+   vistas, ficha, vistas-fase4. index.html y form.html los cargan todos
+   en ese orden.
+   ===================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap');
+
+:root{
+  /* Light UI: fondo gris muy claro, superficies blancas, el color entra por los datos. */
+  --bg:#F5F6F8; --bg-alt:#FFFFFF; --surface:#FFFFFF; --surface-2:#F3F4F7;
+  --border:#E6E8EE; --border-soft:#EFF1F4;
+  --text:#1F2430; --text-dim:#5B6473; --text-faint:#98A1AE;
+  --accent:#4F46E5; --accent-soft:rgba(79,70,229,.08); --accent-line:rgba(79,70,229,.32);
+  --ink:#111827;
+  --cyan:#0EA5A4; --danger:#E5484D; --danger-soft:rgba(229,72,77,.10); --success:#16A34A; --success-soft:rgba(22,163,74,.10);
+  --radius-lg:14px; --radius:12px; --radius-sm:8px;
+  --shadow:0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.05);
+  --shadow-md:0 6px 20px rgba(16,24,40,.08);
+  --thead-bg:#FAFBFC; --tfoot-bg:#F6F7FA;
+  --font-mono:'Manrope',var(--font-sans);
+  --font-sans:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
+  /* Color fijo por programa (= cuenta de la agencia), mismo que en Dystopia. */
+  --c-liam:#D9A441; --c-agus:#9B7EDE; --c-teo:#2FA99B; --c-mauro:#E0687A; --c-lucas:#5E8FD9;
+
+  /* Semáforo. Verde y rojo = --success / --danger de Dystopia. Amarillo = ámbar de
+     CHART_PALETTE (#F59E0B); su texto usa #8A6212 (ya usado en Dystopia) por contraste. */
+  --sem-verde:#16A34A; --sem-amarillo:#F59E0B; --sem-amarillo-text:#8A6212; --sem-rojo:#E5484D;
+
+  /* Escala tipográfica: página > sección > tarjeta > cuerpo > metadata > micro-label */
+  --fs-page:24px; --fs-section:18px; --fs-card:15px; --fs-body:13px; --fs-meta:12px; --fs-micro:11px;
+  --fs-kpi:26px; --fs-kpi-lg:32px;
+  /* Espaciado en múltiplos de 4px */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px; --sp-10:40px;
+  --row-h:40px; --control-h:36px; --control-h-sm:28px;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
+a{color:var(--accent);text-decoration:none;}
+a:hover{text-decoration:underline;}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+::selection{background:var(--accent-soft);}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:#D7DEE3;border-radius:8px;border:2px solid var(--bg);}
+::-webkit-scrollbar-track{background:transparent;}
+[hidden]{display:none !important;}

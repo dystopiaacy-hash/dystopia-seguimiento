@@ -1,0 +1,41 @@
+/* =====================================================================
+   Dystopia Seguimiento — breakpoints globales (sidebar y tablas).
+   Parte de la hoja de estilos partida. ORDEN DE CARGA (no cambiarlo,
+   la cascada depende de él): base, layout, componentes, responsive,
+   vistas, ficha, vistas-fase4. index.html y form.html los cargan todos
+   en ese orden.
+   ===================================================================== */
+/* ===== RESPONSIVE ===== */
+/* Notebook 13" (1280–1440px): sidebar más angosta y tablas más compactas, sin scroll horizontal de página */
+@media(max-width:1440px){
+  .sidebar{width:216px;}
+  .main-inner{padding:var(--sp-6) var(--sp-5) 64px;}
+  .data-table th,.data-table td{padding:0 var(--sp-2);}
+  .data-table th:first-child,.data-table td:first-child{padding-left:var(--sp-3);}
+  .data-table th:last-child,.data-table td:last-child{padding-right:var(--sp-3);}
+  .data-table th{white-space:normal;line-height:1.2;letter-spacing:.02em;}
+  .data-table td{max-width:180px;}
+  .sidebar-foot{flex-wrap:wrap;row-gap:var(--sp-1);}
+}
+@media(max-width:1280px){
+  .data-table{font-size:var(--fs-meta);}
+  .data-table td{max-width:150px;}
+  .data-table .badge{padding:2px 6px;}
+  .upcoming-row{grid-template-columns:64px 8px minmax(80px,112px) minmax(0,1fr) auto;gap:var(--sp-2);}
+}
+@media(max-width:860px){
+  #app{flex-direction:column;height:auto;min-height:100vh;}
+  .sidebar{width:100%;flex-direction:row;flex-wrap:nowrap;overflow:hidden;border-right:none;border-bottom:1px solid var(--border);align-items:center;}
+  .brand{padding:var(--sp-3) var(--sp-4);border-bottom:none;border-right:1px solid var(--border-soft);flex-shrink:0;}
+  .nav-list{flex:1;min-width:0;display:flex;align-items:center;overflow-x:auto;padding:var(--sp-2);}
+  .nav-subs{flex-direction:row;align-items:center;flex-shrink:0;margin:0 var(--sp-2) 0 0;padding-left:var(--sp-2);}
+  .nav-eyebrow{display:none;}
+  .nav-item{flex-shrink:0;width:200px;margin-bottom:0;}
+  /* "Salir" siempre visible: el pie queda fijo a la derecha de la barra; el email se oculta. */
+  .sidebar-foot{flex-shrink:0;border-top:none;border-left:1px solid var(--border-soft);padding:var(--sp-2) var(--sp-4);}
+  .sidebar-foot > #user-email{display:none;}
+  .main-inner{padding:var(--sp-4);}
+  .form-grid2,.form-grid4{grid-template-columns:1fr;}
+  .upcoming-row{grid-template-columns:56px 8px minmax(0,1fr) auto;}
+  .upcoming-client{display:none;}
+}

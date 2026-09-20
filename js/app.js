@@ -15,12 +15,21 @@ let appIniciada = false;
 let rutasRegistradas = false;
 let escuchandoCambios = false;
 
-/* Tablas que escucha el realtime (cs_integraciones queda afuera a propósito). */
+/* Tablas que escucha el realtime (cs_integraciones queda afuera a propósito).
+   Las vistas cs_v_* no emiten eventos: se escuchan las tablas y la vista refetchea. */
 const TABLAS_RT = ['cs_programas', 'cs_clientes', 'cs_accionables', 'cs_devoluciones', 'cs_calls',
   'cs_renovaciones', 'cs_formularios', 'cs_respuestas', 'cs_chequeos', 'cs_alertas'];
 
+/* Dentro de un programa se filtra por programa_id para no recibir cambios de los otros.
+   cs_programas va sin filtro: su columna clave es id, y son 5 filas. */
+function tablasRealtime(programaId) {
+  if (!programaId) return TABLAS_RT;
+  const filtro = 'programa_id=eq.' + programaId;
+  return TABLAS_RT.map(t => (t === 'cs_programas' ? t : [t, filtro]));
+}
+
 async function salir() {
-  limpiar();
+  pararRealtime();
   await sb.auth.signOut();
   location.reload();
 }
@@ -86,6 +95,10 @@ function montar(render) {
   vista = render(document.getElementById('view'), vigente) || null;
 }
 
+function refrescarVista() {
+  if (vista && vista.refrescar) vista.refrescar();
+}
+
 /* Muchos eventos juntos (un trigger que toca 5 filas) = un solo refresco. */
 let timerRefresco = null;
 let programasCambiaron = false;
@@ -99,8 +112,48 @@ function programarRefresco(tabla) {
       resolver();
       return;
     }
-    if (vista && vista.refrescar) vista.refrescar();
+    refrescarVista();
   }, 500);
+}
+
+/* ---------- Realtime acotado al programa abierto + plan B ---------- */
+let programaSuscrito;          // undefined = todavía no se suscribió nunca
+let timerFallback = null;      // refetch cada 60 s mientras no haya realtime
+let timerReintento = null;     // reintento de suscripción
+
+function estadoLive(estado) {
+  setLive(estado);
+  const ok = estado === 'SUBSCRIBED';
+  /* El refetch cada 60 s sigue corriendo mientras no haya realtime: no se reinicia
+     en cada reintento, así la vista se actualiza igual durante una caída larga. */
+  if (ok) { clearInterval(timerFallback); timerFallback = null; }
+  else if (!timerFallback) timerFallback = setInterval(refrescarVista, 60000);
+  clearTimeout(timerReintento);
+  if (!ok && estado !== 'CONECTANDO' && estado !== 'CLOSED') {
+    timerReintento = setTimeout(() => {
+      const id = programaSuscrito;
+      programaSuscrito = undefined;
+      asegurarRealtime(id);
+    }, 15000);
+  }
+}
+
+/* programaId = null en el panel general (escucha todos los programas). */
+function asegurarRealtime(programaId) {
+  if (programaSuscrito === programaId) return;
+  programaSuscrito = programaId;
+  estadoLive('CONECTANDO');
+  suscribir(tablasRealtime(programaId), estadoLive);
+}
+
+function pararRealtime() {
+  clearInterval(timerFallback);
+  clearTimeout(timerReintento);
+  clearTimeout(timerRefresco);
+  timerFallback = timerReintento = timerRefresco = null;
+  programaSuscrito = undefined;
+  vista = null;
+  limpiar();
 }
 
 function registrarRutas() {
@@ -112,13 +165,15 @@ function registrarRutas() {
   ruta('panel', () => {
     if (!esFundador()) return reemplazar(rutaInicio());
     renderNav({ panel: true });
+    asegurarRealtime(null);
     montar((el, vigente) => vistaPanel(el, vigente));
   });
 
   const irPrograma = (params, sub = '') => {
     const p = programa(params.programa);
     renderNav({ programaId: p && p.id, sub: params.clienteId ? 'clientes' : sub });
-    montar(el => vistaPrograma(el, { p, sub: params.clienteId ? 'clientes' : sub, clienteId: params.clienteId }));
+    asegurarRealtime(p ? p.id : null);
+    montar((el, vigente) => vistaPrograma(el, { p, sub: params.clienteId ? 'clientes' : sub, clienteId: params.clienteId, vigente }));
   };
   ruta('p/:programa', params => irPrograma(params));
   ruta('p/:programa/c/:clienteId', params => irPrograma(params));
@@ -161,8 +216,8 @@ async function iniciarApp() {
   renderLayout(app, salir);
   registrarRutas();
   setLive('CONECTANDO');
-  suscribir(TABLAS_RT, setLive);
   if (!escuchandoCambios) { onChange(tabla => programarRefresco(tabla)); escuchandoCambios = true; }
+  /* La suscripción la arma cada ruta (asegurarRealtime), acotada al programa abierto. */
   iniciarRouter();
 }
 
@@ -170,7 +225,7 @@ async function iniciarApp() {
 sb.auth.onAuthStateChange(evento => {
   if (evento === 'SIGNED_OUT' && appIniciada) {
     appIniciada = false;
-    limpiar();
+    pararRealtime();
     renderLogin();
   }
 });

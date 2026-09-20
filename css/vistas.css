@@ -1,0 +1,162 @@
+/* =====================================================================
+   Dystopia Seguimiento — header de vista, panel general, avisos y programa.
+   Parte de la hoja de estilos partida. ORDEN DE CARGA (no cambiarlo,
+   la cascada depende de él): base, layout, componentes, responsive,
+   vistas, ficha, vistas-fase4. index.html y form.html los cargan todos
+   en ese orden.
+   ===================================================================== */
+/* ===== HEADER DE VISTA (título + En vivo + rol) ===== */
+.view-head{align-items:flex-start;}
+.view-head-meta{display:flex;align-items:center;gap:var(--sp-2);flex-shrink:0;}
+.live-pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:700;font-size:var(--fs-micro);color:var(--text-faint);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:3px 10px;white-space:nowrap;}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);}
+.live-pill[data-on="1"]{color:var(--success);}
+.live-pill[data-on="1"] .live-dot{background:var(--success);box-shadow:0 0 0 3px var(--success-soft);}
+
+/* ===== PANEL GENERAL ===== */
+.stat-row-6{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
+.stat-sub{font-size:var(--fs-micro);color:var(--text-faint);font-weight:500;margin-top:2px;}
+.loading-inline{padding:var(--sp-8) 0;color:var(--text-faint);font-size:var(--fs-meta);}
+
+.prog-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));}
+.prog-card{display:flex;flex-direction:column;gap:var(--sp-2);color:inherit;text-decoration:none;}
+.prog-card:hover{text-decoration:none;}
+.prog-card .niche{margin-bottom:0;}
+.prog-card-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);}
+.prog-card-kpi{display:flex;align-items:baseline;gap:var(--sp-2);font-size:var(--fs-meta);font-weight:600;color:var(--text-dim);}
+.prog-card-kpi .stat-num{font-size:var(--fs-kpi);}
+.prog-card-rows{display:flex;flex-direction:column;gap:var(--sp-1);border-top:1px solid var(--border-soft);padding-top:var(--sp-2);margin-top:var(--sp-1);}
+.prog-card-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);font-size:var(--fs-meta);font-weight:600;color:var(--text-dim);}
+.prog-card-row strong{font-family:var(--font-mono);color:var(--ink);font-variant-numeric:tabular-nums;}
+.txt-rojo{color:var(--danger);}
+.prog-card-nota{margin:0;font-size:var(--fs-meta);color:var(--text-faint);}
+.prog-card.is-inactivo{--card-color:var(--border);background:var(--surface-2);cursor:default;box-shadow:none;}
+.prog-card.is-inactivo:hover{box-shadow:none;}
+.prog-card.is-inactivo h3{color:var(--text-dim);}
+.prog-card.is-inactivo .btn{align-self:flex-start;background:var(--surface);}
+
+/* Barra apilada del semáforo (rojo / amarillo / verde) */
+.sem-bar{display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden;background:var(--surface-2);}
+.sem-bar > span{display:block;min-width:4px;}
+.sem-bar .s-rojo{background:var(--sem-rojo);}
+.sem-bar .s-amarillo{background:var(--sem-amarillo);}
+.sem-bar .s-verde{background:var(--sem-verde);}
+.sem-leyenda{display:flex;gap:var(--sp-3);font-size:var(--fs-micro);font-weight:700;color:var(--text-dim);font-variant-numeric:tabular-nums;}
+.sem-leyenda > span{display:inline-flex;align-items:center;gap:4px;}
+
+/* ===== AVISOS (sin acceso, error de sesión, programa inactivo) ===== */
+.aviso-card{max-width:420px;}
+.aviso-titulo{font-weight:800;font-size:var(--fs-section);color:var(--ink);margin-bottom:var(--sp-2);}
+.aviso-texto{font-size:var(--fs-body);color:var(--text-dim);margin:0 0 var(--sp-5);overflow-wrap:anywhere;}
+.aviso-acciones{display:flex;gap:var(--sp-2);justify-content:flex-end;}
+.aviso-card .btn{width:auto;}
+.aviso-inactivo{margin-bottom:var(--sp-3);font-size:var(--fs-body);color:var(--text-dim);background:var(--surface-2);box-shadow:none;}
+
+/* ===== FASE 3: PROGRAMA (pestañas, KPIs, atención, alertas, lista) ===== */
+
+/* Pestañas del programa: navegación, arriba del contenido. */
+.tabs-prog{margin-bottom:var(--sp-5);}
+.tabs-prog .tab-btn{text-decoration:none;display:inline-flex;align-items:center;}
+
+/* Texto de apoyo con peso semántico. Rojo = hay que actuar ya. */
+.txt-gris{color:var(--text-faint);}
+.txt-amarillo{color:var(--sem-amarillo-text);font-weight:600;}
+.sem-txt-rojo{color:var(--danger);}
+.sem-txt-amarillo{color:var(--sem-amarillo-text);}
+.sem-txt-verde{color:var(--text-dim);}
+.sem-txt-gris{color:var(--text-faint);}
+
+/* KPI cards clickeables */
+.stat-row-kpi{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));}
+.stat-nav{display:block;color:inherit;text-decoration:none;transition:border-color .12s,box-shadow .12s;}
+.stat-nav:hover{border-color:var(--accent-line);box-shadow:var(--shadow-md);}
+.stat-nav:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.stat-card .stat-sub + .stat-sub{margin-top:1px;}
+
+/* Requiere atención */
+.aten-cuenta{font-size:var(--fs-meta);font-weight:700;color:var(--text-dim);}
+.aten-list{display:flex;flex-direction:column;}
+.aten-row{display:grid;grid-template-columns:10px minmax(120px,1.2fr) minmax(0,3fr) auto auto;gap:var(--sp-3);align-items:center;
+  padding:var(--sp-3) 0;border-bottom:1px solid var(--border-soft);color:inherit;text-decoration:none;}
+.aten-row:last-child{border-bottom:none;}
+.aten-row:hover{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent);}
+.aten-nombre{font-weight:700;color:var(--ink);font-size:var(--fs-body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aten-motivos{font-size:var(--fs-meta);color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aten-dias{font-family:var(--font-mono);font-size:var(--fs-meta);font-weight:700;color:var(--text-faint);white-space:nowrap;}
+.aten-ir{font-size:var(--fs-micro);font-weight:700;color:var(--accent);white-space:nowrap;}
+
+/* Alertas */
+.alerta-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:var(--sp-3);align-items:center;
+  padding:var(--sp-3) 0;border-bottom:1px solid var(--border-soft);}
+.alerta-row:last-child{border-bottom:none;}
+.alerta-cuerpo{min-width:0;display:flex;flex-direction:column;gap:2px;}
+.alerta-tipo{font-weight:700;font-size:var(--fs-body);color:var(--ink);}
+.alerta-msg{font-size:var(--fs-meta);color:var(--text-dim);overflow-wrap:anywhere;}
+.alerta-meta{font-size:var(--fs-micro);color:var(--text-faint);}
+
+/* Lista de clientes */
+.filtros-clientes{margin-bottom:var(--sp-4);}
+.filtros-clientes .search-input{max-width:280px;flex:1 1 200px;}
+.check-inline{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:var(--fs-meta);font-weight:600;color:var(--text-dim);white-space:nowrap;}
+.filtros-clientes #btn-nuevo{margin-left:auto;}
+.tabla-clientes .col-sem{width:28px;padding-right:0;}
+.tabla-clientes .col-nombre{max-width:220px;}
+.tabla-clientes .col-prog{min-width:130px;}
+.tabla-clientes .col-chq{white-space:nowrap;}
+.cli-nombre{font-weight:700;color:var(--ink);text-decoration:none;}
+.cli-nombre:hover{color:var(--accent);text-decoration:underline;}
+.cli-email{display:block;font-size:var(--fs-micro);color:var(--text-faint);font-weight:500;line-height:1.2;}
+.tabla-clientes td{height:auto;padding-top:6px;padding-bottom:6px;}
+.prog-cell{display:flex;align-items:center;gap:var(--sp-2);}
+.prog-track{flex:1;min-width:52px;height:6px;border-radius:999px;background:var(--surface-2);overflow:hidden;}
+.prog-fill{display:block;height:100%;border-radius:999px;background:var(--text-faint);}
+.prog-verde{background:var(--sem-verde);}
+.prog-amarillo{background:var(--sem-amarillo);}
+.prog-rojo{background:var(--sem-rojo);}
+.prog-dias{font-family:var(--font-mono);font-size:var(--fs-micro);font-weight:700;white-space:nowrap;}
+.cuenta{font-weight:700;}
+.cuenta-venc{display:inline-block;margin-left:4px;font-size:var(--fs-micro);font-weight:800;color:#fff;background:var(--danger);
+  border-radius:999px;padding:0 5px;line-height:15px;}
+
+/* Celdas tipo tarjeta en celular: la tabla no scrollea al costado. */
+@media(max-width:860px){
+  .tabla-clientes{overflow:visible;background:transparent;border:none;box-shadow:none;}
+  .tabla-clientes thead{display:none;}
+  .tabla-clientes table,.tabla-clientes tbody,.tabla-clientes tr,.tabla-clientes td{display:block;width:auto;}
+  .tabla-clientes tr{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    box-shadow:var(--shadow);margin-bottom:var(--sp-3);padding:var(--sp-2) var(--sp-3);}
+  .tabla-clientes td{display:flex;justify-content:space-between;align-items:center;gap:var(--sp-3);
+    max-width:none;white-space:normal;border-bottom:1px solid var(--border-soft);padding:var(--sp-2) 0;text-align:right;}
+  .tabla-clientes tr td:last-child{border-bottom:none;}
+  .tabla-clientes td::before{content:attr(data-label);font-size:var(--fs-micro);font-weight:700;letter-spacing:.04em;
+    text-transform:uppercase;color:var(--text-faint);text-align:left;flex:0 0 auto;}
+  /* Los anchos pensados para la tabla no aplican cuando las filas son tarjetas. */
+  .tabla-clientes .col-sem,.tabla-clientes .col-nombre,.tabla-clientes .col-prog,.tabla-clientes .col-chq{
+    width:auto;min-width:0;max-width:none;}
+  .tabla-clientes td.col-sem{justify-content:flex-start;gap:var(--sp-2);}
+  .tabla-clientes td.col-nombre{display:block;text-align:left;}
+  .tabla-clientes td.col-nombre::before{display:block;margin-bottom:2px;}
+  .tabla-clientes .cli-nombre{font-size:var(--fs-card);}
+  .tabla-clientes .cli-email{text-align:left;overflow-wrap:anywhere;}
+  .tabla-clientes .prog-cell{flex:1;}
+  .aten-row{grid-template-columns:10px minmax(0,1fr) auto;row-gap:2px;}
+  .aten-motivos{grid-column:2 / -1;white-space:normal;}
+  .aten-ir{display:none;}
+  .filtros-clientes #btn-nuevo{margin-left:0;}
+}
+
+/* Filtros: etiqueta + select viajan juntos al envolver la fila. */
+.fgroup{display:inline-flex;align-items:center;gap:var(--sp-2);}
+.fgroup .flabel{margin-left:0;}
+.barra-acciones{display:flex;align-items:center;gap:var(--sp-4);margin:0 0 var(--sp-3);}
+.barra-acciones .section-title{flex:1;margin:0;}
+.barra-acciones .btn{flex-shrink:0;}
+
+/* Notebook de 13": la tabla de clientes entra sin scroll horizontal. */
+@media(max-width:1440px){
+  .tabla-clientes .data-table th,.tabla-clientes .data-table td{padding-left:5px;padding-right:5px;}
+  .tabla-clientes .data-table th:first-child,.tabla-clientes .data-table td:first-child{padding-left:var(--sp-3);}
+  .tabla-clientes .data-table th:last-child,.tabla-clientes .data-table td:last-child{padding-right:var(--sp-3);}
+  .tabla-clientes .col-nombre{max-width:170px;}
+  .tabla-clientes .col-prog{min-width:104px;}
+}

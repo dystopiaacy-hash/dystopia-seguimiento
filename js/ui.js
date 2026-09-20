@@ -166,3 +166,47 @@ export function cerrarModal() {
 export function hayModalAbierto() {
   return !!modalActual;
 }
+
+/* ---------- Confirmación (nunca se borra sin preguntar) ---------- */
+/* Devuelve una promesa que resuelve true solo si el usuario confirma. */
+export function confirmar({ titulo = 'Confirmar', texto = '', detalle = '', ok = 'Confirmar', peligro = true } = {}) {
+  return new Promise(resolve => {
+    let listo = false;
+    const fin = v => { if (!listo) { listo = true; resolve(v); } };
+    const m = abrirModal({
+      titulo,
+      cuerpo: `<p class="aviso-texto">${esc(texto)}</p>${detalle ? `<p class="conf-detalle">${esc(detalle)}</p>` : ''}`,
+      pie: `<button type="button" class="btn" data-conf="0">Cancelar</button>
+            <button type="button" class="btn ${peligro ? 'btn-danger' : 'btn-accent'}" data-conf="1">${esc(ok)}</button>`,
+      alCerrar: () => fin(false)
+    });
+    for (const b of m.el.querySelectorAll('[data-conf]')) {
+      b.addEventListener('click', () => { fin(b.dataset.conf === '1'); m.cerrar(); });
+    }
+    const aceptar = m.el.querySelector('[data-conf="1"]');
+    if (aceptar) aceptar.focus();
+  });
+}
+
+/* ---------- Loom ---------- */
+/* URL de embed si el link es de Loom; '' si no lo es (no se embebe cualquier cosa).
+   Acepta /share/ID y /embed/ID, con o sin query, y devuelve siempre /embed/ID. */
+export function loomEmbed(u) {
+  const href = urlSegura(u);
+  if (!href) return '';
+  let url;
+  try { url = new URL(href); } catch { return ''; }
+  if (url.protocol !== 'https:') return '';
+  const host = url.hostname.toLowerCase();
+  if (host !== 'loom.com' && host !== 'www.loom.com') return '';
+  const m = url.pathname.match(/^\/(?:share|embed)\/([A-Za-z0-9._-]+)\/?$/);
+  return m ? 'https://www.loom.com/embed/' + m[1] : '';
+}
+
+/* Horas -> "5 h" / "3 días". Para esperas y atrasos que se miden en horas. */
+export function fmtHoras(h) {
+  if (h == null || isNaN(h)) return '—';
+  const horas = Math.max(0, Math.round(h));
+  if (horas < 48) return plural(horas, 'hora');
+  return plural(Math.floor(horas / 24), 'día');
+}

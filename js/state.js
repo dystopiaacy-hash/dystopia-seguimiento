@@ -5,6 +5,7 @@ import { sb } from './supabase.js';
 const cache = new Map();      // tabla -> Map(id -> fila)
 const listeners = new Set();  // fn(tabla, evento, fila)
 let canal = null;
+let nCanal = 0;
 
 export function get(tabla) {
   const m = cache.get(tabla);
@@ -53,13 +54,20 @@ function aplicarCambio(tabla, payload) {
 
 /* Realtime respeta RLS: cada usuario solo recibe cambios de filas que puede leer.
    Requiere que las tablas estén en la publicación supabase_realtime (se hace por migración).
+   `tablas` acepta 'cs_clientes' o ['cs_clientes', 'programa_id=eq.liam']: las vistas de
+   Postgres no emiten eventos, así que se escuchan las tablas cs_ filtradas por programa.
    onEstado(status): 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED' (para el indicador "En vivo"). */
 export function suscribir(tablas, onEstado) {
   desuscribir();
-  const este = sb.channel('cs-cambios');
+  /* Nombre único por suscripción: reusar el mismo nombre al cambiar de programa
+     deja el canal viejo en proceso de cierre y el nuevo nunca llega a SUBSCRIBED. */
+  const este = sb.channel('cs-cambios-' + (++nCanal));
   canal = este;
-  for (const t of tablas) {
-    este.on('postgres_changes', { event: '*', schema: 'public', table: t }, p => aplicarCambio(t, p));
+  for (const entrada of tablas) {
+    const [t, filtro] = Array.isArray(entrada) ? entrada : [entrada, null];
+    const opciones = { event: '*', schema: 'public', table: t };
+    if (filtro) opciones.filter = filtro;
+    este.on('postgres_changes', opciones, p => aplicarCambio(t, p));
   }
   este.subscribe(status => {
     if (onEstado && canal === este) onEstado(status);

@@ -1,0 +1,65 @@
+/* =====================================================================
+   Dystopia Seguimiento — sidebar, main, header y pestañas.
+   Parte de la hoja de estilos partida. ORDEN DE CARGA (no cambiarlo,
+   la cascada depende de él): base, layout, componentes, responsive,
+   vistas, ficha, vistas-fase4. index.html y form.html los cargan todos
+   en ese orden.
+   ===================================================================== */
+#app{display:flex;height:100vh;overflow:hidden;}
+
+/* ===== SIDEBAR ===== */
+.sidebar{width:256px;flex-shrink:0;background:var(--bg-alt);border-right:1px solid var(--border);display:flex;flex-direction:column;}
+/* Marca y pie alineados con el contenido de la navegación (12px de nav-list + 12px de nav-item). */
+.brand{padding:var(--sp-5) var(--sp-6) var(--sp-4);border-bottom:1px solid var(--border-soft);}
+.brand-mark{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:17px;letter-spacing:.5px;color:var(--ink);}
+.brand-mark span{color:var(--accent);}
+.brand-sub{font-family:var(--font-mono);font-weight:600;font-size:var(--fs-micro);color:var(--text-faint);letter-spacing:.3px;margin-top:var(--sp-1);}
+.nav-list{flex:1;overflow-y:auto;padding:var(--sp-3);}
+.nav-eyebrow{font-weight:700;font-size:var(--fs-micro);letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:var(--sp-4) var(--sp-2) var(--sp-2);}
+.nav-item{color:inherit;text-decoration:none !important;display:flex;align-items:center;gap:var(--sp-3);width:100%;text-align:left;background:transparent;border:1px solid transparent;border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-3);cursor:pointer;margin-bottom:var(--sp-1);transition:background .12s,border-color .12s;}
+.nav-item:hover{background:var(--surface-2);}
+.nav-item.active{background:var(--accent-soft);border-color:transparent;}
+.nav-item.active .nav-name{color:var(--accent);}
+.nav-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--badge-color,var(--text-faint));}
+.nav-item.inactivo .nav-name{color:var(--text-dim);}
+/* Secciones del programa abierto, debajo de su item */
+.nav-subs{display:flex;flex-direction:column;gap:2px;margin:0 0 var(--sp-2) 21px;padding-left:var(--sp-1);border-left:1px solid var(--border-soft);}
+.nav-sub{display:block;padding:6px var(--sp-3);border-radius:var(--radius-sm);font-size:var(--fs-meta);font-weight:600;color:var(--text-dim);white-space:nowrap;}
+.nav-sub:hover{background:var(--surface-2);color:var(--ink);text-decoration:none;}
+.nav-sub.active{background:var(--accent-soft);color:var(--accent);}
+.nav-item .nav-text{flex:1;min-width:0;}
+.nav-item .nav-name{font-weight:700;font-size:var(--fs-body);line-height:1.3;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.nav-item .nav-niche{font-weight:500;font-size:var(--fs-micro);line-height:1.3;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.nav-item .nav-count{font-family:var(--font-mono);font-weight:700;font-size:var(--fs-micro);font-variant-numeric:tabular-nums;color:var(--text-dim);background:var(--surface-2);border-radius:20px;padding:0 var(--sp-2);line-height:20px;flex-shrink:0;}
+.nav-item.disabled{opacity:.5;cursor:default;}
+.nav-item.disabled:hover{background:transparent;}
+.nav-icon{width:8px;text-align:center;flex-shrink:0;color:var(--accent);}
+.sidebar-foot{padding:var(--sp-3) var(--sp-6);border-top:1px solid var(--border-soft);font-size:var(--fs-micro);color:var(--text-faint);display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);}
+.sidebar-foot > span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.refresh-btn{background:var(--surface-2);border:1px solid transparent;border-radius:999px;color:var(--text-dim);padding:var(--sp-1) var(--sp-3);cursor:pointer;font-family:var(--font-mono);font-weight:600;font-size:var(--fs-micro);display:flex;align-items:center;gap:var(--sp-1);}
+.refresh-btn:hover{background:var(--border-soft);color:var(--ink);}
+.refresh-btn.spin .spin-ico{display:inline-block;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ===== MAIN / HEADER ===== */
+.main{flex:1;min-width:0;overflow-y:auto;}
+.main-inner{padding:var(--sp-6) var(--sp-8) 64px;max-width:1280px;}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-5);margin-bottom:var(--sp-6);flex-wrap:wrap;}
+.client-head{padding-top:0;}
+.client-head h1{font-family:var(--font-sans);font-weight:800;font-size:var(--fs-page);line-height:1.2;margin:0 0 var(--sp-1);color:var(--ink);letter-spacing:-.4px;}
+.client-head .consultora{color:var(--text-dim);font-size:var(--fs-body);font-weight:500;margin-bottom:var(--sp-2);}
+.niche-tag{display:inline-block;font-weight:600;font-size:var(--fs-micro);background:var(--accent-soft);border-radius:999px;padding:var(--sp-1) var(--sp-3);color:var(--accent);}
+
+/* ===== TABS ===== */
+.tabs{display:flex;gap:var(--sp-1);background:var(--surface-2);border-radius:999px;padding:var(--sp-1);flex-wrap:wrap;}
+.tabs-inline{display:inline-flex;margin-bottom:var(--sp-3);}
+.tab-btn{background:transparent;border:none;border-radius:999px;padding:0 var(--sp-4);height:var(--control-h-sm);cursor:pointer;font-weight:600;font-size:var(--fs-meta);color:var(--text-dim);white-space:nowrap;}
+.tab-btn:hover{color:var(--ink);}
+.tab-btn.active{background:var(--surface);color:var(--ink);font-weight:700;box-shadow:0 1px 2px rgba(16,24,40,.08),0 0 0 1px var(--border);}
+
+.section-title{font-weight:800;font-size:16px;line-height:1.25;letter-spacing:-.2px;color:var(--ink);margin:var(--sp-8) 0 var(--sp-3);display:flex;align-items:center;gap:var(--sp-3);}
+.section-title:first-child{margin-top:0;}
+.section-title .line{flex:1;height:1px;background:var(--border-soft);}
+.subhead{font-weight:700;font-size:var(--fs-micro);letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:var(--sp-5) 0 var(--sp-2);}
+.subhead:first-child{margin-top:0;}
+
