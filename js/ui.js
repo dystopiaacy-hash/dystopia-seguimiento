@@ -203,6 +203,31 @@ export function loomEmbed(u) {
   return m ? 'https://www.loom.com/embed/' + m[1] : '';
 }
 
+/* ---------- Export CSV ---------- */
+/* filas = [[celda, …]] (la primera es el encabezado). Separador ';' y BOM para que
+   Excel en es-AR lo abra en columnas. Una celda que empieza con = + - @ se prefija
+   con un apóstrofe: un nombre pegado desde un formulario no se ejecuta como fórmula. */
+function celdaCSV(v) {
+  let s = v == null ? '' : String(v);
+  /* Un número negativo empieza con "-" y NO es una fórmula: se deja como número
+     o el CSV de métricas convierte "días restantes: -3" en texto. */
+  const numero = /^-?\d+([.,]\d+)?$/.test(s);
+  if (!numero && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+export function descargarCSV(nombre, filas) {
+  const texto = '﻿' + filas.map(f => f.map(celdaCSV).join(';')).join('\r\n') + '\r\n';
+  const url = URL.createObjectURL(new Blob([texto], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /* Horas -> "5 h" / "3 días". Para esperas y atrasos que se miden en horas. */
 export function fmtHoras(h) {
   if (h == null || isNaN(h)) return '—';

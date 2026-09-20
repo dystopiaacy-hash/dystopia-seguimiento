@@ -328,6 +328,20 @@ export function tasaRenovacion(renovaciones, desdeISO = null) {
   return total ? { pct: Math.round((1000 * ren) / total) / 10, ren, noren, total } : null;
 }
 
+/* ---------- Métricas (Fase 4.4) ---------- */
+
+/* Filas de cs_v_metricas_mensuales desde un mes (inclusive), en orden cronológico.
+   La vista ya trae altas, renovados, no renovados, devoluciones entregadas,
+   horas promedio de entrega, satisfacción promedio y n de respuestas: acá no se
+   recalcula ninguna de esas columnas. Solo devuelve meses con al menos un evento. */
+export async function traerMetricasMensuales(programaId, desdeMes) {
+  let q = sb.from('cs_v_metricas_mensuales').select('*').eq('programa_id', programaId);
+  if (desdeMes) q = q.gte('mes', desdeMes);
+  const { data, error } = await q.order('mes');
+  if (error) throw error;
+  return data || [];
+}
+
 /* ---------- Chequeo diario (Fase 4.1) ---------- */
 
 /* cs_correr_diario() valida adentro que sea el fundador. Devuelve los contadores. */

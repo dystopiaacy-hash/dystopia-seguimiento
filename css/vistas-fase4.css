@@ -1,5 +1,6 @@
 /* =====================================================================
-   Dystopia Seguimiento — vistas de la Fase 4 (Renovaciones y Config).
+   Dystopia Seguimiento — vistas de la Fase 4 (Renovaciones, Config, Revisión
+   y Métricas).
    Se apoya en lo que ya existe (.ren-item, .card, .form-row, .stat-card):
    acá van solo los agregados. Va DESPUÉS de ficha.css, que es donde se
    definen .ren-item y compañía.
@@ -48,4 +49,105 @@
   .plantilla-tabla td::before{content:attr(data-label);display:block;font-size:var(--fs-micro);
     letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);font-weight:700;margin-bottom:2px;}
   .ren-item .btn{margin-left:0;}
+}
+
+/* ===== REVISIÓN (4.3) ===== */
+.rev-barra{align-items:center;flex-wrap:wrap;gap:var(--sp-3);}
+.rev-modos{margin:0;}
+.rev-explica{margin:0 0 var(--sp-3);}
+
+.rev-progreso{padding:var(--sp-3) var(--sp-4);margin-bottom:var(--sp-4);}
+.rev-progreso-top{display:flex;align-items:baseline;gap:var(--sp-3);font-size:var(--fs-meta);
+  color:var(--text-dim);font-variant-numeric:tabular-nums;}
+.rev-progreso-top strong{font-family:var(--font-mono);font-size:var(--fs-card);color:var(--ink);}
+.rev-pct{margin-left:auto;font-weight:800;color:var(--ink);}
+.rev-progreso .prog-track{display:block;width:100%;height:8px;margin:var(--sp-2) 0 var(--sp-1);}
+.rev-fill{background:var(--accent);transition:width .2s ease;}
+
+/* El cliente en revisión manda; la cola es apoyo y va al costado. */
+.rev-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(220px,1fr);gap:var(--sp-4);align-items:start;}
+.rev-col-cola .section-title{margin-top:0;}
+
+.rev-cliente{padding:var(--sp-5);}
+.rev-cab{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;}
+.rev-nombre{font-size:var(--fs-section);font-weight:800;color:var(--ink);}
+.rev-nombre:hover{color:var(--accent);}
+.rev-marca{font-size:var(--fs-micro);color:var(--text-faint);font-weight:600;}
+.rev-cab-meta{margin-left:auto;font-size:var(--fs-meta);color:var(--text-faint);}
+.rev-datos{display:flex;flex-wrap:wrap;gap:var(--sp-4);margin:var(--sp-2) 0 var(--sp-4);
+  font-size:var(--fs-meta);color:var(--text-dim);font-weight:600;}
+
+.rev-sub-tit{font-size:var(--fs-micro);letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-faint);font-weight:700;margin-bottom:var(--sp-1);}
+.rev-motivos{margin-bottom:var(--sp-3);}
+.rev-motivos-lista{margin:0;padding-left:var(--sp-5);font-size:var(--fs-body);color:var(--text);}
+.rev-motivos-lista li{margin-bottom:2px;}
+
+/* La próxima acción es lo que se lee primero: va destacada. */
+.rev-accion{display:flex;flex-direction:column;gap:2px;background:var(--accent-soft);
+  border-left:3px solid var(--accent);border-radius:var(--radius-sm);
+  padding:var(--sp-2) var(--sp-3);margin-bottom:var(--sp-4);}
+.rev-accion-lab{font-size:var(--fs-micro);letter-spacing:.06em;text-transform:uppercase;
+  color:var(--accent);font-weight:800;}
+.rev-accion-txt{font-size:var(--fs-body);color:var(--ink);font-weight:600;}
+
+.rev-sub{margin-bottom:var(--sp-3);}
+.rev-linea{display:flex;align-items:center;gap:var(--sp-2);min-height:var(--control-h-sm);
+  font-size:var(--fs-meta);border-bottom:1px solid var(--border-soft);}
+.rev-linea:last-child{border-bottom:none;}
+.rev-linea-tit{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--text);font-weight:600;}
+.rev-linea-meta{color:var(--text-dim);white-space:nowrap;}
+
+.rev-nota{margin:var(--sp-4) 0 var(--sp-3);}
+.rev-nota textarea{min-height:64px;}
+.rev-botones{display:flex;gap:var(--sp-2);flex-wrap:wrap;}
+.rev-botones-fin{justify-content:center;margin-top:var(--sp-4);}
+
+.rev-cola{padding:var(--sp-1);}
+.rev-cola-fila{display:flex;align-items:center;gap:var(--sp-2);width:100%;background:transparent;
+  border:none;border-radius:var(--radius-sm);padding:0 var(--sp-2);min-height:var(--row-h);
+  cursor:pointer;text-align:left;font-size:var(--fs-meta);}
+.rev-cola-fila:hover{background:var(--surface-2);}
+.rev-cola-fila.is-actual{background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-line);}
+.rev-cola-nombre{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-weight:600;color:var(--ink);}
+.rev-cola-estado{font-size:var(--fs-micro);font-weight:700;color:var(--text-faint);white-space:nowrap;}
+.rev-cola-fila.is-hecho .rev-cola-estado{color:var(--sem-verde);}
+.rev-cola-fila.is-hecho .rev-cola-nombre{color:var(--text-faint);text-decoration:line-through;}
+.rev-cola-fila.is-saltado .rev-cola-estado{color:var(--sem-amarillo-text);}
+
+/* ===== MÉTRICAS (4.4) ===== */
+.met-barra{align-items:flex-end;flex-wrap:wrap;gap:var(--sp-3);}
+.met-resumen{margin:0 0 var(--sp-4);}
+.grafico-vacio{padding:var(--sp-8) var(--sp-4);}
+.chart-ref{stroke:var(--sem-rojo);stroke-width:1.5;stroke-dasharray:5 4;}
+.chart-ref-lab{font-size:11px;font-weight:700;fill:var(--sem-rojo);}
+.bar-val-sm{font-size:10px;font-weight:700;}
+.chart-leyenda{display:flex;flex-wrap:wrap;gap:var(--sp-3);justify-content:center;
+  margin-top:var(--sp-2);font-size:var(--fs-micro);font-weight:700;color:var(--text-dim);}
+.chart-leyenda > span{display:inline-flex;align-items:center;gap:var(--sp-1);}
+.chart-leyenda-dot{width:10px;height:10px;border-radius:3px;}
+
+/* Barra apilada con leyenda (distribución de semáforo). */
+.apilada{padding:var(--sp-3) 0 var(--sp-1);}
+.apilada-barra{display:flex;gap:2px;height:14px;border-radius:7px;overflow:hidden;background:var(--surface-2);}
+.apilada-barra > span{display:block;min-width:4px;}
+.apilada-total{font-size:var(--fs-micro);color:var(--text-faint);font-weight:700;
+  text-align:right;margin-top:var(--sp-1);font-variant-numeric:tabular-nums;}
+.apilada-leyenda{display:flex;flex-direction:column;gap:var(--sp-1);margin-top:var(--sp-3);}
+.apilada-fila{display:grid;grid-template-columns:10px minmax(0,1fr) auto 52px;gap:var(--sp-2);
+  align-items:center;font-size:var(--fs-meta);}
+.apilada-fila .dot{width:10px;height:10px;border-radius:3px;}
+.apilada-label{color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.apilada-val{color:var(--text-dim);font-weight:600;font-variant-numeric:tabular-nums;text-align:right;}
+.apilada-pct{color:var(--ink);font-weight:800;font-variant-numeric:tabular-nums;text-align:right;}
+
+@media(max-width:1060px){
+  .rev-grid{grid-template-columns:1fr;}
+  .rev-col-cola .section-title{margin-top:var(--sp-5);}
+}
+@media(max-width:860px){
+  .rev-cab-meta{margin-left:0;width:100%;}
+  .rev-botones .btn{flex:1;}
 }
