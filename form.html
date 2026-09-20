@@ -8,13 +8,11 @@
 <title>Formulario</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Mobile first: solo las tres hojas que esta página usa. layout/vistas/ficha/
+     vistas-fase4 son de la app interna y acá no se aplica ninguna de sus clases. -->
 <link rel="stylesheet" href="/css/base.css">
-<link rel="stylesheet" href="/css/layout.css">
 <link rel="stylesheet" href="/css/componentes.css">
-<link rel="stylesheet" href="/css/responsive.css">
-<link rel="stylesheet" href="/css/vistas.css">
-<link rel="stylesheet" href="/css/ficha.css">
-<link rel="stylesheet" href="/css/vistas-fase4.css">
+<link rel="stylesheet" href="/css/formularios.css">
 </head>
 <body>
 <div class="public-wrap">
@@ -23,6 +21,7 @@
   </div>
 </div>
 
+<!-- Misma versión fijada que la app. La página pública solo llama las dos RPC de 004. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
 <script type="module" src="/js/form-publico.js"></script>
 </body>

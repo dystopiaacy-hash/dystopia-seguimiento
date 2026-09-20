@@ -12,6 +12,7 @@ import { vistaDevoluciones } from './devoluciones.js';
 import { vistaCalls } from './calls.js';
 import { vistaRenovaciones } from './renovaciones.js';
 import { vistaRevision } from './revision.js';
+import { vistaFormularios } from './formularios.js';
 import { vistaMetricas } from './metricas.js';
 import { vistaConfig } from './config.js';
 
@@ -77,6 +78,7 @@ export function vistaPrograma(el, { p, sub, clienteId, vigente }) {
   if (sub === 'calls') return vistaCalls(cont, p.id, vigente);
   if (sub === 'renovaciones') return vistaRenovaciones(cont, p.id, vigente);
   if (sub === 'revision') return vistaRevision(cont, p.id, vigente);
+  if (sub === 'formularios') return vistaFormularios(cont, p.id, vigente);
   if (sub === 'metricas') return vistaMetricas(cont, p.id, vigente);
   if (sub === 'config') return vistaConfig(cont, p.id, vigente);
 

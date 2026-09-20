@@ -1,0 +1,138 @@
+/* =====================================================================
+   Dystopia Seguimiento — Formularios (Fase 5): constructor interno y
+   página pública.
+   Se apoya en lo que ya existe (.card, .btn, .form-row, .check-row,
+   .empty-state, .public-wrap/.public-card de componentes.css): acá van
+   solo los agregados. Parte de la hoja de estilos partida. ORDEN DE
+   CARGA (no cambiarlo, la cascada depende de él): base, layout,
+   componentes, responsive, vistas, ficha, vistas-fase4, formularios.
+   index.html los carga todos en ese orden; form.html carga solo los
+   tres que la página pública usa (base, componentes, formularios).
+   ===================================================================== */
+
+/* =====================================================================
+   1. CONSTRUCTOR (#/p/:programa/formularios)
+   ===================================================================== */
+
+.form-lista{display:flex;flex-direction:column;gap:var(--sp-3);}
+.form-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);padding:var(--sp-4) var(--sp-5);display:flex;align-items:center;
+  gap:var(--sp-4);flex-wrap:wrap;}
+/* Desactivado: el formulario sigue ahí pero sus links no abren. Se ve apagado, no roto. */
+.form-item-off{background:var(--surface-2);border-style:dashed;}
+.form-item-off .form-item-tit{color:var(--text-dim);}
+.form-item-main{flex:1;min-width:220px;}
+.form-item-tit{font-weight:700;font-size:var(--fs-card);color:var(--ink);line-height:1.3;}
+.form-item-meta{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-1);
+  font-size:var(--fs-meta);}
+.form-item-campos{font-size:var(--fs-micro);color:var(--text-faint);margin-top:var(--sp-1);}
+.form-item-acc{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin-left:auto;}
+.form-nota{margin-top:var(--sp-4);}
+.form-campos-head{margin-top:var(--sp-4);}
+
+/* ---------- Editor de campos ---------- */
+.campo-item{display:flex;align-items:flex-start;gap:var(--sp-2);padding:var(--sp-2) 0;
+  border-bottom:1px solid var(--border-soft);}
+.campo-item:last-child{border-bottom:none;}
+.campo-n{font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-faint);
+  width:20px;flex-shrink:0;padding-top:10px;}
+.campo-cuerpo{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-2);}
+.campo-linea{display:flex;gap:var(--sp-2);align-items:center;}
+.campo-linea input[type=text],.campo-linea select{background:var(--surface-2);border:1px solid transparent;
+  border-radius:var(--radius-sm);min-height:var(--control-h);padding:var(--sp-2) var(--sp-3);color:var(--ink);}
+.campo-linea input[type=text]{flex:1;min-width:0;}
+.campo-linea select{flex-shrink:0;width:150px;font-weight:600;font-size:var(--fs-meta);}
+.campo-linea input:focus,.campo-linea select:focus{background:var(--surface);border-color:var(--accent-line);outline:none;}
+.campo-flags{gap:var(--sp-4);flex-wrap:wrap;}
+.campo-flags .check-row{margin-top:0;font-size:var(--fs-meta);cursor:pointer;}
+/* "Es la métrica" solo se puede marcar en una escala 0 a 10: el resto queda apagado. */
+.check-off{opacity:.45;cursor:default;}
+.campo-key{font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-faint);margin-left:auto;}
+.campo-acc{display:flex;flex-direction:column;gap:2px;flex-shrink:0;padding-top:4px;}
+
+/* ---------- Links por cliente ---------- */
+.link-acc{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-3);}
+.link-acc .btn{flex:1;justify-content:center;}
+#lk-url,#lk-todos{width:100%;background:var(--surface-2);border:1px solid transparent;
+  border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-3);color:var(--ink);
+  font-size:var(--fs-meta);font-family:var(--font-mono);}
+#lk-todos{resize:vertical;line-height:1.6;}
+.aviso-inline{background:color-mix(in srgb, var(--sem-amarillo) 12%, white);
+  border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-3);font-size:var(--fs-meta);
+  color:var(--text);margin-bottom:var(--sp-3);}
+
+/* ---------- Respuestas ---------- */
+/* La tabla puede tener una columna por campo: scroll horizontal propio, la página no se estira. */
+.resp-tabla{max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:var(--radius);}
+.resp-tabla .data-table td{max-width:200px;}
+
+/* =====================================================================
+   2. PÁGINA PÚBLICA (form.html) — mobile first
+   ===================================================================== */
+
+.pub-head{margin-bottom:var(--sp-5);}
+.pub-hola{font-size:var(--fs-body);font-weight:700;color:var(--accent);}
+.pub-titulo{margin:var(--sp-1) 0 0;font-size:22px;line-height:1.25;font-weight:800;color:var(--ink);}
+.pub-sub{font-size:var(--fs-meta);color:var(--text-dim);margin-top:var(--sp-2);}
+
+/* El aviso de un envío que falló: arriba de todo y en rojo, con el formulario intacto abajo. */
+.pub-aviso{background:var(--danger-soft);color:var(--danger);border-radius:var(--radius-sm);
+  padding:var(--sp-3) var(--sp-4);font-size:var(--fs-body);font-weight:600;margin-bottom:var(--sp-4);}
+
+.pub-campo{margin-bottom:var(--sp-5);}
+.pub-label{display:block;font-size:var(--fs-card);font-weight:700;color:var(--ink);
+  line-height:1.35;margin-bottom:var(--sp-2);}
+.pub-req{color:var(--danger);}
+/* Controles grandes: se completa desde el celular. 16px evita el zoom de iOS al enfocar. */
+.pub-campo input[type=text],.pub-campo input[type=number],.pub-campo textarea{
+  width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);
+  min-height:46px;padding:var(--sp-3);color:var(--ink);font-size:16px;}
+.pub-campo textarea{resize:vertical;line-height:1.5;}
+.pub-campo input:focus,.pub-campo textarea:focus{background:var(--surface);border-color:var(--accent);outline:none;}
+.pub-error{color:var(--danger);font-size:var(--fs-meta);font-weight:600;margin-top:var(--sp-1);min-height:0;}
+.pub-campo-mal input,.pub-campo-mal textarea{border-color:var(--danger);}
+.pub-campo-mal .pub-label{color:var(--danger);}
+
+/* Escala 0 a 10: once botones que entran en una pantalla de celular en dos filas. */
+.pub-escala{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;}
+.pub-esc-btn{min-height:46px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface);color:var(--text-dim);font-weight:700;font-size:15px;cursor:pointer;
+  font-variant-numeric:tabular-nums;}
+.pub-esc-btn:hover{border-color:var(--accent-line);}
+.pub-esc-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.pub-escala-pie{display:flex;justify-content:space-between;font-size:var(--fs-micro);
+  color:var(--text-faint);margin-top:var(--sp-1);}
+
+/* Opción y Sí/No: el label entero es el área de toque. */
+.pub-opciones{display:flex;flex-direction:column;gap:var(--sp-2);}
+.pub-opcion{display:flex;align-items:center;gap:var(--sp-3);min-height:46px;
+  padding:0 var(--sp-3);border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface);cursor:pointer;font-size:var(--fs-card);}
+.pub-opcion input{width:20px;height:20px;flex-shrink:0;accent-color:var(--accent);}
+.pub-opcion:has(input:checked){border-color:var(--accent);background:var(--accent-soft);font-weight:600;}
+
+.pub-enviar{width:100%;justify-content:center;min-height:48px;font-size:var(--fs-card);margin-top:var(--sp-2);}
+.pub-pie{font-size:var(--fs-micro);color:var(--text-faint);text-align:center;margin-top:var(--sp-4);}
+
+.pub-gracias{padding:var(--sp-10) var(--sp-4);}
+.pub-tick{width:56px;height:56px;margin:0 auto var(--sp-4);border-radius:50%;
+  background:var(--success-soft);color:var(--success);display:grid;place-items:center;
+  font-size:28px;font-weight:800;}
+
+/* Pantallas chicas: la tarjeta ocupa el ancho y respira menos al costado. */
+@media(max-width:520px){
+  .public-wrap{padding:var(--sp-4) var(--sp-3);}
+  .public-card{padding:var(--sp-4);}
+  .pub-titulo{font-size:20px;}
+  .pub-escala{grid-template-columns:repeat(6,1fr);gap:5px;}
+  .pub-esc-btn{font-size:14px;}
+}
+
+/* El constructor en pantalla angosta: los botones de cada formulario abajo del nombre. */
+@media(max-width:860px){
+  .form-item{align-items:flex-start;}
+  .form-item-acc{margin-left:0;width:100%;}
+  .campo-linea{flex-wrap:wrap;}
+  .campo-linea select{width:100%;}
+  .resp-tabla{max-height:none;}
+}

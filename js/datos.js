@@ -212,6 +212,34 @@ export const traerCallsPrograma = id =>
 export const traerFormularios = id =>
   lista('cs_formularios', id, q => q.order('nombre'));
 
+/* ---------- Formularios (Fase 5) ---------- */
+
+/* Los 5 tipos del CHECK de cs_formularios.tipo en 001. 'onboarding' es el único
+   con efecto extra: al responderlo, cs_enviar_respuesta cierra el accionable de
+   plantilla 'formulario_onboarding' del cliente. */
+export const FORM_TIPO_LABEL = {
+  onboarding: 'Onboarding',
+  satisfaccion: 'Satisfacción',
+  checkin: 'Check-in',
+  devolucion: 'Devolución',
+  otro: 'Otro'
+};
+
+/* Los 6 tipos de campo que acepta cs_validar_campos (001). */
+export const CAMPO_TIPO_LABEL = {
+  texto: 'Texto corto',
+  parrafo: 'Párrafo',
+  numero: 'Número',
+  escala_0_10: 'Escala 0 a 10',
+  opcion: 'Opción',
+  si_no: 'Sí / No'
+};
+
+/* Respuestas de todo el programa. Sin cliente_id cuando el cliente se borró
+   (la FK las deja huérfanas a propósito, ver 001). */
+export const traerRespuestasPrograma = id =>
+  lista('cs_respuestas', id, q => q.order('created_at', { ascending: false }).limit(2000));
+
 /* ---------- Lecturas por cliente ---------- */
 
 export async function traerCliente(id) {

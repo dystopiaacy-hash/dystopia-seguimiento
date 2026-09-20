@@ -2,8 +2,9 @@
    Dystopia Seguimiento — breakpoints globales (sidebar y tablas).
    Parte de la hoja de estilos partida. ORDEN DE CARGA (no cambiarlo,
    la cascada depende de él): base, layout, componentes, responsive,
-   vistas, ficha, vistas-fase4. index.html y form.html los cargan todos
-   en ese orden.
+   vistas, ficha, vistas-fase4, formularios. index.html los carga todos en
+   ese orden; form.html (página pública) carga solo base, componentes y
+   formularios, que son las únicas que usa.
    ===================================================================== */
 /* ===== RESPONSIVE ===== */
 /* Notebook 13" (1280–1440px): sidebar más angosta y tablas más compactas, sin scroll horizontal de página */
