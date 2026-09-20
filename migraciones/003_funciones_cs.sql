@@ -584,7 +584,9 @@ nuevas as (
                       'cs_correr_diario', 'cs_tg_renovaciones_after_delete')
 ),
 trg as (
-  select t.tgname::text as tgname, t.tgenabled
+  -- tgenabled es de tipo "char": sin ::text, el || de abajo rompe con
+  -- ERROR 42725 operator is not unique: text || "char"
+  select t.tgname::text as tgname, t.tgenabled::text as tgenabled
   from pg_trigger t
   join pg_class c on c.oid = t.tgrelid
   join pg_namespace n on n.oid = c.relnamespace
