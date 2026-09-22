@@ -22,8 +22,9 @@ export function renderLayout(app, onSalir) {
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark">DYS<span>TOPIA</span></div>
-        <div class="brand-sub">Seguimiento</div>
+        <div class="brand-sub">Producto</div>
       </div>
+      <nav id="nav-areas"></nav>
       <nav class="nav-list" id="nav" aria-label="Navegación"></nav>
       <div class="sidebar-foot">
         <span id="user-email" title="${esc(yo.email)}">${esc(yo.email)}</span>
@@ -51,7 +52,7 @@ export function renderLayout(app, onSalir) {
 export function setHeader(titulo, sub = '') {
   document.getElementById('view-title').textContent = titulo || '';
   document.getElementById('view-sub').textContent = sub || '';
-  document.title = titulo ? `${titulo} — Seguimiento` : 'Dystopia — Seguimiento';
+  document.title = titulo ? `${titulo} — Producto` : 'Dystopia — Producto';
 }
 
 /* estado = status del canal realtime de supabase-js. */

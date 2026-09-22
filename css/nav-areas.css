@@ -1,0 +1,41 @@
+/* nav-areas — barra común de las 4 áreas de Dystopia.
+   ESTE ARCHIVO ES IDÉNTICO EN LOS 4 REPOS. No editarlo en un solo repo.
+   Usa los tokens de base.css (--accent, --border, ...) con valores de
+   respaldo, así se ve bien aunque algún repo no defina alguno.
+   Cargarlo DESPUÉS de las hojas del repo (o sea, al final). */
+
+.nav-areas{
+  display:flex;flex-direction:column;gap:2px;
+  padding:8px 12px;
+  border-bottom:1px solid var(--border-soft,#EFF1F4);
+}
+.nav-area{
+  display:block;
+  padding:5px 12px;border-radius:8px;
+  font-family:var(--font-sans,'Plus Jakarta Sans',system-ui,sans-serif);
+  font-weight:600;font-size:12px;line-height:1.4;
+  color:var(--text-dim,#5B6473);
+  text-decoration:none !important;
+  white-space:nowrap;
+  transition:background .12s,color .12s;
+}
+a.nav-area:hover{background:var(--surface-2,#F3F4F7);color:var(--ink,#111827);}
+.nav-area.activa{
+  background:var(--accent-soft,rgba(79,70,229,.08));
+  color:var(--accent,#4F46E5);
+  font-weight:700;cursor:default;
+}
+
+/* Mobile (mismo breakpoint que responsive.css): la barra lateral pasa a ser
+   una fila. Las áreas bajan a una segunda fila de ancho completo, en pestañas
+   horizontales con scroll si no entran. */
+@media(max-width:860px){
+  *:has(> .nav-areas){flex-wrap:wrap;}
+  .nav-areas{
+    order:99;flex:0 0 100%;width:100%;
+    flex-direction:row;gap:4px;overflow-x:auto;
+    padding:6px 12px;
+    border-bottom:none;border-top:1px solid var(--border-soft,#EFF1F4);
+  }
+  .nav-area{flex-shrink:0;padding:6px 12px;}
+}

@@ -209,11 +209,12 @@ async function iniciarApp() {
   }
   if (!puede) {
     renderAviso('Sin acceso a esta app',
-      `${yo.email} no tiene acceso a Seguimiento. Si creés que es un error, pedíselo al fundador.`);
+      `${yo.email} no tiene acceso a Producto. Si creés que es un error, pedíselo al fundador.`);
     return;
   }
 
   renderLayout(app, salir);
+  window.montarNavAreas(document.getElementById('nav-areas'), yo.rol);
   registrarRutas();
   setLive('CONECTANDO');
   if (!escuchandoCambios) { onChange(tabla => programarRefresco(tabla)); escuchandoCambios = true; }
