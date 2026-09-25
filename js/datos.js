@@ -66,8 +66,8 @@ export function mensajeError(e) {
   if (code === '23514') return 'Los datos no cumplen una regla del programa: ' + msg;
   if (code === '23503') return 'Falta un dato relacionado (cliente o programa).';
   if (code === 'PGRST301' || /jwt/i.test(msg)) return 'Tu sesión venció. Recargá la página.';
-  /* La única función que llama la app es cs_correr_diario: si no está, falta la migración. */
-  if (code === 'PGRST202') return 'Esa función todavía no existe en la base: falta correr la migración 003.';
+  /* Las RPC de la app son cs_correr_diario (003) y cs_probar_discord (036). */
+  if (code === 'PGRST202') return 'Esa función todavía no existe en la base: falta correr una migración (003 o 036).';
   if (/failed to fetch|networkerror/i.test(msg)) return 'Sin conexión con el servidor. Revisá internet.';
   return msg;
 }
@@ -391,6 +391,15 @@ export async function traerIntegracion(programaId) {
     .eq('programa_id', programaId).maybeSingle();
   if (error) throw error;
   return data;
+}
+
+/* cs_probar_discord() (036) valida adentro que sea el fundador y manda el mensaje
+   aunque las notificaciones estén desactivadas. Devuelve { enviado, motivo, envio_id }.
+   "enviado" = quedó en la cola de pg_net: si Discord lo rechaza, la app no se entera. */
+export async function probarDiscord(programaId) {
+  const { data, error } = await sb.rpc('cs_probar_discord', { p_programa: programaId });
+  if (error) throw error;
+  return data || {};
 }
 
 /* Una fila por programa: upsert sobre la PK programa_id. */

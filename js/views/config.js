@@ -6,8 +6,9 @@ import { esc, plural, toast, confirmar } from '../ui.js';
 import { tarjetaError } from './programa.js';
 import {
   traerPrograma, traerIntegracion, guardarPrograma, guardarIntegracion,
-  correrChequeoDiario, mensajeError
+  correrChequeoDiario, probarDiscord, mensajeError
 } from '../datos.js';
+import { esFundador } from '../sesion.js';
 import { guardar, num } from './comunes.js';
 import {
   htmlEtapas, leerEtapas, htmlPlantilla, leerPlantilla,
@@ -88,8 +89,8 @@ export function vistaConfig(el, programaId, vigente) {
             <option value="0"${integ && integ.discord_activo ? '' : ' selected'}>Desactivadas</option>
             <option value="1"${integ && integ.discord_activo ? ' selected' : ''}>Activadas</option>
           </select></div>
-        <button type="button" class="btn btn-sm" disabled title="Disponible en Fase 6">Probar</button>
-        <span class="hint">Disponible en Fase 6.</span>`,
+        ${esFundador() ? `<button type="button" class="btn btn-sm" id="cf-probar-discord">Probar</button>
+        <span class="hint">Manda un mensaje de prueba al canal. Si hay cambios sin guardar, los guarda antes.</span>` : ''}`,
         '<button type="button" class="btn btn-accent btn-sm" id="cf-guardar-discord">Guardar Discord</button>')}
 
       ${seccion('Chequeo diario', `
@@ -162,20 +163,58 @@ export function vistaConfig(el, programaId, vigente) {
     });
   }
 
-  async function guardarDiscord(boton) {
+  /* Lo que está en pantalla, validado. null (con toast) si no se puede guardar. */
+  function leerDiscord() {
     const url = el.querySelector('#cf-webhook').value.trim();
     const activo = el.querySelector('#cf-discord-activo').value === '1';
     if (url && !RX_DISCORD.test(url)) {
       toast('El webhook tiene que empezar con https://discord.com/api/webhooks/', 'error');
-      return;
+      return null;
     }
     if (activo && !url) {
       toast('Para activar las notificaciones hace falta el webhook.', 'error');
+      return null;
+    }
+    return { discord_webhook_url: url || null, discord_activo: activo };
+  }
+
+  async function guardarDiscord(boton) {
+    const cambios = leerDiscord();
+    if (!cambios) return;
+    await guardar(() => guardarIntegracion(programaId, cambios),
+      { ok: 'Integración guardada.', luego: recargar, control: boton });
+  }
+
+  async function probarDiscordAhora(boton) {
+    const cambios = leerDiscord();
+    if (!cambios) return;
+    if (!cambios.discord_webhook_url) {
+      toast('No hay webhook cargado: pegalo arriba y volvé a probar.', 'error');
       return;
     }
-    await guardar(() => guardarIntegracion(programaId, {
-      discord_webhook_url: url || null, discord_activo: activo
-    }), { ok: 'Integración guardada.', luego: recargar, control: boton });
+    const sinGuardar = cambios.discord_webhook_url !== ((integ && integ.discord_webhook_url) || null)
+      || cambios.discord_activo !== !!(integ && integ.discord_activo);
+    boton.disabled = true;
+    try {
+      if (sinGuardar) {
+        await guardarIntegracion(programaId, cambios);
+        integ = { ...(integ || {}), programa_id: programaId, ...cambios };
+      }
+      const r = await probarDiscord(programaId);
+      if (!r.enviado) {
+        toast('No hay webhook guardado para este programa: pegalo arriba y volvé a probar.', 'error');
+      } else if (!cambios.discord_activo) {
+        toast('Prueba enviada: revisá el canal. Ojo: las notificaciones están desactivadas, ' +
+              'el digest diario no sale hasta que las actives y guardes.', 'error');
+      } else {
+        toast(`${sinGuardar ? 'Integración guardada. ' : ''}Prueba enviada: revisá el canal de Discord. ` +
+              'Si no llega en un minuto, revisá el webhook.');
+      }
+    } catch (e) {
+      toast(mensajeError(e), 'error');
+    } finally {
+      if (boton.isConnected) boton.disabled = false;
+    }
   }
 
   async function correrChequeo(boton) {
@@ -212,6 +251,7 @@ export function vistaConfig(el, programaId, vigente) {
     if (b.id === 'cf-guardar-etapas') return guardarEtapas(b);
     if (b.id === 'cf-guardar-plantilla') return guardarPlantilla(b);
     if (b.id === 'cf-guardar-discord') return guardarDiscord(b);
+    if (b.id === 'cf-probar-discord') return probarDiscordAhora(b);
     if (b.id === 'cf-chequeo') return correrChequeo(b);
 
     if (b.id === 'cf-activo') {
