@@ -11,10 +11,11 @@ import { esc, fmtFecha, fmtNum, plural, toast, badge, nivelPorDias, diasRestante
 import {
   guardarCampoCliente, iniciarRenovacion, moverRenovacion, mensajeError,
   renAbierta, REN_ABIERTOS, REN_LABEL, RESELL_PRODUCTO_LABEL, PRIORIDAD_LABEL,
-  ESTADO_LABEL, ESTADO_COLOR, AVANCE_LABEL, AVANCE_COLOR
+  AVANCE_LABEL, AVANCE_COLOR
 } from '../datos.js';
 import { opcionesHtml, num } from './comunes.js';
 import { modalCerrarRenovacion } from './renovaciones.js';
+import { columnasCiclo } from './maestro-ciclo.js';
 
 const PRIO_ORDEN = { alta: 0, media: 1, baja: 2 };
 const AVANCE_ORDEN = { trabado: 0, demorado: 1, bien: 2 };
@@ -121,6 +122,7 @@ function celdaProducto(f) {
 /* k, etiqueta, clase, edit, valor para ordenar, celda HTML. */
 export function columnas(prog) {
   const base = '#/p/' + encodeURIComponent(prog.id);
+  const ciclo = columnasCiclo(prog);
   return [
     { k: 'nombre', lab: 'Cliente', cls: 'col-nombre', ord: f => txt(f.nombre),
       td: f => celdaCliente(f, base) },
@@ -133,11 +135,14 @@ export function columnas(prog) {
       ord: f => f.proxima_accion_fecha || '9999', td: inpFecha },
     { k: 'nota_csm', lab: 'Nota', cls: 'm-c-nota', edit: true, ord: f => txt(f.nota_csm) || '~',
       td: f => inpTexto('nota_csm', f, 'Nota', 500) },
+    ciclo.testimonio,
     { k: 'renovacion_estado', lab: 'Resell', cls: 'm-c-resell', edit: true,
       ord: f => RESELL_ORDEN[f.renovacion_estado] ?? 9, td: selResell },
     { k: 'renovacion_producto', lab: 'Compró', cls: 'm-calc', ord: f => f.renovacion_producto || '~', td: celdaProducto },
-    { k: 'estado', lab: 'Estado', cls: 'm-calc', ord: f => ESTADO_LABEL[f.estado] || f.estado,
-      td: f => badge(ESTADO_LABEL[f.estado] || f.estado, ESTADO_COLOR[f.estado], 'status') },
+    ciclo.aviso1,
+    ciclo.aviso2,
+    ciclo.estado,
+    ciclo.producto,
     { k: 'etapa', lab: 'Etapa', cls: 'm-calc', ord: f => txt(f.etapa) || '~',
       td: f => (f.etapa ? esc(f.etapa) : '<span class="txt-gris">—</span>') },
     { k: 'dias_restantes', lab: 'Días', cls: 'm-calc num', ord: f => (f.dias_restantes == null ? 99999 : num(f.dias_restantes)),

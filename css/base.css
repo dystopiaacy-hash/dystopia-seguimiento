@@ -32,6 +32,8 @@
   /* Semáforo. Verde y rojo = --success / --danger de Dystopia. Amarillo = ámbar de
      CHART_PALETTE (#F59E0B); su texto usa #8A6212 (ya usado en Dystopia) por contraste. */
   --sem-verde:#16A34A; --sem-amarillo:#F59E0B; --sem-amarillo-text:#8A6212; --sem-rojo:#E5484D;
+  /* Estado "pausado" (039): ni vivo ni cerrado. Violeta apagado, distinto del acento. */
+  --estado-pausado:#7C6FB0;
 
   /* Escala tipográfica: página > sección > tarjeta > cuerpo > metadata > micro-label */
   --fs-page:24px; --fs-section:18px; --fs-card:15px; --fs-body:13px; --fs-meta:12px; --fs-micro:11px;

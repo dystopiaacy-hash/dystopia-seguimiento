@@ -4,13 +4,15 @@
 import { sb } from './supabase.js';
 import { yo } from './sesion.js';
 
-/* Estados que la vista de KPIs considera "clientes vivos". */
+/* Estados que la vista de KPIs considera "clientes vivos". 'pausado' (039) no cuenta:
+   sus días no corren y no genera alertas de renovación ni de chequeo. */
 export const ESTADOS_VIVOS = ['onboarding', 'activo', 'en_renovacion'];
 
 export const ESTADO_LABEL = {
   onboarding: 'Onboarding',
   activo: 'Activo',
   en_renovacion: 'En renovación',
+  pausado: 'Pausado',
   finalizado: 'Finalizado',
   baja: 'Baja'
 };
@@ -20,6 +22,7 @@ export const ESTADO_COLOR = {
   onboarding: 'var(--cyan)',
   activo: 'var(--sem-verde)',
   en_renovacion: 'var(--sem-amarillo)',
+  pausado: 'var(--estado-pausado)',
   finalizado: 'var(--text-faint)',
   baja: 'var(--text-faint)'
 };
@@ -39,7 +42,10 @@ export const ALERTA_LABEL = {
   accionable_bpf_vencido: 'Accionable BPF vencido',
   sin_chequeo: 'Sin chequeo',
   satisfaccion_baja: 'Satisfacción baja',
-  programa_vencido: 'Programa vencido'
+  programa_vencido: 'Programa vencido',
+  proximo_contacto_vencido: 'Próximo contacto vencido',
+  aviso_renovacion_1: '1er aviso de renovación',
+  aviso_renovacion_2: '2do aviso de renovación'
 };
 
 /* Alertas que piden acción inmediata (rojo). El resto, amarillo. */
@@ -362,7 +368,7 @@ export async function traerMaestro(programaId) {
 }
 
 /* Campos de cs_clientes que el CSM edita desde el maestro. Texto vacío = null. */
-const CAMPOS_MAESTRO = ['prioridad', 'responsable', 'proxima_accion', 'proxima_accion_fecha', 'nota_csm'];
+const CAMPOS_MAESTRO = ['prioridad', 'responsable', 'proxima_accion', 'proxima_accion_fecha', 'nota_csm', 'testimonio'];
 
 export async function guardarCampoCliente(id, campo, valor) {
   if (!CAMPOS_MAESTRO.includes(campo)) throw new Error('Ese campo no se edita desde el maestro.');
@@ -394,13 +400,18 @@ export function armarMotivo(clave, texto) {
    renovado -> cliente activo + fecha_fin nueva + contador (mismo_programa, upgrade,
    downgrade u otro: la fecha es la del programa que compró);
    no_renovado -> cliente activo (o finalizado si ya venció).
-   producto es obligatorio con renovado: se valida acá para no llegar al error de la base. */
-export async function cerrarRenovacion(id, { estado, nuevaFechaFin = null, motivo = null, producto = null }) {
+   producto es obligatorio con renovado: se valida acá para no llegar al error de la base.
+   productoId (039, catálogo): con nuevaFechaFin null, la base calcula la fecha nueva
+   (fin vigente o hoy, la mayor, + duración) y el cliente queda con ese producto. */
+export async function cerrarRenovacion(id, { estado, nuevaFechaFin = null, motivo = null, producto = null, productoId = null }) {
   if (estado === 'renovado' && !RESELL_PRODUCTO_LABEL[producto]) {
     throw new Error('Elegí qué compró: mismo programa, upsell, downsell u otro.');
   }
+  if (estado === 'renovado' && !nuevaFechaFin && !productoId) {
+    throw new Error('Poné la nueva fecha de fin o elegí el producto.');
+  }
   const cambios = estado === 'renovado'
-    ? { estado, nueva_fecha_fin: nuevaFechaFin, motivo: null, resell_producto: producto }
+    ? { estado, nueva_fecha_fin: nuevaFechaFin, motivo: null, resell_producto: producto, producto_id: productoId }
     : { estado, nueva_fecha_fin: null, motivo, resell_producto: null };
   return actualizarFila('cs_renovaciones', id, cambios);
 }

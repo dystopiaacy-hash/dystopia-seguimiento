@@ -92,3 +92,9 @@ select.m-edit{cursor:pointer;padding-right:2px;}
 
 /* Próximo contacto vencido sin seguimiento posterior (038) */
 .m-prox-vencido{color:var(--danger);font-weight:700;}
+
+/* ---------- Producto y ciclo (039) ---------- */
+.tabla-maestro .m-c-testimonio{min-width:120px;}
+.tabla-maestro .m-c-aviso{white-space:nowrap;}
+.m-estado{display:inline-flex;align-items:center;gap:var(--sp-1);white-space:nowrap;}
+.m-aviso-tarde{border-color:var(--sem-amarillo);color:var(--sem-amarillo-text);}

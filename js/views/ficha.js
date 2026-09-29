@@ -13,7 +13,9 @@ import {
   traerRenovacionesCliente, traerRespuestasCliente, traerSeguimientosCliente,
   traerFormularios, traerHistorial, mensajeError
 } from '../datos.js';
+import { traerProductos, traerCicloCliente } from '../ciclo.js';
 import * as cabecera from './ficha-cabecera.js';
+import * as ciclo from './ficha-ciclo.js';
 import * as seguimientos from './ficha-seguimientos.js';
 import * as accionables from './ficha-accionables.js';
 import * as devoluciones from './ficha-devoluciones.js';
@@ -22,6 +24,7 @@ import * as historial from './ficha-historial.js';
 
 const BLOQUES = [
   ['cabecera', cabecera],
+  ['ciclo', ciclo],
   ['seguimientos', seguimientos],
   ['accionables', accionables],
   ['devoluciones', devoluciones],
@@ -37,14 +40,16 @@ async function cargarDatos(programaCorto, clienteId) {
   ]);
   if (!c) return null;
   const p = completo || programaCorto;
-  const [acc, devs, cls, rens, resp, segs, forms] = await Promise.all([
+  const [acc, devs, cls, rens, resp, segs, forms, productos, cicloCli] = await Promise.all([
     traerAccionablesCliente(c.id),
     traerDevolucionesCliente(c.id),
     traerCallsCliente(c.id),
     traerRenovacionesCliente(c.id),
     traerRespuestasCliente(c.id),
     traerSeguimientosCliente(c.id),
-    traerFormularios(p.id)
+    traerFormularios(p.id),
+    traerProductos(p.id),
+    traerCicloCliente(c.id)
   ]);
   /* cs_historial se busca por registro_id: el cliente y todo lo que cuelga de él. */
   const ids = [c.id]
@@ -52,7 +57,7 @@ async function cargarDatos(programaCorto, clienteId) {
   let hist = [];
   try { hist = await traerHistorial(p.id, ids); } catch (e) { console.error('historial', e); }
   return {
-    p, c,
+    p, c: { ...c, ...cicloCli }, productos,
     accionables: acc, devoluciones: devs, calls: cls, renovaciones: rens,
     respuestas: resp, seguimientos: segs, formularios: forms, historial: hist
   };

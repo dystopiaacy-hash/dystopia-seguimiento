@@ -14,6 +14,7 @@ import {
   REN_ABIERTOS, REN_LABEL, PRIORIDAD_LABEL
 } from '../datos.js';
 import { columnas, manejarCambio, manejarTecla } from './maestro-celdas.js';
+import { manejarClick } from './maestro-ciclo.js';
 
 /* ---------- Filtros ---------- */
 
@@ -163,7 +164,8 @@ export function vistaMaestro(el, programaId, vigente) {
 
   el.addEventListener('keydown', manejarTecla);
 
-  el.addEventListener('click', ev => {
+  el.addEventListener('click', async ev => {
+    if (await manejarClick(ev, ctx)) return;
     if (ev.target.closest('#mx-limpiar')) {
       Object.assign(f, FILTROS_VACIOS);
       pintarTodo();

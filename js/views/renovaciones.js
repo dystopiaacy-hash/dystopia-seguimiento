@@ -14,6 +14,7 @@ import {
   mensajeError, MOTIVO_NO_RENOVACION, ESTADO_LABEL, RESELL_PRODUCTO_LABEL
 } from '../datos.js';
 import { guardar, linkCliente, mapaPorId, badgeRen, opcionesHtml, num } from './comunes.js';
+import { traerProductos, traerCicloCliente, opcionesProducto, finConProducto, finVigente } from '../ciclo.js';
 
 const DIAS_TRIMESTRE = 90;
 
@@ -23,7 +24,7 @@ const DIAS_TRIMESTRE = 90;
    de aviso y nadie inició la renovación ni la cerró como no renovada. */
 function porIniciar(clientes, avisoDias) {
   return clientes
-    .filter(c => !['finalizado', 'baja'].includes(c.estado)
+    .filter(c => !['finalizado', 'baja', 'pausado'].includes(c.estado)
       && c.dias_restantes != null && c.dias_restantes <= num(avisoDias)
       && !renAbierta(c.renovacion_estado) && c.renovacion_estado !== 'no_renovado')
     .sort((a, b) => num(a.dias_restantes) - num(b.dias_restantes));
@@ -111,9 +112,12 @@ function bloque(titulo, cuenta, vacio, filas, clase = '') {
 /* r = fila de cs_renovaciones abierta (alcanza con { id }); cliente = fila de
    cs_v_clientes o cs_v_maestro; prog = fila de cs_programas (duración por defecto).
    alGuardar() se llama después de cerrar bien (para refrescar quien la abrió).
-   resultado = 'renovado' | 'no_renovado' preelegido (el maestro lo abre desde su select). */
+   resultado = 'renovado' | 'no_renovado' preelegido (el maestro lo abre desde su select).
+   Producto (039): el modal lee el catálogo y el producto del cliente. Con producto, la
+   fecha nueva se propone sola (fin vigente o hoy + duración) y, si no se toca, se
+   manda null para que la calcule la base con la misma cuenta. */
 export function modalCerrarRenovacion(r, cliente, prog, alGuardar, { resultado: pre = 'renovado' } = {}) {
-  const finActual = (cliente && cliente.fecha_fin) || hoyAR();
+  const finActual = finVigente(cliente) || hoyAR();
   /* Si ya venció (resell en días de gracia), la fecha nueva se cuenta desde hoy. */
   const base = finActual < hoyAR() ? hoyAR() : finActual;
   const porDefecto = sumarDias(base, num(prog && prog.duracion_default_dias) || 90);
@@ -129,13 +133,16 @@ export function modalCerrarRenovacion(r, cliente, prog, alGuardar, { resultado: 
           <option value="no_renovado"${pre === 'no_renovado' ? ' selected' : ''}>No renovó</option>
         </select></div>
       <div id="rc-bloque-fin">
+        <div class="form-row" id="rc-fila-catalogo" hidden><label for="rc-catalogo">Producto</label>
+          <select id="rc-catalogo"></select>
+          <div class="hint">El cliente queda con este producto.</div></div>
         <div class="form-row"><label for="rc-producto">Qué compró</label>
           <select id="rc-producto">${opcionesHtml([['', 'Elegí una opción…']]
             .concat(Object.entries(RESELL_PRODUCTO_LABEL)), '')}</select>
           <div class="hint" id="rc-producto-hint">Obligatorio. Upsell y downsell cuentan como renovación.</div></div>
         <div class="form-row"><label for="rc-fin">Nueva fecha de fin</label>
           <input type="date" id="rc-fin" value="${esc(porDefecto)}">
-          <div class="hint">La del programa que compró. Por defecto, ${finActual < hoyAR() ? 'hoy' : 'fin actual'}
+          <div class="hint" id="rc-fin-hint">La del programa que compró. Por defecto, ${finActual < hoyAR() ? 'hoy' : 'fin actual'}
             + ${esc(plural(num(prog && prog.duracion_default_dias) || 90, 'día'))} (duración del programa).</div></div>
       </div>
       <div id="rc-bloque-motivo" hidden>
@@ -158,6 +165,32 @@ export function modalCerrarRenovacion(r, cliente, prog, alGuardar, { resultado: 
   };
   resultado.addEventListener('change', sincronizar);
   sincronizar();
+  /* Catálogo: se carga después de abrir (el modal no espera a la red). */
+  let productos = [];
+  let fechaTocada = false;
+  let cli = cliente || {};
+  const catalogo = () => productos.find(x => x.id === $('rc-catalogo').value) || null;
+  const proponerFin = () => {
+    const pr = catalogo();
+    if (!pr || fechaTocada) return;
+    $('rc-fin').value = finConProducto(cli, pr);
+    const fv = finVigente(cli);
+    $('rc-fin-hint').textContent = `Calculada: ${fv && fv > hoyAR() ? 'fin vigente' : 'hoy'} + ${plural(num(pr.duracion_dias), 'día')} de ${pr.nombre}. Si la cambiás, se guarda la tuya.`;
+  };
+  $('rc-fin').addEventListener('change', () => { fechaTocada = true; });
+  $('rc-catalogo').addEventListener('change', () => { fechaTocada = false; proponerFin(); });
+  if (prog && prog.id && cliente && cliente.id) {
+    Promise.all([traerProductos(prog.id), traerCicloCliente(cliente.id)]).then(([lista, ciclo]) => {
+      if (!m.el.isConnected || !lista.length) return;
+      productos = lista;
+      cli = { ...cliente, ...ciclo };
+      $('rc-catalogo').innerHTML = opcionesHtml([['', 'Sin producto (fecha a mano)']]
+        .concat(opcionesProducto(lista, cli.producto_id)), cli.producto_id || '');
+      $('rc-fila-catalogo').hidden = false;
+      proponerFin();
+    }).catch(e => console.error('productos', e));
+  }
+
   $('rc-producto').addEventListener('change', () => {
     $('rc-producto').classList.remove('campo-error');
     $('rc-producto-hint').classList.remove('txt-rojo');
@@ -179,13 +212,15 @@ export function modalCerrarRenovacion(r, cliente, prog, alGuardar, { resultado: 
         return;
       }
       const fin = $('rc-fin').value;
+      const pr = catalogo();
       if (!fin) { toast('Poné la nueva fecha de fin.', 'error'); return; }
       if (diasRestantes(fin) <= 0) { toast('La nueva fecha de fin tiene que ser posterior a hoy.', 'error'); return; }
       if (cliente && cliente.fecha_inicio && fin < cliente.fecha_inicio) {
         toast('La nueva fecha de fin no puede ser anterior al inicio del programa.', 'error');
         return;
       }
-      cambios = { estado, nuevaFechaFin: fin, producto };
+      /* Con producto y sin tocar la fecha, la calcula la base (misma cuenta que la propuesta). */
+      cambios = { estado, nuevaFechaFin: pr && !fechaTocada ? null : fin, producto, productoId: pr ? pr.id : null };
     } else {
       const clave = $('rc-motivo').value;
       const texto = $('rc-texto').value;

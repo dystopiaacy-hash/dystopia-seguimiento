@@ -243,6 +243,14 @@ export function vistaConfig(el, programaId, vigente) {
 
   /* ---------- Eventos ---------- */
 
+  /* Cambiar el disparo muestra u oculta "Día": se repinta con lo escrito. */
+  el.addEventListener('change', ev => {
+    if (ev.target.matches('[data-pl][data-campo="disparo"]')) {
+      sincronizarPlantilla();
+      repintarPlantilla();
+    }
+  });
+
   el.addEventListener('click', async ev => {
     const b = ev.target.closest('button');
     if (!b) return;

@@ -14,8 +14,38 @@ import {
   paraInputFechaHora, desdeInputFechaHora
 } from './comunes.js';
 import { modalCerrarRenovacion } from './renovaciones.js';
+import { CALIFICACION_LABEL } from '../ciclo.js';
 
 /* ---------- Calls ---------- */
+
+/* Datos de la call de resell (039): solo en las de tipo renovación (lo pide un CHECK).
+   "Resultado" = qué pasó; notas sigue siendo la nota libre. */
+function camposResell(c) {
+  if (c.tipo !== 'renovacion') return '';
+  const sel = (campo, pares, v, etiqueta) => `<select data-call-resell="${esc(c.id)}" data-cr-campo="${campo}"
+      aria-label="${esc(etiqueta)}">${opcionesHtml([['', etiqueta + ': —']].concat(pares), v)}</select>`;
+  const txt = (campo, v, ph, max) => `<input type="text" id="cr-${campo}-${esc(c.id)}" data-call-resell="${esc(c.id)}"
+      data-cr-campo="${campo}" value="${esc(v || '')}" maxlength="${max}" placeholder="${esc(ph)}"
+      autocomplete="off" aria-label="${esc(ph)}">`;
+  const showUp = c.show_up == null ? '' : c.show_up ? 'si' : 'no';
+  return `
+    <div class="call-resell">
+      ${txt('encargado', c.encargado, 'Encargado', 80)}
+      ${sel('show_up', [['si', 'Show up: sí'], ['no', 'Show up: no']], showUp, 'Show up')}
+      ${sel('calificacion', Object.entries(CALIFICACION_LABEL), c.calificacion || '', 'Calificación')}
+      ${txt('resultado', c.resultado, 'Resultado: qué pasó', 300)}
+    </div>`;
+}
+
+/* show_up no puede contradecir el estado (CHECK cs_calls_show_up_chk): se avisa antes. */
+function valorResell(campo, v, call) {
+  if (campo !== 'show_up') return v.trim() || null;
+  if (v === '') return null;
+  const si = v === 'si';
+  if (si && call.estado === 'no_show') throw new Error('La call está como "No asistió": cambiá el estado antes de marcar show up.');
+  if (!si && call.estado === 'realizada') throw new Error('La call está como "Hecha": no puede ser sin show up.');
+  return si;
+}
 
 function filaCall(c) {
   const pendiente = c.tipo === 'onboarding' && c.estado === 'pendiente_agendar';
@@ -30,6 +60,7 @@ function filaCall(c) {
         aria-label="Fecha y hora de la call">
       ${esFundador() ? `<button type="button" class="btn-icono btn-icono-danger" data-call-borrar="${esc(c.id)}">Borrar</button>` : ''}
       ${c.notas ? `<div class="call-notas">${esc(c.notas)}</div>` : ''}
+      ${camposResell(c)}
     </div>`;
 }
 
@@ -122,6 +153,16 @@ function modalNuevaCall(ctx, api) {
 
 export async function manejar(ev, ctx, api) {
   if (ev.type === 'change') {
+    const res = ev.target.closest('[data-call-resell]');
+    if (res) {
+      const call = (ctx.calls || []).find(c => c.id === res.dataset.callResell);
+      if (!call) return true;
+      await guardar(() => actualizarFila('cs_calls', call.id,
+        { [res.dataset.crCampo]: valorResell(res.dataset.crCampo, res.value, call) }),
+      { luego: () => api.refrescar(), control: res });
+      return true;
+    }
+
     const sel = ev.target.closest('[data-call-estado]');
     if (sel) {
       const id = sel.dataset.callEstado;
@@ -135,6 +176,10 @@ export async function manejar(ev, ctx, api) {
         return true;
       }
       const cambios = sel.value === 'agendada' ? { estado: sel.value, fecha } : { estado: sel.value };
+      /* Call de resell: "Hecha" implica show up y "No asistió" lo contrario (CHECK de 039). */
+      if (call && call.tipo === 'renovacion' && ['realizada', 'no_show'].includes(sel.value)) {
+        cambios.show_up = sel.value === 'realizada';
+      }
       await guardar(() => actualizarFila('cs_calls', id, cambios), { luego: () => api.refrescar(), control: sel });
       return true;
     }

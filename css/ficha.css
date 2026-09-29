@@ -198,3 +198,15 @@
   .hist-quien,.resp-row .aten-ir{display:none;}
   .loom-campo{flex-wrap:wrap;}
 }
+
+/* ---------- Producto y ciclo (039) ---------- */
+.ficha-ciclo{display:flex;flex-direction:column;gap:var(--sp-3);}
+.ciclo-pausa:empty{display:none;}
+.banner-pausa{background:color-mix(in srgb, var(--estado-pausado) 12%, white);color:var(--estado-pausado);}
+.ciclo-avisos{display:flex;flex-direction:column;gap:var(--sp-2);}
+.aviso-fila{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;}
+.aviso-nombre{font-weight:600;min-width:120px;}
+.aviso-fila input[type="date"]{width:auto;}
+.call-resell{grid-column:1 / -1;display:grid;grid-template-columns:minmax(120px,1fr) auto auto minmax(160px,2fr);gap:var(--sp-2);}
+.call-resell select,.call-resell input{min-width:0;}
+@media (max-width:760px){ .call-resell{grid-template-columns:1fr 1fr;} }

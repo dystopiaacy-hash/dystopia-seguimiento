@@ -1,8 +1,10 @@
 /* Config — etapas y plantilla de accionables: HTML, lectura del DOM y validación.
    La validación de acá es la MISMA que el CHECK cs_validar_plantilla de 001
    (array de objetos con key y titulo no vacíos, responsable bpf|cliente,
-   dia_offset y vence_en_dias enteros >= 0, keys únicas). Se valida antes de
-   mandar para dar un error entendible; si igual falla, manda el CHECK. */
+   dia_offset y vence_en_dias enteros >= 0, keys únicas; 039: disparo inicio|cierre).
+   Se valida antes de mandar para dar un error entendible; si igual falla, manda el CHECK.
+   Disparo: 'inicio' (se omite, es el default) sale a los N días del inicio; 'cierre'
+   sale cuando el cliente pasa a finalizado o baja, y no usa "Día". */
 import { esc } from '../ui.js';
 import { opcionesHtml } from './comunes.js';
 import { RESPONSABLE_LABEL } from '../datos.js';
@@ -39,12 +41,25 @@ const COLS = [
   ['key', 'Key', 'text'],
   ['titulo', 'Título', 'text'],
   ['descripcion', 'Descripción', 'text'],
+  ['disparo', 'Disparo', 'disparo'],
   ['dia_offset', 'Día', 'num'],
   ['vence_en_dias', 'Vence en', 'num']
 ];
 
+const DISPARO_LABEL = { inicio: 'Desde el inicio', cierre: 'Al cierre' };
+const esCierre = item => item.disparo === 'cierre';
+
 function celda(i, [campo, label, tipo], item) {
   const v = item[campo] == null ? '' : item[campo];
+  if (tipo === 'disparo') {
+    return `<td data-label="${esc(label)}">
+      <select data-pl="${i}" data-campo="disparo" aria-label="Disparo del ítem ${i + 1}">
+        ${opcionesHtml(Object.entries(DISPARO_LABEL), esCierre(item) ? 'cierre' : 'inicio')}</select></td>`;
+  }
+  /* Un ítem de cierre no tiene día: sale el día en que el cliente se cierra. */
+  if (campo === 'dia_offset' && esCierre(item)) {
+    return `<td data-label="${esc(label)}" class="col-num"><span class="txt-gris">al cierre</span></td>`;
+  }
   if (tipo === 'num') {
     return `<td data-label="${esc(label)}" class="col-num">
       <input type="number" min="0" step="1" data-pl="${i}" data-campo="${campo}"
@@ -75,8 +90,10 @@ export function htmlPlantilla(items) {
       <tbody>${filas}</tbody>
     </table>
     ${items && items.length ? '' : '<div class="muted-empty">Sin ítems: los clientes nuevos arrancan sin accionables automáticos.</div>'}
-    <div class="hint">"Día" = días desde el inicio del programa en que aparece el ítem.
-      "Vence en" = días después de ese día. La key identifica al ítem para no duplicarlo:
+    <div class="hint">"Desde el inicio": "Día" = días desde el inicio del programa en que aparece el ítem.
+      "Al cierre" (offboarding): aparece cuando el cliente pasa a Finalizado o Baja (si estaba
+      renovando, cuando la renovación se cierra como no renovada).
+      "Vence en" = días después de que aparece. La key identifica al ítem para no duplicarlo:
       si la cambiás, a los clientes que ya lo tienen se les vuelve a crear con la key nueva.</div>
     <button type="button" class="btn btn-sm" data-agregar-pl>Agregar ítem</button>`;
 }
@@ -87,13 +104,20 @@ export function leerPlantilla(raiz) {
     const i = Number(el.dataset.pl);
     if (!items[i]) items[i] = {};
     const v = el.value.trim();
-    if (el.dataset.campo === 'dia_offset' || el.dataset.campo === 'vence_en_dias') {
+    if (el.dataset.campo === 'disparo') {
+      if (v === 'cierre') items[i].disparo = 'cierre';
+    } else if (el.dataset.campo === 'dia_offset' || el.dataset.campo === 'vence_en_dias') {
       if (v !== '') items[i][el.dataset.campo] = Number(v);
     } else if (v !== '') {
       items[i][el.dataset.campo] = v;
     }
   }
-  return items.filter(Boolean);
+  /* Un ítem de cierre no lleva día (la base lo ignora): no se guarda. */
+  return items.filter(Boolean).map(it => {
+    if (!esCierre(it)) return it;
+    const { dia_offset: _, ...resto } = it;
+    return resto;
+  });
 }
 
 /* Slug para la key cuando el usuario no la escribió: minúsculas, sin acentos, con _. */
@@ -126,6 +150,9 @@ export function validarPlantilla(items) {
     if (keys.has(it.key)) return `${n}: la key "${it.key}" está repetida.`;
     keys.add(it.key);
     if (!['bpf', 'cliente'].includes(it.responsable)) return `${n}: el responsable tiene que ser BPF o Cliente.`;
+    if (it.disparo !== undefined && !['inicio', 'cierre'].includes(it.disparo)) {
+      return `${n}: el disparo tiene que ser "Desde el inicio" o "Al cierre".`;
+    }
     for (const campo of ['dia_offset', 'vence_en_dias']) {
       const v = it[campo];
       if (v === undefined) continue;

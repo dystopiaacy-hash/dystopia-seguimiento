@@ -9,6 +9,7 @@ import {
   ESTADO_LABEL, ACC_LABEL, DEV_LABEL, CALL_ESTADO_LABEL, REN_LABEL,
   PRIORIDAD_LABEL, RESELL_PRODUCTO_LABEL, AVANCE_LABEL
 } from '../datos.js';
+import { TESTIMONIO_LABEL, nombreProducto } from '../ciclo.js';
 import { mapaPorId, guardar, textoTipoCall } from './comunes.js';
 
 /* ---------- Formularios respondidos ---------- */
@@ -80,9 +81,12 @@ const VALOR_LABEL = {
   cs_renovaciones: REN_LABEL
 };
 
-function etiquetaValor(tabla, campo, v) {
+function etiquetaValor(tabla, campo, v, ctx) {
   if (v == null || v === '') return 'sin valor';
   if (campo === 'fecha_fin') return fmtFecha(v);
+  if (campo === 'aviso_1_at' || campo === 'aviso_2_at') return fmtFecha(v);
+  if (campo === 'testimonio') return TESTIMONIO_LABEL[v] || v;
+  if (campo === 'producto_id') return nombreProducto(ctx && ctx.productos, v) || 'producto borrado';
   if (campo === 'prioridad') return PRIORIDAD_LABEL[v] || v;
   if (campo === 'resell_producto') return RESELL_PRODUCTO_LABEL[v] || v;
   if (campo === 'avance') return AVANCE_LABEL[v] || v;
@@ -105,20 +109,25 @@ function sujeto(ctx, h, mapas) {
     const c = mapas.calls.get(h.registro_id);
     return c ? `Call de ${textoTipoCall(c.tipo).toLowerCase()}` : 'Call';
   }
-  if (h.tabla === 'cs_renovaciones') return h.campo === 'resell_producto' ? 'Renovación, qué compró' : 'Renovación';
+  if (h.tabla === 'cs_renovaciones') {
+    return h.campo === 'resell_producto' ? 'Renovación, qué compró'
+      : h.campo === 'producto_id' ? 'Renovación, producto' : 'Renovación';
+  }
   return h.tabla;
 }
 
 function campoCliente(campo) {
   return campo === 'estado' ? 'Estado del cliente' : campo === 'fecha_fin' ? 'Fecha de fin'
-    : campo === 'prioridad' ? 'Prioridad' : campo === 'avance' ? 'Avance (seguimiento)' : campo;
+    : campo === 'prioridad' ? 'Prioridad' : campo === 'avance' ? 'Avance (seguimiento)'
+    : campo === 'producto_id' ? 'Producto' : campo === 'testimonio' ? 'Testimonio'
+    : campo === 'aviso_1_at' ? '1er aviso de renovación' : campo === 'aviso_2_at' ? '2do aviso de renovación' : campo;
 }
 
 function filaHistorial(ctx, h, mapas) {
   const de = h.valor_anterior;
   const texto = de == null
-    ? `${sujeto(ctx, h, mapas)}: ${etiquetaValor(h.tabla, h.campo, h.valor_nuevo)}`
-    : `${sujeto(ctx, h, mapas)}: ${etiquetaValor(h.tabla, h.campo, de)} → ${etiquetaValor(h.tabla, h.campo, h.valor_nuevo)}`;
+    ? `${sujeto(ctx, h, mapas)}: ${etiquetaValor(h.tabla, h.campo, h.valor_nuevo, ctx)}`
+    : `${sujeto(ctx, h, mapas)}: ${etiquetaValor(h.tabla, h.campo, de, ctx)} → ${etiquetaValor(h.tabla, h.campo, h.valor_nuevo, ctx)}`;
   return `
     <div class="hist-row">
       <span class="hist-fecha">${esc(fmtFechaHora(h.at))}</span>

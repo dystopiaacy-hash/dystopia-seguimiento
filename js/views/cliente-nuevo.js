@@ -1,7 +1,10 @@
 /* Modal "Nuevo cliente". Al crear, los triggers de la base generan la call de
-   onboarding y los accionables de plantilla del día 0: se muestran en el resumen. */
+   onboarding y los accionables de plantilla del día 0: se muestran en el resumen.
+   Con producto (039) la fecha de fin la calcula la base (inicio + duración del
+   producto): acá se muestra antes de guardar y se manda fecha_fin null. */
 import { esc, hoyAR, sumarDias, fmtFecha, plural, toast, abrirModal, cerrarModal } from '../ui.js';
 import { crearCliente, traerGeneradoAlCrear, mensajeError, ESTADO_LABEL, ONBOARDING_LABEL } from '../datos.js';
+import { traerProductos, opcionesProducto } from '../ciclo.js';
 
 /* Un cliente nuevo arranca en onboarding o ya activo. 'en_renovacion' lo pone el
    trigger al iniciar una renovación, y 'finalizado'/'baja' cierran el ciclo: ninguno
@@ -13,9 +16,20 @@ function opciones(valores, valor) {
     `<option value="${esc(v)}"${v === valor ? ' selected' : ''}>${esc(t)}</option>`).join('');
 }
 
-function formulario(p) {
+function campoProducto(productos) {
+  if (!productos.length) return '';
+  return `
+      <div class="form-row">
+        <label for="c-producto">Producto</label>
+        <select id="c-producto">${opciones([['', 'Sin producto (duración a mano)']]
+          .concat(opcionesProducto(productos, null)), '')}</select>
+      </div>`;
+}
+
+function formulario(p, productos) {
   const etapas = (Array.isArray(p.etapas) ? p.etapas : []).filter(Boolean).map(String);
   return `
+      ${campoProducto(productos)}
     <form id="form-cliente" novalidate>
       <div class="form-grid2">
         <div class="form-row">
@@ -60,10 +74,10 @@ function formulario(p) {
             "En renovación" no se elige a mano: lo pone el sistema al iniciar una renovación.</div>
         </div>
       </div>
-      <div class="form-row">
+      ${productos.length ? '' : `<div class="form-row">
         <label for="c-plan">Plan</label>
         <input type="text" id="c-plan" maxlength="80" autocomplete="off" placeholder="Nombre del plan contratado">
-      </div>
+      </div>`}
       <div id="c-error" class="login-error"></div>
     </form>`;
 }
@@ -96,10 +110,13 @@ function valor(id) {
   return e ? e.value.trim() : '';
 }
 
-export function abrirModalNuevoCliente(p, alCrear) {
+export async function abrirModalNuevoCliente(p, alCrear) {
+  /* Sin catálogo (o si falla la lectura) el alta sigue como antes: duración a mano. */
+  let productos = [];
+  try { productos = await traerProductos(p.id); } catch (e) { console.error('productos', e); }
   abrirModal({
     titulo: 'Nuevo cliente',
-    cuerpo: formulario(p),
+    cuerpo: formulario(p, productos),
     pie: `<button type="button" class="btn" id="c-cancelar">Cancelar</button>
           <button type="submit" form="form-cliente" class="btn btn-accent" id="c-guardar">Crear cliente</button>`
   });
@@ -108,14 +125,21 @@ export function abrirModalNuevoCliente(p, alCrear) {
   const duracion = document.getElementById('c-duracion');
   const fin = document.getElementById('c-fin');
   const errEl = document.getElementById('c-error');
+  const selProducto = document.getElementById('c-producto');
+  const producto = () => (selProducto ? productos.find(x => x.id === selProducto.value) || null : null);
 
   function pintarFin() {
+    const pr = producto();
+    if (pr) duracion.value = String(pr.duracion_dias);
+    duracion.disabled = !!pr;
     const d = parseInt(duracion.value, 10);
     const f = inicio.value && d > 0 ? sumarDias(inicio.value, d) : '';
-    fin.textContent = f ? `Termina el ${fmtFecha(f)}` : 'Poné una fecha de inicio y una duración.';
+    fin.textContent = !f ? 'Poné una fecha de inicio y una duración.'
+      : pr ? `Termina el ${fmtFecha(f)} (${pr.nombre}: ${d} días)` : `Termina el ${fmtFecha(f)}`;
   }
   inicio.addEventListener('change', pintarFin);
   duracion.addEventListener('input', pintarFin);
+  if (selProducto) selProducto.addEventListener('change', pintarFin);
   pintarFin();
 
   document.getElementById('c-cancelar').onclick = cerrarModal;
@@ -142,7 +166,8 @@ export function abrirModalNuevoCliente(p, alCrear) {
         email: email || null,
         telefono: valor('c-telefono') || null,
         fecha_inicio: inicio.value,
-        fecha_fin: sumarDias(inicio.value, dias),
+        producto_id: producto() ? producto().id : null,
+        fecha_fin: producto() ? null : sumarDias(inicio.value, dias),
         estado: valor('c-estado') || 'onboarding',
         etapa: valor('c-etapa') || null,
         responsable: valor('c-responsable') || null,

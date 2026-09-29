@@ -14,11 +14,12 @@ import {
 import { num, opcionesHtml, guardar } from './comunes.js';
 
 /* A mano solo se elige entre estos: 'en_renovacion' lo pone el trigger al iniciar una
-   renovación. Si el cliente ya está en renovación, su estado actual aparece igual
-   para no cambiárselo sin querer al abrir el select. */
+   renovación y 'pausado' va por el botón Pausar (pide desde cuándo). Si el cliente
+   ya está en uno de esos, su estado actual aparece igual para no cambiárselo sin
+   querer al abrir el select (desde 'pausado', elegir otro estado vivo lo reanuda). */
 function opcionesEstado(c) {
   const pares = Object.entries(ESTADO_LABEL)
-    .filter(([v]) => v !== 'en_renovacion' || c.estado === 'en_renovacion');
+    .filter(([v]) => !['en_renovacion', 'pausado'].includes(v) || c.estado === v);
   return opcionesHtml(pares, c.estado);
 }
 
@@ -50,6 +51,19 @@ function chequeoTexto(c, p) {
   return `<span class="${tarde ? 'txt-amarillo' : 'txt-gris'}">Último seguimiento: ${esc(fmtFechaHora(c.ultimo_chequeo_at))} (${esc(cuando)})</span>`;
 }
 
+/* Plan = texto libre heredado. Con catálogo de productos (039) el producto va en el
+   bloque de ciclo; el plan se sigue mostrando solo si el cliente tiene uno cargado. */
+function campoPlan(ctx) {
+  const { c, productos } = ctx;
+  if (productos && productos.length && !c.plan) return '';
+  return `
+        <div class="form-row">
+          <label for="f-plan">Plan${productos && productos.length ? ' (anterior)' : ''}</label>
+          <input type="text" id="f-plan" data-campo="plan" maxlength="80"
+            value="${esc(c.plan || '')}" placeholder="Sin plan" autocomplete="off">
+        </div>`;
+}
+
 /* ---------- Bloque de tiempo ---------- */
 
 function avisoRenovacion(c, p, renovaciones) {
@@ -58,7 +72,7 @@ function avisoRenovacion(c, p, renovaciones) {
   if (enProceso) {
     return '<div class="banner banner-amarillo">Renovación en proceso. Se cierra (renovó / no renovó) abajo, en Renovaciones.</div>';
   }
-  if (['finalizado', 'baja'].includes(c.estado) || d == null || d > num(p.aviso_renovacion_dias)) return '';
+  if (['finalizado', 'baja', 'pausado'].includes(c.estado) || d == null || d > num(p.aviso_renovacion_dias)) return '';
   const txt = d < 0
     ? `El programa venció hace ${plural(-d, 'día')} y no hay renovación iniciada.`
     : `Quedan ${plural(d, 'día')} de programa (el aviso del programa es a ${plural(num(p.aviso_renovacion_dias), 'día')}).`;
@@ -93,7 +107,7 @@ function bloqueTiempo(ctx) {
         </div>
         <div class="tiempo-dias">
           <div class="stat-num sem-txt-${esc(nivel)}">${d == null ? '—' : esc(String(Math.abs(d)))}</div>
-          <div class="stat-label">${d == null ? 'Sin fecha de fin' : d < 0 ? 'días vencido' : 'días restantes'}</div>
+          <div class="stat-label">${d == null ? 'Sin fecha de fin' : d < 0 ? 'días vencido' : 'días restantes'}${c.estado === 'pausado' ? ' (en pausa)' : ''}</div>
         </div>
       </div>
       ${avisoRenovacion(c, p, renovaciones)}
@@ -139,11 +153,7 @@ export function html(ctx) {
           <input type="text" id="f-responsable" data-campo="responsable" maxlength="80"
             value="${esc(c.responsable || '')}" placeholder="Sin asignar" autocomplete="off">
         </div>
-        <div class="form-row">
-          <label for="f-plan">Plan</label>
-          <input type="text" id="f-plan" data-campo="plan" maxlength="80"
-            value="${esc(c.plan || '')}" placeholder="Sin plan" autocomplete="off">
-        </div>
+        ${campoPlan(ctx)}
       </div>
       <div class="ficha-acciones">
         <button type="button" class="btn btn-accent btn-sm" data-accion="ir-seguimiento">Cargar seguimiento</button>

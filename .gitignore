@@ -14,3 +14,6 @@ Thumbs.db
 desktop.ini
 .DS_Store
 node_modules/
+
+# Importaciones con datos personales reales (se generan desde datos/*.csv)
+datos/*.sql
