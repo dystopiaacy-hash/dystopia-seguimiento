@@ -1,11 +1,13 @@
 /* Ficha de cliente — formularios respondidos, historial y notas.
    Los formularios se muestran tal como quedaron en cs_respuestas; el constructor de
-   formularios es una fase siguiente. El historial junta cs_historial (lo que
-   escribieron los triggers) con los chequeos del cliente, en una sola línea de tiempo. */
+   formularios es una fase siguiente. El historial muestra cs_historial (lo que
+   escribieron los triggers). Los seguimientos tienen su bloque propio
+   (ficha-seguimientos.js); acá solo aparece el avance que dejan en cs_historial. */
 import { esc, fmtFecha, fmtFechaHora, plural, abrirModal } from '../ui.js';
 import {
   actualizarFila, nombreUsuario,
-  ESTADO_LABEL, ACC_LABEL, DEV_LABEL, CALL_ESTADO_LABEL, REN_LABEL
+  ESTADO_LABEL, ACC_LABEL, DEV_LABEL, CALL_ESTADO_LABEL, REN_LABEL,
+  PRIORIDAD_LABEL, RESELL_PRODUCTO_LABEL, AVANCE_LABEL
 } from '../datos.js';
 import { mapaPorId, guardar, textoTipoCall } from './comunes.js';
 
@@ -81,6 +83,9 @@ const VALOR_LABEL = {
 function etiquetaValor(tabla, campo, v) {
   if (v == null || v === '') return 'sin valor';
   if (campo === 'fecha_fin') return fmtFecha(v);
+  if (campo === 'prioridad') return PRIORIDAD_LABEL[v] || v;
+  if (campo === 'resell_producto') return RESELL_PRODUCTO_LABEL[v] || v;
+  if (campo === 'avance') return AVANCE_LABEL[v] || v;
   const mapa = VALOR_LABEL[tabla];
   return (mapa && mapa[v]) || v;
 }
@@ -100,12 +105,13 @@ function sujeto(ctx, h, mapas) {
     const c = mapas.calls.get(h.registro_id);
     return c ? `Call de ${textoTipoCall(c.tipo).toLowerCase()}` : 'Call';
   }
-  if (h.tabla === 'cs_renovaciones') return 'Renovación';
+  if (h.tabla === 'cs_renovaciones') return h.campo === 'resell_producto' ? 'Renovación, qué compró' : 'Renovación';
   return h.tabla;
 }
 
 function campoCliente(campo) {
-  return campo === 'estado' ? 'Estado del cliente' : campo === 'fecha_fin' ? 'Fecha de fin' : campo;
+  return campo === 'estado' ? 'Estado del cliente' : campo === 'fecha_fin' ? 'Fecha de fin'
+    : campo === 'prioridad' ? 'Prioridad' : campo === 'avance' ? 'Avance (seguimiento)' : campo;
 }
 
 function filaHistorial(ctx, h, mapas) {
@@ -121,15 +127,6 @@ function filaHistorial(ctx, h, mapas) {
     </div>`;
 }
 
-function filaChequeo(ch) {
-  return `
-    <div class="hist-row hist-chequeo">
-      <span class="hist-fecha">${esc(fmtFechaHora(ch.created_at))}</span>
-      <span class="hist-texto">Chequeo${ch.nota ? ': ' + esc(ch.nota) : ' registrado'}</span>
-      <span class="hist-quien">${esc(nombreUsuario(ch.usuario))}</span>
-    </div>`;
-}
-
 function bloqueHistorial(ctx) {
   const mapas = {
     accionables: mapaPorId(ctx.accionables),
@@ -138,7 +135,6 @@ function bloqueHistorial(ctx) {
     renovaciones: mapaPorId(ctx.renovaciones)
   };
   const filas = (ctx.historial || []).map(h => ({ at: h.at, html: filaHistorial(ctx, h, mapas) }))
-    .concat((ctx.chequeos || []).map(ch => ({ at: ch.created_at, html: filaChequeo(ch) })))
     .sort((a, b) => String(b.at).localeCompare(String(a.at)));
 
   return `

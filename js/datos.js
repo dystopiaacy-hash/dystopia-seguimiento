@@ -63,7 +63,8 @@ export function mensajeError(e) {
     return 'No tenés permiso para hacer esto en este programa.';
   }
   if (code === '23505') return 'Ya existe un registro igual.';
-  if (code === '23514') return 'Los datos no cumplen una regla del programa: ' + msg;
+  /* Los triggers propios ya traen el mensaje en castellano ("cs: ..."): va tal cual. */
+  if (code === '23514') return /^cs: /.test(msg) ? msg.slice(4) : 'Los datos no cumplen una regla del programa: ' + msg;
   if (code === '23503') return 'Falta un dato relacionado (cliente o programa).';
   if (code === 'PGRST301' || /jwt/i.test(msg)) return 'Tu sesión venció. Recargá la página.';
   /* Las RPC de la app son cs_correr_diario (003) y cs_probar_discord (036). */
@@ -150,8 +151,30 @@ export const CALL_ESTADO_COLOR = {
   no_show: 'var(--sem-rojo)', cancelada: 'var(--text-faint)'
 };
 
-export const REN_LABEL = { en_proceso: 'En proceso', renovado: 'Renovado', no_renovado: 'No renovó' };
-export const REN_COLOR = { en_proceso: 'var(--sem-amarillo)', renovado: 'var(--sem-verde)', no_renovado: 'var(--text-faint)' };
+/* Pipeline de resell (037): cuatro estados abiertos, en orden, y dos cerrados. */
+export const REN_ABIERTOS = ['en_proceso', 'contactado', 'call_agendada', 'propuesta_enviada'];
+export const renAbierta = e => REN_ABIERTOS.includes(e);
+
+export const REN_LABEL = {
+  en_proceso: 'En proceso', contactado: 'Contactado', call_agendada: 'Call agendada',
+  propuesta_enviada: 'Propuesta enviada', renovado: 'Renovado', no_renovado: 'No renovó'
+};
+export const REN_COLOR = {
+  en_proceso: 'var(--sem-amarillo)', contactado: 'var(--sem-amarillo)', call_agendada: 'var(--cyan)',
+  propuesta_enviada: 'var(--accent)', renovado: 'var(--sem-verde)', no_renovado: 'var(--text-faint)'
+};
+
+/* Qué compró al renovar (cs_renovaciones.resell_producto). Obligatorio al cerrar como renovado. */
+export const RESELL_PRODUCTO_LABEL = {
+  mismo_programa: 'Mismo programa', upgrade: 'Upsell', downgrade: 'Downsell', otro: 'Otro'
+};
+
+export const PRIORIDAD_LABEL = { alta: 'Alta', media: 'Media', baja: 'Baja' };
+
+/* cs_seguimientos (038): canal obligatorio, avance opcional. */
+export const CANAL_LABEL = { whatsapp: 'WhatsApp', mail: 'Mail', call: 'Call', reunion: 'Reunión', otro: 'Otro' };
+export const AVANCE_LABEL = { bien: 'Bien', demorado: 'Demorado', trabado: 'Trabado' };
+export const AVANCE_COLOR = { bien: 'var(--sem-verde)', demorado: 'var(--sem-amarillo)', trabado: 'var(--sem-rojo)' };
 
 /* No hay directorio de usuarios en esta app (crm_members solo deja ver la fila propia):
    se distingue "yo" del resto del equipo. Sin usuario = lo hizo un trigger o un job. */
@@ -266,8 +289,10 @@ export const traerRenovacionesCliente = id =>
   deCliente('cs_renovaciones', id, q => q.order('iniciada_at', { ascending: false }));
 export const traerRespuestasCliente = id =>
   deCliente('cs_respuestas', id, q => q.order('created_at', { ascending: false }));
-export const traerChequeosCliente = id =>
-  deCliente('cs_chequeos', id, q => q.order('created_at', { ascending: false }).limit(50));
+/* El último primero, con el mismo criterio que cs_v_maestro y la alerta de 038. */
+export const traerSeguimientosCliente = id =>
+  deCliente('cs_seguimientos', id, q => q.order('fecha', { ascending: false })
+    .order('created_at', { ascending: false }).limit(100));
 
 /* cs_historial no tiene cliente_id: se pide por los ids del cliente y sus filas hijas. */
 export async function traerHistorial(programaId, ids) {
@@ -300,17 +325,49 @@ export async function borrarFila(tabla, id) {
 
 /* ---------- Escrituras con regla propia ---------- */
 
-export async function registrarChequeo(cliente, nota) {
-  return crearFila('cs_chequeos', {
-    programa_id: cliente.programa_id, cliente_id: cliente.id, nota: (nota || '').trim() || null
+/* Los triggers de 038 mueven ultimo_chequeo_at, la etapa del cliente (si viene) y
+   dejan el avance en cs_historial. La base valida etapa y próximo contacto igual. */
+export async function registrarSeguimiento(cliente, s) {
+  const resumen = (s.resumen || '').trim();
+  if (!CANAL_LABEL[s.canal]) throw new Error('Elegí por dónde fue el contacto.');
+  if (!resumen) throw new Error('Escribí un resumen del contacto.');
+  return crearFila('cs_seguimientos', {
+    programa_id: cliente.programa_id, cliente_id: cliente.id, canal: s.canal, resumen,
+    etapa: s.etapa || null, avance: s.avance || null, proximo_contacto: s.proximo_contacto || null
   });
 }
 
-/* Solo abre la renovación en_proceso (el trigger pasa al cliente a 'en_renovacion'). */
-export async function iniciarRenovacion(cliente) {
+/* Abre la renovación en un estado abierto (por defecto en_proceso). El trigger pasa
+   al cliente a 'en_renovacion', salvo que ya esté finalizado y en días de gracia. */
+export async function iniciarRenovacion(cliente, estado = 'en_proceso') {
+  if (!renAbierta(estado)) throw new Error('Una renovación nueva tiene que arrancar en una etapa abierta.');
   return crearFila('cs_renovaciones', {
-    programa_id: cliente.programa_id, cliente_id: cliente.id, estado: 'en_proceso'
+    programa_id: cliente.programa_id, cliente_id: cliente.id, estado
   });
+}
+
+/* Mueve una renovación abierta a otra etapa abierta. El cierre va por cerrarRenovacion. */
+export async function moverRenovacion(id, estado) {
+  if (!renAbierta(estado)) throw new Error('Para cerrar la renovación usá "Renovó" o "No renovó".');
+  return actualizarFila('cs_renovaciones', id, { estado });
+}
+
+/* ---------- Maestro del CSM (037) ---------- */
+
+export async function traerMaestro(programaId) {
+  const { data, error } = await sb.from('cs_v_maestro').select('*')
+    .eq('programa_id', programaId).order('nombre');
+  if (error) throw error;
+  return data || [];
+}
+
+/* Campos de cs_clientes que el CSM edita desde el maestro. Texto vacío = null. */
+const CAMPOS_MAESTRO = ['prioridad', 'responsable', 'proxima_accion', 'proxima_accion_fecha', 'nota_csm'];
+
+export async function guardarCampoCliente(id, campo, valor) {
+  if (!CAMPOS_MAESTRO.includes(campo)) throw new Error('Ese campo no se edita desde el maestro.');
+  const v = typeof valor === 'string' ? valor.trim() : valor;
+  return actualizarFila('cs_clientes', id, { [campo]: v === '' ? null : v });
 }
 
 /* ---------- Renovaciones (Fase 4.2) ---------- */
@@ -333,13 +390,18 @@ export function armarMotivo(clave, texto) {
   return extra ? `${base}: ${extra}` : base;
 }
 
-/* Cierra una renovación en proceso. Los triggers de 001 hacen el resto:
-   renovado -> cliente activo + fecha_fin nueva + contador;
-   no_renovado -> cliente activo (o finalizado si ya venció). */
-export async function cerrarRenovacion(id, { estado, nuevaFechaFin = null, motivo = null }) {
+/* Cierra una renovación abierta. Los triggers hacen el resto:
+   renovado -> cliente activo + fecha_fin nueva + contador (mismo_programa, upgrade,
+   downgrade u otro: la fecha es la del programa que compró);
+   no_renovado -> cliente activo (o finalizado si ya venció).
+   producto es obligatorio con renovado: se valida acá para no llegar al error de la base. */
+export async function cerrarRenovacion(id, { estado, nuevaFechaFin = null, motivo = null, producto = null }) {
+  if (estado === 'renovado' && !RESELL_PRODUCTO_LABEL[producto]) {
+    throw new Error('Elegí qué compró: mismo programa, upsell, downsell u otro.');
+  }
   const cambios = estado === 'renovado'
-    ? { estado, nueva_fecha_fin: nuevaFechaFin, motivo: null }
-    : { estado, nueva_fecha_fin: null, motivo };
+    ? { estado, nueva_fecha_fin: nuevaFechaFin, motivo: null, resell_producto: producto }
+    : { estado, nueva_fecha_fin: null, motivo, resell_producto: null };
   return actualizarFila('cs_renovaciones', id, cambios);
 }
 

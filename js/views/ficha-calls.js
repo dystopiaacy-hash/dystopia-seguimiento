@@ -7,7 +7,7 @@ import { esc, fmtFecha, fmtFechaHora, plural, abrirModal, cerrarModal, confirmar
 import { esFundador } from '../sesion.js';
 import {
   actualizarFila, borrarFila, crearFila, iniciarRenovacion,
-  CALL_TIPO_LABEL, CALL_ESTADO_LABEL, REN_LABEL
+  CALL_TIPO_LABEL, CALL_ESTADO_LABEL, REN_LABEL, renAbierta
 } from '../datos.js';
 import {
   opcionesHtml, guardar, badgeCall, badgeRen, textoTipoCall,
@@ -56,11 +56,11 @@ function filaRenovacion(r) {
     r.nueva_fecha_fin ? `nueva fecha de fin ${fmtFecha(r.nueva_fecha_fin)}` : ''
   ].filter(Boolean).join(' · ');
   return `
-    <div class="ren-item${r.estado === 'en_proceso' ? ' ren-curso' : ''}">
+    <div class="ren-item${renAbierta(r.estado) ? ' ren-curso' : ''}">
       <span class="ren-badge">${badgeRen(r.estado)}</span>
       <span class="ren-detalle">${esc(detalle)}</span>
       ${r.motivo ? `<span class="ren-motivo">${esc(r.motivo)}</span>` : ''}
-      ${r.estado === 'en_proceso'
+      ${renAbierta(r.estado)
         ? `<button type="button" class="btn btn-sm btn-accent" data-ren-cerrar="${esc(r.id)}">Cerrar renovación</button>`
         : ''}
       ${esFundador() ? `<button type="button" class="btn-icono btn-icono-danger" data-ren-borrar="${esc(r.id)}">Borrar</button>` : ''}
@@ -69,7 +69,7 @@ function filaRenovacion(r) {
 
 function bloqueRenovaciones(ctx) {
   const rens = ctx.renovaciones || [];
-  const enCurso = rens.some(r => r.estado === 'en_proceso');
+  const enCurso = rens.some(r => renAbierta(r.estado));
   const cerrable = !enCurso && !['finalizado', 'baja'].includes(ctx.c.estado);
   return `
     <div class="section-title">Renovaciones
@@ -203,7 +203,7 @@ export async function manejar(ev, ctx, api) {
     const ok = await confirmar({
       titulo: 'Borrar renovación',
       texto: `Se borra la renovación ${(REN_LABEL[r.estado] || r.estado).toLowerCase()} iniciada el ${fmtFecha(r.iniciada_at)}.`,
-      detalle: r.estado === 'en_proceso'
+      detalle: renAbierta(r.estado)
         ? 'El cliente vuelve a "Activo" (o a "Finalizado" si el programa ya venció).'
         : 'No se puede deshacer. El estado del cliente no vuelve atrás.',
       ok: 'Borrar'

@@ -6,6 +6,7 @@ import { setHeader, SECCIONES } from '../layout.js';
 import { esFundador } from '../sesion.js';
 import { vistaDashboard } from './dashboard.js';
 import { vistaClientes } from './clientes.js';
+import { vistaMaestro } from './maestro.js';
 import { vistaFicha } from './ficha.js';
 import { vistaAccionables } from './accionables.js';
 import { vistaDevoluciones } from './devoluciones.js';
@@ -73,6 +74,7 @@ export function vistaPrograma(el, { p, sub, clienteId, vigente }) {
   if (clienteId) return vistaFicha(cont, p, clienteId, vigente);
   if (sub === '') return vistaDashboard(cont, p.id, vigente);
   if (sub === 'clientes') return vistaClientes(cont, p.id, vigente);
+  if (sub === 'maestro') return vistaMaestro(cont, p.id, vigente);
   if (sub === 'accionables') return vistaAccionables(cont, p.id, vigente);
   if (sub === 'devoluciones') return vistaDevoluciones(cont, p.id, vigente);
   if (sub === 'calls') return vistaCalls(cont, p.id, vigente);

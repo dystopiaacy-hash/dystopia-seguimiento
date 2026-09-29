@@ -1,0 +1,94 @@
+/* =====================================================================
+   Dystopia Seguimiento — Maestro del CSM (#/p/:programa/maestro).
+   Se carga después de formularios.css: reusa las tarjetas de celular de
+   .tabla-clientes (vistas.css) y acá solo agrega lo propio de la planilla.
+   Editables = fondo blanco con borde al pasar; calculadas = fondo gris.
+   ===================================================================== */
+
+/* Leyenda arriba de la planilla */
+.m-leyenda{display:flex;flex-wrap:wrap;gap:var(--sp-4);margin:0 0 var(--sp-2);font-size:var(--fs-micro);color:var(--text-faint);}
+.m-leyenda span{display:inline-flex;align-items:center;gap:6px;}
+.m-leyenda span::before{content:"";width:12px;height:12px;border-radius:3px;border:1px solid var(--border);}
+.m-ley-edit::before{background:var(--surface);}
+.m-ley-calc::before{background:var(--surface-2);}
+
+/* Planilla densa */
+.tabla-maestro .data-table{font-size:var(--fs-meta);}
+.tabla-maestro .data-table td{height:34px;padding:2px 6px;max-width:none;}
+.tabla-maestro .data-table th{padding:0 6px;}
+.tabla-maestro td.m-calc{background:var(--surface-2);color:var(--text-dim);}
+.tabla-maestro th.m-th-edit{color:var(--accent);}
+.tabla-maestro th.m-th-edit.th-sort-on{color:var(--ink);}
+.tabla-maestro th.m-calc{background:#EEF0F4;}
+
+/* Cliente fijo a la izquierda al scrollear de costado */
+.tabla-maestro .col-nombre{position:sticky;left:0;z-index:1;background:var(--surface);min-width:170px;max-width:220px;
+  box-shadow:1px 0 0 var(--border-soft);}
+.tabla-maestro th.col-nombre{background:var(--thead-bg);z-index:2;}
+.m-cli{display:flex;align-items:center;gap:var(--sp-2);min-width:0;}
+.m-cli .cli-nombre{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.m-num{font-family:var(--font-mono);font-weight:700;white-space:nowrap;}
+
+/* Anchos de las editables */
+.tabla-maestro .m-c-prio{min-width:86px;}
+.tabla-maestro .m-c-resp{min-width:120px;}
+.tabla-maestro .m-c-accion{min-width:200px;}
+.tabla-maestro .m-c-fecha{min-width:128px;}
+.tabla-maestro .m-c-nota{min-width:200px;}
+.tabla-maestro .m-c-resell{min-width:150px;}
+
+/* Control editable: parece texto hasta que se pasa el mouse o se enfoca */
+.m-edit{width:100%;height:28px;padding:0 6px;border:1px solid transparent;border-radius:var(--radius-sm);
+  background:transparent;color:var(--ink);font-size:var(--fs-meta);text-overflow:ellipsis;}
+.m-edit:hover{border-color:var(--border);background:var(--surface);}
+.m-edit:focus{outline:none;border-color:var(--accent-line);background:var(--surface);box-shadow:0 0 0 3px var(--accent-soft);}
+.m-edit:disabled{opacity:.6;cursor:progress;}
+.m-edit::placeholder{color:var(--text-faint);}
+select.m-edit{cursor:pointer;padding-right:2px;}
+
+/* Prioridad y resell con color, sin volverse badges */
+.m-prio-alta{color:var(--danger);font-weight:700;}
+.m-prio-media{color:var(--sem-amarillo-text);font-weight:700;}
+.m-prio-baja{color:var(--text-dim);}
+.m-prio-sin{color:var(--text-faint);}
+.m-resell{font-weight:600;}
+.m-resell-sin{color:var(--text-faint);font-weight:500;}
+.m-resell-renovado{color:var(--success);}
+.m-resell-no_renovado{color:var(--text-faint);}
+.m-resell-propuesta_enviada{color:var(--accent);}
+.m-resell-call_agendada{color:var(--cyan);}
+.m-resell-contactado,.m-resell-en_proceso{color:var(--sem-amarillo-text);}
+
+/* Fecha comprometida vencida / de hoy */
+.m-fecha.m-vencida{color:var(--danger);font-weight:700;}
+.m-fecha.m-hoy{color:var(--sem-amarillo-text);font-weight:700;}
+
+/* Estado del guardado de la celda */
+.tabla-maestro td.m-guardando{background:var(--accent-soft);}
+.tabla-maestro td.m-ok{box-shadow:inset 0 0 0 2px var(--success);transition:box-shadow .3s;}
+.tabla-maestro td.m-error{box-shadow:inset 0 0 0 2px var(--danger);background:var(--danger-soft);}
+
+/* Campo obligatorio sin completar (modal de cierre de renovación) */
+.campo-error{border-color:var(--danger) !important;box-shadow:0 0 0 3px var(--danger-soft);}
+
+/* Notebook: la planilla scrollea adentro de su tarjeta, la página no */
+@media(max-width:1440px){
+  .tabla-maestro .data-table td{max-width:none;}
+  .tabla-maestro .m-c-accion,.tabla-maestro .m-c-nota{min-width:170px;}
+}
+
+/* Celular: tarjetas (base en vistas.css, .tabla-clientes) */
+@media(max-width:860px){
+  .tabla-maestro .data-table td{height:auto;}
+  .tabla-maestro .col-nombre{position:static;box-shadow:none;background:transparent;}
+  .tabla-maestro td.m-calc{background:transparent;}
+  .tabla-maestro td.m-td-edit{background:transparent;}
+  .tabla-maestro td.m-td-edit .m-edit{flex:1;max-width:65%;border-color:var(--border);background:var(--surface);text-align:left;}
+  .tabla-maestro td.m-td-edit::before{color:var(--accent);}
+  .tabla-maestro [class*="m-c-"]{min-width:0;}
+  .m-cli{justify-content:flex-start;}
+  .m-leyenda{display:none;}
+}
+
+/* Próximo contacto vencido sin seguimiento posterior (038) */
+.m-prox-vencido{color:var(--danger);font-weight:700;}

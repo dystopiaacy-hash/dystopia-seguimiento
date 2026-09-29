@@ -2,22 +2,24 @@
    Dos modos: "Diario" (rojos, amarillos y los que nadie chequea hace mucho) y
    "Semanal completo" (todos los clientes vivos, los lunes).
    Recorre un cliente por vez y muestra por qué está así, qué tiene abierto y
-   cuál es la próxima acción. "Chequeado" inserta en cs_chequeos: el trigger de
-   001 es el que mueve ultimo_chequeo_at del cliente.
+   cuál es la próxima acción. "Chequeado" carga un seguimiento (cs_seguimientos, 038):
+   canal y resumen obligatorios, etapa, avance y próximo contacto plegados. El trigger
+   de 038 es el que mueve ultimo_chequeo_at del cliente.
    El progreso del día vive en memoria (ver PROGRESO): si se recarga, arranca de
    nuevo, y eso está bien: la revisión es de una sentada. */
 import {
-  esc, badge, plural, fmtFecha, fmtFechaHora, hoyAR, diasRestantes
+  esc, badge, plural, fmtFecha, fmtFechaHora, hoyAR, diasRestantes, toast
 } from '../ui.js';
 import { tarjetaError } from './programa.js';
 import {
   traerPrograma, traerClientes, traerAccionablesPrograma, traerDevolucionesAbiertas,
-  registrarChequeo, horasAtraso, mensajeError, esVivo, ESTADO_LABEL, ESTADO_COLOR
+  registrarSeguimiento, horasAtraso, mensajeError, esVivo, ESTADO_LABEL, ESTADO_COLOR
 } from '../datos.js';
 import {
   guardar, num, badgeAcc, badgeDev, celdaVence, pillEspera, mapaPorId,
   repintarConservandoFoco
 } from './comunes.js';
+import { formSeguimiento, anotarCambio, leerSeguimiento, limpiarBorrador } from './seguimiento-form.js';
 
 /* ---------- Progreso del día (memoria, no base) ---------- */
 /* programaId|modo -> { dia, hechos:Set, saltados:Set }. Se descarta al cambiar de
@@ -150,8 +152,8 @@ function tarjetaCliente(c, p, accs, devs, marca) {
   const motivos = Array.isArray(c.motivos_semaforo) ? c.motivos_semaforo : [];
   const ficha = `#/p/${encodeURIComponent(p.id)}/c/${encodeURIComponent(c.id)}`;
   const chequeo = c.ultimo_chequeo_at
-    ? `Último chequeo: ${fmtFechaHora(c.ultimo_chequeo_at)} (hace ${plural(num(c.dias_sin_chequeo), 'día')})`
-    : 'Nunca se chequeó';
+    ? `Último seguimiento: ${fmtFechaHora(c.ultimo_chequeo_at)} (hace ${plural(num(c.dias_sin_chequeo), 'día')})`
+    : 'Sin seguimientos';
   return `
     <div class="card rev-cliente">
       <div class="rev-cab">
@@ -186,9 +188,9 @@ function tarjetaCliente(c, p, accs, devs, marca) {
       ${listaAbiertos(`Devoluciones pendientes (${devs.length})`, devs.slice(0, 6).map(d => filaDevolucion(d, p.sla_devolucion_horas)))}
       ${!accs.length && !devs.length ? '<div class="muted-empty">Sin accionables ni devoluciones abiertas.</div>' : ''}
 
-      <div class="form-row rev-nota">
-        <label for="rev-nota-campo">Nota del chequeo (opcional)</label>
-        <textarea id="rev-nota-campo" maxlength="500" placeholder="Qué pasó, qué quedó pendiente"></textarea>
+      <div class="rev-nota">
+        <div class="rev-sub-tit">Seguimiento</div>
+        ${formSeguimiento({ pre: 'rev', p, c, compacto: true })}
       </div>
       <div class="rev-botones">
         <button type="button" class="btn btn-accent" data-rev="chequeado">Chequeado</button>
@@ -321,22 +323,31 @@ export function vistaRevision(el, programaId, vigente) {
       return;
     }
     if (btn.dataset.rev === 'chequeado') {
-      const campo = el.querySelector('#rev-nota-campo');
-      const nota = campo ? campo.value : '';
-      const r = await guardar(() => registrarChequeo(c, nota), {
+      const { error, foco, datos } = leerSeguimiento(el, 'rev');
+      if (error) {
+        toast(error, 'error');
+        if (foco) foco.focus();
+        return;
+      }
+      const r = await guardar(() => registrarSeguimiento(c, datos), {
         ok: `Chequeado: ${c.nombre}.`, control: btn
       });
       if (r === null) return;
+      limpiarBorrador(c.id);
       e.hechos.add(c.id);
       e.saltados.delete(c.id);
-      /* No se recarga acá: el realtime de cs_chequeos ya dispara el refresco y
+      /* No se recarga acá: el realtime de cs_seguimientos ya dispara el refresco y
          avanzamos de una para no frenar la revisión. */
       avanzar(cola, e);
     }
   });
 
-  /* En el refresco de realtime se conserva lo que se esté escribiendo en la nota;
-     al avanzar de cliente, en cambio, el campo tiene que quedar vacío. */
+  /* Lo que se va cargando en el seguimiento queda en el borrador del cliente
+     (seguimiento-form.js): un refresco de realtime no lo pisa. */
+  el.addEventListener('change', anotarCambio);
+  el.addEventListener('input', anotarCambio);
+
+  /* En el refresco de realtime se conserva el campo con foco (repintarConservandoFoco). */
   async function cargar(conservarFoco = false) {
     const [p, cls, accs, devs] = await Promise.all([
       traerPrograma(programaId), traerClientes(programaId),

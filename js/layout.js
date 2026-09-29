@@ -7,6 +7,7 @@ import { yo, esFundador, etiquetaRol } from './sesion.js';
 export const SECCIONES = [
   ['', 'Dashboard', false],
   ['clientes', 'Clientes', false],
+  ['maestro', 'Maestro', false],
   ['accionables', 'Accionables', false],
   ['devoluciones', 'Devoluciones', false],
   ['calls', 'Calls', false],

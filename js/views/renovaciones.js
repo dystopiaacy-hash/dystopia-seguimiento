@@ -10,8 +10,8 @@ import {
 import { tarjetaError } from './programa.js';
 import {
   traerPrograma, traerKpis, traerClientes, traerRenovacionesPrograma,
-  iniciarRenovacion, cerrarRenovacion, tasaRenovacion, armarMotivo,
-  mensajeError, MOTIVO_NO_RENOVACION, ESTADO_LABEL
+  iniciarRenovacion, cerrarRenovacion, tasaRenovacion, armarMotivo, renAbierta,
+  mensajeError, MOTIVO_NO_RENOVACION, ESTADO_LABEL, RESELL_PRODUCTO_LABEL
 } from '../datos.js';
 import { guardar, linkCliente, mapaPorId, badgeRen, opcionesHtml, num } from './comunes.js';
 
@@ -25,12 +25,13 @@ function porIniciar(clientes, avisoDias) {
   return clientes
     .filter(c => !['finalizado', 'baja'].includes(c.estado)
       && c.dias_restantes != null && c.dias_restantes <= num(avisoDias)
-      && !['en_proceso', 'no_renovado'].includes(c.renovacion_estado || ''))
+      && !renAbierta(c.renovacion_estado) && c.renovacion_estado !== 'no_renovado')
     .sort((a, b) => num(a.dias_restantes) - num(b.dias_restantes));
 }
 
+/* Cualquier etapa abierta del pipeline de resell (037). */
 function enProceso(renovaciones) {
-  return renovaciones.filter(r => r.estado === 'en_proceso');
+  return renovaciones.filter(r => renAbierta(r.estado));
 }
 
 function cerradas(renovaciones) {
@@ -73,6 +74,7 @@ function filaEnProceso(programaId, r, cliente) {
   return `
     <div class="ren-item ren-curso">
       <span class="ren-cli">${linkCliente(programaId, cliente)}</span>
+      <span class="ren-badge">${badgeRen(r.estado)}</span>
       <span class="ren-detalle">Abierta el ${esc(fmtFechaHora(r.iniciada_at))} · ${textoDias(dias)}</span>
       <button type="button" class="btn btn-sm btn-accent" data-ren-cerrar="${esc(r.id)}">Cerrar renovación</button>
     </div>`;
@@ -81,6 +83,7 @@ function filaEnProceso(programaId, r, cliente) {
 function filaCerrada(programaId, r, cliente) {
   const detalle = [
     `Cerrada el ${fmtFecha(r.resultado_at)}`,
+    r.resell_producto ? RESELL_PRODUCTO_LABEL[r.resell_producto] || r.resell_producto : '',
     r.nueva_fecha_fin ? `nueva fecha de fin ${fmtFecha(r.nueva_fecha_fin)}` : ''
   ].filter(Boolean).join(' · ');
   return `
@@ -105,28 +108,35 @@ function bloque(titulo, cuenta, vacio, filas, clase = '') {
 
 /* ---------- Modal de cierre ---------- */
 
-/* r = fila de cs_renovaciones en proceso; cliente = fila de cs_v_clientes;
-   prog = fila de cs_programas (para la duración por defecto).
-   alGuardar() se llama después de cerrar bien (para refrescar quien la abrió). */
-export function modalCerrarRenovacion(r, cliente, prog, alGuardar) {
-  const base = (cliente && cliente.fecha_fin) || hoyAR();
+/* r = fila de cs_renovaciones abierta (alcanza con { id }); cliente = fila de
+   cs_v_clientes o cs_v_maestro; prog = fila de cs_programas (duración por defecto).
+   alGuardar() se llama después de cerrar bien (para refrescar quien la abrió).
+   resultado = 'renovado' | 'no_renovado' preelegido (el maestro lo abre desde su select). */
+export function modalCerrarRenovacion(r, cliente, prog, alGuardar, { resultado: pre = 'renovado' } = {}) {
+  const finActual = (cliente && cliente.fecha_fin) || hoyAR();
+  /* Si ya venció (resell en días de gracia), la fecha nueva se cuenta desde hoy. */
+  const base = finActual < hoyAR() ? hoyAR() : finActual;
   const porDefecto = sumarDias(base, num(prog && prog.duracion_default_dias) || 90);
   const nombre = cliente ? cliente.nombre : 'este cliente';
 
   const m = abrirModal({
     titulo: 'Cerrar renovación',
     cuerpo: `
-      <p class="conf-detalle">${esc(nombre)} · fin actual ${esc(fmtFecha(base))}</p>
+      <p class="conf-detalle">${esc(nombre)} · fin actual ${esc(fmtFecha(finActual))}</p>
       <div class="form-row"><label for="rc-resultado">Resultado</label>
         <select id="rc-resultado">
-          <option value="renovado">Renovó</option>
-          <option value="no_renovado">No renovó</option>
+          <option value="renovado"${pre === 'renovado' ? ' selected' : ''}>Renovó</option>
+          <option value="no_renovado"${pre === 'no_renovado' ? ' selected' : ''}>No renovó</option>
         </select></div>
       <div id="rc-bloque-fin">
+        <div class="form-row"><label for="rc-producto">Qué compró</label>
+          <select id="rc-producto">${opcionesHtml([['', 'Elegí una opción…']]
+            .concat(Object.entries(RESELL_PRODUCTO_LABEL)), '')}</select>
+          <div class="hint" id="rc-producto-hint">Obligatorio. Upsell y downsell cuentan como renovación.</div></div>
         <div class="form-row"><label for="rc-fin">Nueva fecha de fin</label>
           <input type="date" id="rc-fin" value="${esc(porDefecto)}">
-          <div class="hint">Por defecto, fin actual + ${esc(plural(num(prog && prog.duracion_default_dias) || 90, 'día'))}
-            (duración del programa).</div></div>
+          <div class="hint">La del programa que compró. Por defecto, ${finActual < hoyAR() ? 'hoy' : 'fin actual'}
+            + ${esc(plural(num(prog && prog.duracion_default_dias) || 90, 'día'))} (duración del programa).</div></div>
       </div>
       <div id="rc-bloque-motivo" hidden>
         <div class="form-row"><label for="rc-motivo">Motivo</label>
@@ -148,6 +158,10 @@ export function modalCerrarRenovacion(r, cliente, prog, alGuardar) {
   };
   resultado.addEventListener('change', sincronizar);
   sincronizar();
+  $('rc-producto').addEventListener('change', () => {
+    $('rc-producto').classList.remove('campo-error');
+    $('rc-producto-hint').classList.remove('txt-rojo');
+  });
 
   m.el.querySelector('[data-rc="0"]').addEventListener('click', () => m.cerrar());
   const aceptar = m.el.querySelector('[data-rc="1"]');
@@ -156,6 +170,14 @@ export function modalCerrarRenovacion(r, cliente, prog, alGuardar) {
     let cambios;
 
     if (estado === 'renovado') {
+      const producto = $('rc-producto').value;
+      if (!producto) {
+        $('rc-producto').classList.add('campo-error');
+        $('rc-producto-hint').classList.add('txt-rojo');
+        $('rc-producto').focus();
+        toast('Elegí qué compró: mismo programa, upsell, downsell u otro.', 'error');
+        return;
+      }
       const fin = $('rc-fin').value;
       if (!fin) { toast('Poné la nueva fecha de fin.', 'error'); return; }
       if (diasRestantes(fin) <= 0) { toast('La nueva fecha de fin tiene que ser posterior a hoy.', 'error'); return; }
@@ -163,7 +185,7 @@ export function modalCerrarRenovacion(r, cliente, prog, alGuardar) {
         toast('La nueva fecha de fin no puede ser anterior al inicio del programa.', 'error');
         return;
       }
-      cambios = { estado, nuevaFechaFin: fin };
+      cambios = { estado, nuevaFechaFin: fin, producto };
     } else {
       const clave = $('rc-motivo').value;
       const texto = $('rc-texto').value;

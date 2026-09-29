@@ -18,7 +18,7 @@ let escuchandoCambios = false;
 /* Tablas que escucha el realtime (cs_integraciones queda afuera a propósito).
    Las vistas cs_v_* no emiten eventos: se escuchan las tablas y la vista refetchea. */
 const TABLAS_RT = ['cs_programas', 'cs_clientes', 'cs_accionables', 'cs_devoluciones', 'cs_calls',
-  'cs_renovaciones', 'cs_formularios', 'cs_respuestas', 'cs_chequeos', 'cs_alertas'];
+  'cs_renovaciones', 'cs_formularios', 'cs_respuestas', 'cs_seguimientos', 'cs_alertas'];
 
 /* Dentro de un programa se filtra por programa_id para no recibir cambios de los otros.
    cs_programas va sin filtro: su columna clave es id, y son 5 filas. */

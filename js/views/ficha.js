@@ -10,10 +10,11 @@ import { repintarConservandoFoco } from './comunes.js';
 import { vacio, tarjetaError } from './programa.js';
 import {
   traerPrograma, traerCliente, traerAccionablesCliente, traerDevolucionesCliente, traerCallsCliente,
-  traerRenovacionesCliente, traerRespuestasCliente, traerChequeosCliente,
+  traerRenovacionesCliente, traerRespuestasCliente, traerSeguimientosCliente,
   traerFormularios, traerHistorial, mensajeError
 } from '../datos.js';
 import * as cabecera from './ficha-cabecera.js';
+import * as seguimientos from './ficha-seguimientos.js';
 import * as accionables from './ficha-accionables.js';
 import * as devoluciones from './ficha-devoluciones.js';
 import * as calls from './ficha-calls.js';
@@ -21,6 +22,7 @@ import * as historial from './ficha-historial.js';
 
 const BLOQUES = [
   ['cabecera', cabecera],
+  ['seguimientos', seguimientos],
   ['accionables', accionables],
   ['devoluciones', devoluciones],
   ['calls', calls],
@@ -35,13 +37,13 @@ async function cargarDatos(programaCorto, clienteId) {
   ]);
   if (!c) return null;
   const p = completo || programaCorto;
-  const [acc, devs, cls, rens, resp, chq, forms] = await Promise.all([
+  const [acc, devs, cls, rens, resp, segs, forms] = await Promise.all([
     traerAccionablesCliente(c.id),
     traerDevolucionesCliente(c.id),
     traerCallsCliente(c.id),
     traerRenovacionesCliente(c.id),
     traerRespuestasCliente(c.id),
-    traerChequeosCliente(c.id),
+    traerSeguimientosCliente(c.id),
     traerFormularios(p.id)
   ]);
   /* cs_historial se busca por registro_id: el cliente y todo lo que cuelga de él. */
@@ -52,7 +54,7 @@ async function cargarDatos(programaCorto, clienteId) {
   return {
     p, c,
     accionables: acc, devoluciones: devs, calls: cls, renovaciones: rens,
-    respuestas: resp, chequeos: chq, formularios: forms, historial: hist
+    respuestas: resp, seguimientos: segs, formularios: forms, historial: hist
   };
 }
 

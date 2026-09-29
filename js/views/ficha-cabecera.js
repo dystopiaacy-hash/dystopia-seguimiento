@@ -1,4 +1,4 @@
-/* Ficha de cliente — cabecera (quién es, semáforo, estado, etapa, contacto, chequeo)
+/* Ficha de cliente — cabecera (quién es, semáforo, estado, etapa, contacto, último seguimiento)
    y bloque de tiempo (fechas, progreso, días restantes, aviso de renovación).
    Todo cambio se guarda al momento; el semáforo se repinta con el dato nuevo de
    cs_v_clientes, sin recargar la página. */
@@ -8,8 +8,8 @@ import {
 import { esFundador } from '../sesion.js';
 import { navegar } from '../router.js';
 import {
-  actualizarFila, borrarFila, registrarChequeo, iniciarRenovacion, esVivo,
-  ESTADO_LABEL, ESTADO_COLOR
+  actualizarFila, borrarFila, iniciarRenovacion, esVivo,
+  ESTADO_LABEL, ESTADO_COLOR, renAbierta
 } from '../datos.js';
 import { num, opcionesHtml, guardar } from './comunes.js';
 
@@ -43,17 +43,17 @@ function datosContacto(c) {
 }
 
 function chequeoTexto(c, p) {
-  if (!c.ultimo_chequeo_at) return '<span class="txt-gris">Nunca se registró un chequeo</span>';
+  if (!c.ultimo_chequeo_at) return '<span class="txt-gris">Todavía no hay seguimientos</span>';
   const d = num(c.dias_sin_chequeo);
   const tarde = esVivo(c) && d > num(p.dias_sin_chequeo_alerta);
   const cuando = d === 0 ? 'hoy' : `hace ${plural(d, 'día')}`;
-  return `<span class="${tarde ? 'txt-amarillo' : 'txt-gris'}">Último chequeo: ${esc(fmtFechaHora(c.ultimo_chequeo_at))} (${esc(cuando)})</span>`;
+  return `<span class="${tarde ? 'txt-amarillo' : 'txt-gris'}">Último seguimiento: ${esc(fmtFechaHora(c.ultimo_chequeo_at))} (${esc(cuando)})</span>`;
 }
 
 /* ---------- Bloque de tiempo ---------- */
 
 function avisoRenovacion(c, p, renovaciones) {
-  const enProceso = (renovaciones || []).some(r => r.estado === 'en_proceso');
+  const enProceso = (renovaciones || []).some(r => renAbierta(r.estado));
   const d = c.dias_restantes == null ? null : num(c.dias_restantes);
   if (enProceso) {
     return '<div class="banner banner-amarillo">Renovación en proceso. Se cierra (renovó / no renovó) abajo, en Renovaciones.</div>';
@@ -146,7 +146,7 @@ export function html(ctx) {
         </div>
       </div>
       <div class="ficha-acciones">
-        <button type="button" class="btn btn-accent btn-sm" data-accion="chequeo">Registrar chequeo</button>
+        <button type="button" class="btn btn-accent btn-sm" data-accion="ir-seguimiento">Cargar seguimiento</button>
         <button type="button" class="btn btn-sm" data-accion="editar-datos">Editar datos de contacto</button>
         ${esFundador() ? '<button type="button" class="btn btn-sm btn-danger" data-accion="borrar-cliente">Borrar cliente</button>' : ''}
         <span class="ficha-estado-badge">${badge(ESTADO_LABEL[c.estado] || c.estado, ESTADO_COLOR[c.estado], 'status')}</span>
@@ -162,26 +162,12 @@ function conectarCancelar() {
   if (b) b.onclick = cerrarModal;
 }
 
-function modalChequeo(ctx, api) {
-  abrirModal({
-    titulo: 'Registrar chequeo',
-    cuerpo: `
-      <p class="aviso-texto">Queda registrado que hoy se revisó a <strong>${esc(ctx.c.nombre)}</strong>.</p>
-      <div class="form-row">
-        <label for="chq-nota">Nota (opcional)</label>
-        <textarea id="chq-nota" maxlength="1000" placeholder="Qué se habló o qué quedó pendiente"></textarea>
-      </div>`,
-    pie: `<button type="button" class="btn" data-cerrar="1">Cancelar</button>
-          <button type="button" class="btn btn-accent" id="chq-ok">Registrar</button>`
-  });
-  conectarCancelar();
-  const nota = document.getElementById('chq-nota');
-  nota.focus();
-  document.getElementById('chq-ok').onclick = () => {
-    const texto = nota.value;
-    cerrarModal();
-    guardar(() => registrarChequeo(ctx.c, texto), { ok: 'Chequeo registrado.', luego: () => api.refrescar() });
-  };
+/* El seguimiento se carga en su bloque, justo debajo (ficha-seguimientos.js). */
+function irASeguimiento() {
+  const campo = document.getElementById('seg-f-resumen');
+  if (!campo) return;
+  campo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  campo.focus({ preventScroll: true });
 }
 
 function modalDatos(ctx, api) {
@@ -248,7 +234,7 @@ export async function manejar(ev, ctx, api) {
   if (!btn) return false;
   const accion = btn.dataset.accion;
 
-  if (accion === 'chequeo') { modalChequeo(ctx, api); return true; }
+  if (accion === 'ir-seguimiento') { irASeguimiento(); return true; }
   if (accion === 'editar-datos') { modalDatos(ctx, api); return true; }
 
   if (accion === 'iniciar-renovacion') {
@@ -269,7 +255,7 @@ export async function manejar(ev, ctx, api) {
     const ok = await confirmar({
       titulo: 'Borrar cliente',
       texto: `Se borra ${c.nombre} y todo lo que cuelga de él.`,
-      detalle: 'Accionables, devoluciones, calls, renovaciones y chequeos se borran con el cliente. No se puede deshacer.',
+      detalle: 'Accionables, devoluciones, calls, renovaciones y seguimientos se borran con el cliente. No se puede deshacer.',
       ok: 'Borrar'
     });
     if (!ok) return true;
