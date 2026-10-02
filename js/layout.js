@@ -5,6 +5,7 @@ import { yo, esFundador, etiquetaRol } from './sesion.js';
 
 /* Secciones de un programa: [sub-ruta, etiqueta, soloFundador] */
 export const SECCIONES = [
+  ['hoy', 'Hoy', false],
   ['', 'Dashboard', false],
   ['clientes', 'Clientes', false],
   ['maestro', 'Maestro', false],

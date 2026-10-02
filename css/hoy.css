@@ -1,0 +1,69 @@
+/* Pantalla "Hoy" (#/p/:programa/hoy) y su panel de contacto.
+   Color por "cuando": atrasado rojo, hoy amarillo, próximo gris. */
+
+/* ---------- Cabecera: contador, atajos y filtros ---------- */
+.hoy-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);flex-wrap:wrap;margin-bottom:var(--sp-3);}
+.hoy-cuenta{font-size:var(--fs-card);font-weight:700;color:var(--text-faint);}
+.hoy-n{font-variant-numeric:tabular-nums;}
+.hoy-n-atrasado{color:var(--sem-rojo);}
+.hoy-n-hoy{color:var(--sem-amarillo-text);}
+.hoy-n-proximo{color:var(--text-dim);}
+.hoy-atajos{font-size:var(--fs-micro);color:var(--text-faint);}
+.hoy-atajos kbd{display:inline-block;min-width:18px;padding:0 var(--sp-1);margin-right:2px;border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;background:var(--surface);font-family:var(--font-mono);font-size:var(--fs-micro);font-weight:700;color:var(--text-dim);text-align:center;}
+
+.hoy-chips{display:flex;flex-wrap:wrap;gap:var(--sp-2);}
+.hoy-filtros{margin-bottom:var(--sp-5);}
+.hoy-chip{background:var(--surface);border:1px solid var(--border);border-radius:999px;min-height:var(--control-h-sm);padding:0 var(--sp-3);cursor:pointer;font-weight:600;font-size:var(--fs-meta);color:var(--text-dim);display:inline-flex;align-items:center;gap:var(--sp-1);white-space:nowrap;}
+.hoy-chip:hover{color:var(--ink);border-color:var(--accent-line);}
+.hoy-chip.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);font-weight:700;}
+.hoy-chip:focus-visible{outline:2px solid var(--accent-line);outline-offset:1px;}
+.hoy-chip-n{font-variant-numeric:tabular-nums;color:var(--text-faint);font-weight:600;}
+.hoy-chip.on .hoy-chip-n{color:var(--accent);}
+
+/* ---------- Grupos y tarjetas ---------- */
+.hoy-grupo .section-title{margin-top:var(--sp-6);}
+.hoy-grupo:first-of-type .section-title{margin-top:0;}
+.hoy-grupo-n{font-size:var(--fs-meta);font-weight:700;font-variant-numeric:tabular-nums;}
+
+.hoy-card{--hoy-color:var(--text-faint);display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:var(--sp-4);background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--hoy-color);border-radius:var(--radius);padding:var(--sp-3) var(--sp-4);margin-bottom:var(--sp-2);box-shadow:var(--shadow);}
+.hoy-card.hoy-atrasado{--hoy-color:var(--sem-rojo);}
+.hoy-card.hoy-hoy{--hoy-color:var(--sem-amarillo);}
+.hoy-card.hoy-proximo{--hoy-color:var(--border);}
+.hoy-card.sel{border-color:var(--accent-line);border-left-color:var(--hoy-color);box-shadow:0 0 0 2px var(--accent-soft),var(--shadow);}
+.hoy-card.ocupada{opacity:.6;}
+
+.hoy-card-main{min-width:0;}
+.hoy-card-top{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;}
+.hoy-tipo{font-size:var(--fs-micro);font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);}
+.hoy-titulo{font-size:var(--fs-body);color:var(--text);margin-top:2px;overflow-wrap:anywhere;}
+.hoy-detalle{font-size:var(--fs-meta);color:var(--text-dim);margin-top:2px;overflow-wrap:anywhere;}
+
+.hoy-card-meta{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:var(--fs-meta);white-space:nowrap;}
+.hoy-fecha{color:var(--text-dim);font-variant-numeric:tabular-nums;}
+.hoy-hoy .hoy-fecha{color:var(--sem-amarillo-text);font-weight:600;}
+.hoy-atraso{color:var(--sem-rojo);font-weight:700;font-size:var(--fs-micro);}
+.hoy-card-acc{display:flex;gap:var(--sp-2);flex-wrap:wrap;justify-content:flex-end;}
+.hoy-card-acc a.btn{text-decoration:none;}
+
+/* ---------- Panel lateral de contacto ---------- */
+.hoy-panel{position:fixed;top:0;right:0;bottom:0;width:400px;max-width:100vw;z-index:90;display:flex;flex-direction:column;background:var(--surface);border-left:1px solid var(--border);box-shadow:var(--shadow-md);animation:hoy-entra .16s ease-out;}
+@keyframes hoy-entra{from{transform:translateX(24px);opacity:0;}to{transform:none;opacity:1;}}
+@media (prefers-reduced-motion:reduce){.hoy-panel{animation:none;}}
+.hoy-panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--sp-3);padding:var(--sp-5) var(--sp-5) var(--sp-4);border-bottom:1px solid var(--border-soft);}
+.hoy-panel-head h2{font-weight:800;font-size:var(--fs-section);line-height:1.25;margin:0;color:var(--ink);}
+.hoy-panel-sub{font-size:var(--fs-meta);color:var(--text-dim);margin-top:2px;overflow-wrap:anywhere;}
+.hoy-panel-body{flex:1;overflow-y:auto;padding:var(--sp-4) var(--sp-5);}
+.hoy-panel-body .field-label{margin-top:var(--sp-4);}
+.hoy-panel-body .field-label:first-child{margin-top:0;}
+.hoy-panel-body .form-row{margin-top:var(--sp-4);}
+.hoy-panel-prox{font-size:var(--fs-meta);color:var(--text-dim);margin-top:var(--sp-3);min-height:18px;}
+.hoy-confirma{display:flex;flex-direction:column;gap:2px;margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);border-radius:var(--radius-sm);background:var(--danger-soft);color:var(--danger);font-size:var(--fs-meta);}
+.hoy-confirma[hidden]{display:none;}
+.hoy-panel-foot{display:flex;justify-content:flex-end;gap:var(--sp-2);padding:var(--sp-4) var(--sp-5);border-top:1px solid var(--border-soft);}
+
+@media (max-width:760px){
+  .hoy-atajos{display:none;}
+  .hoy-card{grid-template-columns:minmax(0,1fr) auto;}
+  .hoy-card-acc{grid-column:1 / -1;justify-content:flex-start;}
+  .hoy-panel{width:100vw;border-left:none;}
+}

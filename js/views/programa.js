@@ -4,6 +4,7 @@
 import { esc } from '../ui.js';
 import { setHeader, SECCIONES } from '../layout.js';
 import { esFundador } from '../sesion.js';
+import { vistaHoy } from './hoy.js';
 import { vistaDashboard } from './dashboard.js';
 import { vistaClientes } from './clientes.js';
 import { vistaMaestro } from './maestro.js';
@@ -72,6 +73,7 @@ export function vistaPrograma(el, { p, sub, clienteId, vigente }) {
   const cont = el.querySelector('#seccion');
 
   if (clienteId) return vistaFicha(cont, p, clienteId, vigente);
+  if (sub === 'hoy') return vistaHoy(cont, p.id, vigente);
   if (sub === '') return vistaDashboard(cont, p.id, vigente);
   if (sub === 'clientes') return vistaClientes(cont, p.id, vigente);
   if (sub === 'maestro') return vistaMaestro(cont, p.id, vigente);
