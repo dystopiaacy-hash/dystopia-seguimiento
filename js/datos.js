@@ -482,18 +482,3 @@ export async function guardarIntegracion(programaId, cambios) {
             { onConflict: 'programa_id' });
   if (error) throw error;
 }
-
-/* ---------- Pantalla "Hoy" (069) ---------- */
-export async function traerColaHoy(programaId, diasAdelante = 3) {
-  const { data, error } = await sb.rpc('cs_cola_hoy', { p_programa: programaId, p_dias_adelante: diasAdelante });
-  if (error) throw error;
-  return data || [];
-}
-
-/* c = { canal, resultado, resumen, proximo }. Devuelve { seguimiento_id, renovacion_id, renovacion_estado }. */
-export async function registrarContacto(clienteId, c) {
-  const { data, error } = await sb.rpc('cs_registrar_contacto', { p_cliente: clienteId, p_canal: c.canal,
-    p_resultado: c.resultado, p_resumen: (c.resumen || '').trim() || null, p_proximo: c.proximo || null });
-  if (error) throw error;
-  return data || {};
-}

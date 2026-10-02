@@ -3,7 +3,8 @@
    cs_registrar_contacto: el resultado mueve el pipeline de resell en la misma llamada.
    "No renueva" cierra la renovación, así que pide confirmación adentro del panel. */
 import { esc, hoyAR, sumarDias, fmtFecha, toast } from '../ui.js';
-import { CANAL_LABEL, registrarContacto, mensajeError } from '../datos.js';
+import { CANAL_LABEL, mensajeError } from '../datos.js';
+import { registrarContacto } from '../datos-hoy.js';
 
 export const RESULTADO_LABEL = {
   contesto: 'Contestó', no_contesta: 'No contesta', interesado: 'Interesado',

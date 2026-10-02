@@ -7,10 +7,12 @@
    Al resolver, la tarjeta sale al instante y la cola se vuelve a pedir.
    Atajos: J / K mueven la selección, H = hecho, C = registrar contacto. */
 import { esc, hoyAR, sumarDias, fmtFecha, plural, toast, hayModalAbierto } from '../ui.js';
-import { traerColaHoy, actualizarFila, mensajeError } from '../datos.js';
+import { actualizarFila, mensajeError } from '../datos.js';
+import { traerColaHoy } from '../datos-hoy.js';
 import { registrarAviso } from '../ciclo.js';
 import { tarjetaError } from './programa.js';
 import { abrirPanelContacto, hayPanelContacto } from './hoy-contacto.js';
+import { montarAltas } from './hoy-altas.js';
 
 const GRUPOS = [['atrasado', 'Atrasado'], ['hoy', 'Hoy'], ['proximo', 'Próximos']];
 const TIPO_LABEL = {
@@ -54,7 +56,7 @@ function tarjeta(t, programaId, sel, ocupada) {
     </article>`;
 }
 
-function cabecera(todas, filtro) {
+function cabecera(todas, filtro, nAltas) {
   const n = c => todas.filter(t => t.cuando === c).length;
   const porTipo = new Map();
   for (const t of todas) porTipo.set(t.tipo, (porTipo.get(t.tipo) || 0) + 1);
@@ -66,7 +68,8 @@ function cabecera(todas, filtro) {
       <div class="hoy-cuenta">
         <span class="hoy-n hoy-n-atrasado">${esc(plural(n('atrasado'), 'atrasado'))}</span> ·
         <span class="hoy-n hoy-n-hoy">${n('hoy')} hoy</span> ·
-        <span class="hoy-n hoy-n-proximo">${esc(plural(n('proximo'), 'próximo'))}</span>
+        <span class="hoy-n hoy-n-proximo">${esc(plural(n('proximo'), 'próximo'))}</span>${nAltas
+          ? ` · <span class="hoy-n hoy-n-altas">${esc(plural(nAltas, 'cliente nuevo', 'clientes nuevos'))}</span>` : ''}
       </div>
       <div class="hoy-atajos" aria-hidden="true"><kbd>J</kbd><kbd>K</kbd> mover · <kbd>H</kbd> hecho · <kbd>C</kbd> contacto</div>
     </div>
@@ -76,7 +79,9 @@ function cabecera(todas, filtro) {
 }
 
 export function vistaHoy(el, programaId, vigente) {
-  el.innerHTML = '<div class="loading-inline">Cargando…</div>';
+  /* Dos contenedores: las altas (hoy-altas.js) arriba y la cola abajo, que se repinta entera. */
+  el.innerHTML = '<div></div><div><div class="loading-inline">Cargando…</div></div>';
+  const cuerpo = el.lastElementChild;
   let cola = [], cargada = false;
   let filtro = '', sel = null, pedido = 0;
   const ocupadas = new Set();   // llamada en vuelo: botones bloqueados
@@ -90,14 +95,15 @@ export function vistaHoy(el, programaId, vigente) {
     const todas = pendientes();
     if (filtro && !todas.some(t => t.tipo === filtro)) filtro = '';
     if (!todas.length) {
-      el.innerHTML = '<div class="card empty-state"><div class="big">Nada pendiente para hoy</div></div>';
+      cuerpo.innerHTML = altas.cantidad() ? ''
+        : '<div class="card empty-state"><div class="big">Nada pendiente para hoy</div></div>';
       return;
     }
     const lista = visibles();
     if (!lista.some(t => clave(t) === sel)) sel = lista.length ? clave(lista[0]) : null;
     const main = document.querySelector('.main');
     const y = main ? main.scrollTop : 0;
-    el.innerHTML = cabecera(todas, filtro) + GRUPOS.map(([c, label]) => {
+    cuerpo.innerHTML = cabecera(todas, filtro, altas.cantidad()) + GRUPOS.map(([c, label]) => {
       const g = lista.filter(t => t.cuando === c);
       if (!g.length) return '';
       return `<section class="hoy-grupo">
@@ -184,6 +190,12 @@ export function vistaHoy(el, programaId, vigente) {
 
   const tareaDe = k => visibles().find(t => clave(t) === k);
 
+  /* Al crear un cliente la cola cambia (call de onboarding, accionables de la plantilla). */
+  const altas = montarAltas(el.firstElementChild, programaId, vigente, recargarCola => {
+    pintar();
+    if (recargarCola) cargar().catch(e => console.error('hoy', e));
+  });
+
   el.addEventListener('click', ev => {
     const chip = ev.target.closest('[data-tipo]');
     if (chip) { filtro = chip.dataset.tipo; pintar(); return; }
@@ -224,7 +236,7 @@ export function vistaHoy(el, programaId, vigente) {
     if (!vigente()) return;
     const falta = /cs_cola_hoy/.test(e && e.message || '')
       ? 'Falta correr la migración 069 (cola de hoy).' : mensajeError(e);
-    el.innerHTML = tarjetaError('No se pudo cargar la cola de hoy', falta);
+    cuerpo.innerHTML = tarjetaError('No se pudo cargar la cola de hoy', falta);
   });
-  return { refrescar: () => cargar().catch(e => console.error('hoy', e)) };
+  return { refrescar: () => { altas.cargar(); return cargar().catch(e => console.error('hoy', e)); } };
 }

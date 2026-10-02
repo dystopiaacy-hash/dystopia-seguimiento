@@ -29,7 +29,8 @@
 .hoy-card.hoy-atrasado{--hoy-color:var(--sem-rojo);}
 .hoy-card.hoy-hoy{--hoy-color:var(--sem-amarillo);}
 .hoy-card.hoy-proximo{--hoy-color:var(--border);}
-.hoy-card.sel{border-color:var(--accent-line);border-left-color:var(--hoy-color);box-shadow:0 0 0 2px var(--accent-soft),var(--shadow);}
+/* Seleccionada (J/K): borde de 2px (el padding compensa el px extra) y fondo apenas tintado. */
+.hoy-card.sel{border:2px solid var(--accent);border-left:3px solid var(--hoy-color);padding:calc(var(--sp-3) - 1px) calc(var(--sp-4) - 1px) calc(var(--sp-3) - 1px) var(--sp-4);background:linear-gradient(var(--accent-soft),var(--accent-soft)),var(--surface);}
 .hoy-card.ocupada{opacity:.6;}
 
 .hoy-card-main{min-width:0;}
@@ -61,9 +62,23 @@
 .hoy-confirma[hidden]{display:none;}
 .hoy-panel-foot{display:flex;justify-content:flex-end;gap:var(--sp-2);padding:var(--sp-4) var(--sp-5);border-top:1px solid var(--border-soft);}
 
+/* ---------- Clientes nuevos (altas desde pagos, 070) ---------- */
+.hoy-altas{margin-bottom:var(--sp-6);}
+.hoy-n-altas{color:var(--accent);}
+.hoy-alta{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:var(--sp-3) var(--sp-4);background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius);padding:var(--sp-3) var(--sp-4);margin-bottom:var(--sp-2);box-shadow:var(--shadow);}
+.hoy-alta.ocupada{opacity:.6;}
+.hoy-alta-nombre{font-weight:700;color:var(--ink);overflow-wrap:anywhere;}
+.hoy-alta-form{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;justify-content:flex-end;}
+.hoy-alta-form select{max-width:240px;}
+.hoy-alta-descarte{grid-column:1 / -1;display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;padding-top:var(--sp-3);border-top:1px solid var(--border-soft);}
+.hoy-alta-descarte input{flex:1;min-width:180px;}
+.hoy-toast-link{margin-left:var(--sp-3);color:inherit;text-decoration:underline;}
+
 @media (max-width:760px){
   .hoy-atajos{display:none;}
   .hoy-card{grid-template-columns:minmax(0,1fr) auto;}
   .hoy-card-acc{grid-column:1 / -1;justify-content:flex-start;}
+  .hoy-alta{grid-template-columns:minmax(0,1fr);}
+  .hoy-alta-form{justify-content:flex-start;}
   .hoy-panel{width:100vw;border-left:none;}
 }
