@@ -7,11 +7,12 @@ import { actualizarFila } from './datos.js';
 import { hoyAR, sumarDias, diasEntre } from './ui.js';
 
 export const TESTIMONIO_LABEL = {
-  sin_pedir: 'Sin pedir', pitchiado: 'Pitchiado', grabado: 'Grabado', no_quiere: 'No quiere'
+  sin_pedir: 'Sin pedir', pitchiado: 'Pitchiado', coordinado: 'Coordinado',
+  grabado: 'Grabado', no_quiere: 'No quiere'
 };
 export const TESTIMONIO_COLOR = {
   sin_pedir: 'var(--text-faint)', pitchiado: 'var(--sem-amarillo)',
-  grabado: 'var(--sem-verde)', no_quiere: 'var(--sem-rojo)'
+  coordinado: 'var(--sem-amarillo)', grabado: 'var(--sem-verde)', no_quiere: 'var(--sem-rojo)'
 };
 
 /* Datos de la call de resell (cs_calls tipo 'renovacion'). */

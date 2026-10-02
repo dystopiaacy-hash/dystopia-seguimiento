@@ -12,7 +12,7 @@ import {
 import { opcionesHtml, guardar } from './comunes.js';
 
 const CERRADO = ['finalizado', 'baja'];
-const TESTIMONIO_ORDEN = { sin_pedir: 0, pitchiado: 1, grabado: 2, no_quiere: 3 };
+const TESTIMONIO_ORDEN = { sin_pedir: 0, pitchiado: 1, coordinado: 2, grabado: 3, no_quiere: 4 };
 const txt = v => (v || '').toLowerCase();
 
 function selTestimonio(f) {
