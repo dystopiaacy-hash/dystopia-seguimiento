@@ -7,6 +7,7 @@
 import { esc } from '../ui.js';
 import { setHeader } from '../layout.js';
 import { repintarConservandoFoco } from './comunes.js';
+import { queryActual } from '../router.js';
 import { vacio, tarjetaError } from './programa.js';
 import {
   traerPrograma, traerCliente, traerAccionablesCliente, traerDevolucionesCliente, traerCallsCliente,
@@ -104,6 +105,16 @@ export function vistaFicha(el, p, clienteId, vigente) {
     const y = main ? main.scrollTop : 0;
     repintarConservandoFoco(el, pintar);
     if (main) main.scrollTop = y;
+    irASeccion();
+  }
+
+  /* ?sec=accionables (desde el Maestro): la primera vez baja hasta esa sección. */
+  let secPendiente = /^[a-z]+$/.test(queryActual().get('sec') || '') ? queryActual().get('sec') : '';
+  function irASeccion() {
+    if (!secPendiente) return;
+    const dest = el.querySelector('#b-' + secPendiente) || el.querySelector(`[data-sec="${secPendiente}"]`);
+    secPendiente = '';
+    if (dest) dest.scrollIntoView({ block: 'start' });
   }
 
   const api = {

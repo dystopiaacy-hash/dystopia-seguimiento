@@ -103,7 +103,7 @@ function bloqueRenovaciones(ctx) {
   const enCurso = rens.some(r => renAbierta(r.estado));
   const cerrable = !enCurso && !['finalizado', 'baja'].includes(ctx.c.estado);
   return `
-    <div class="section-title">Renovaciones
+    <div class="section-title" data-sec="renovaciones">Renovaciones
       <span class="aten-cuenta">${esc(plural(rens.length, 'renovación', 'renovaciones'))}</span>
       <span class="line"></span>
       ${cerrable ? '<button type="button" class="btn btn-sm" data-accion="iniciar-renovacion-ren">Iniciar proceso de renovación</button>' : ''}

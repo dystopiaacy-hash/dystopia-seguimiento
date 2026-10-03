@@ -1,21 +1,25 @@
 /* Columnas y celdas del Maestro (#/p/:programa/maestro).
    Dos clases de columna:
-     - editables (edit: true): prioridad, responsable, próxima acción, fecha comprometida,
-       nota y estado de resell. Se guardan de a una celda, con toast.
+     - editables (edit: true): nombre, prioridad, responsable, próxima acción, fecha
+       comprometida, nota, resell, etapa, fecha de fin y las de maestro-ciclo.js.
+       Se guardan de a una celda, con toast. Las columnas nuevas (071) también:
+       las dibuja maestro-columnas.js y se guardan acá (guardarExtra).
      - calculadas: salen tal cual de cs_v_maestro (que a su vez lee cs_v_clientes).
-       Solo lectura y con otro fondo.
+       No se editan: el clic abre la acción que las cambia (maestro-acciones.js).
    Cada control editable lleva id propio (mx-<campo>-<cliente>) para que un refresco
    de realtime no pise lo que se está escribiendo (repintarConservandoFoco), y
    data-prev con el último valor guardado para volver atrás si falla. */
 import { esc, fmtFecha, fmtNum, plural, toast, badge, nivelPorDias, diasRestantes } from '../ui.js';
 import {
-  guardarCampoCliente, iniciarRenovacion, moverRenovacion, mensajeError,
+  guardarCampoCliente, iniciarRenovacion, moverRenovacion,
   renAbierta, REN_ABIERTOS, REN_LABEL, RESELL_PRODUCTO_LABEL, PRIORIDAD_LABEL,
   AVANCE_LABEL, AVANCE_COLOR
 } from '../datos.js';
+import { registrarAviso } from '../ciclo.js';
+import { guardarCampoExtra, errorColumnas } from '../datos-columnas.js';
 import { opcionesHtml, num } from './comunes.js';
 import { modalCerrarRenovacion } from './renovaciones.js';
-import { columnasCiclo } from './maestro-ciclo.js';
+import { columnasCiclo, pedirConfirmacionEstado } from './maestro-ciclo.js';
 
 const PRIO_ORDEN = { alta: 0, media: 1, baja: 2 };
 const AVANCE_ORDEN = { trabado: 0, demorado: 1, bien: 2 };
@@ -72,20 +76,37 @@ function selResell(f) {
       ${opcionesHtml(ops, cur)}</select>`;
 }
 
-/* ---------- Celdas calculadas ---------- */
-
+/* El nombre se edita en el lugar; la flecha abre la ficha. */
 function celdaCliente(f, base) {
   const motivos = (f.motivos_semaforo || []).join(' · ') || 'Sin alertas';
   return `<span class="m-cli"><span class="sem-dot sem-${esc(f.semaforo || 'gris')}" title="${esc(motivos)}"></span>
-      <a class="cli-nombre" href="${base}/c/${encodeURIComponent(f.id)}">${esc(f.nombre)}</a></span>`;
+      ${inpTexto('nombre', f, 'Nombre', 120)}
+      <a class="m-abrir" href="${base}/c/${encodeURIComponent(f.id)}" title="Abrir la ficha"
+        aria-label="${esc('Abrir la ficha de ' + f.nombre)}">↗</a></span>`;
 }
 
+/* Días: se edita la fecha de fin y los días que quedan van al lado. */
 function celdaDias(f, prog) {
-  if (f.dias_restantes == null) return '<span class="txt-gris">—</span>';
+  const v = f.fecha_fin || '';
+  const inp = `<input type="date" class="m-edit m-fecha" value="${esc(v)}" ${attrs('fecha_fin', f, v, 'Fecha de fin')}>`;
+  if (f.dias_restantes == null) return `<span class="m-dias">${inp}</span>`;
   const d = num(f.dias_restantes);
   const nivel = nivelPorDias(d, { amarillo: num(prog && prog.aviso_renovacion_dias), rojo: -1 });
-  const tit = d < 0 ? `Venció hace ${plural(-d, 'día')} (fin ${fmtFecha(f.fecha_fin)})` : `Fin ${fmtFecha(f.fecha_fin)}`;
-  return `<span class="m-num sem-txt-${esc(nivel)}" title="${esc(tit)}">${esc(d)} d</span>`;
+  const tit = d < 0 ? `Venció hace ${plural(-d, 'día')}` : `Quedan ${plural(d, 'día')}`;
+  return `<span class="m-dias">${inp}<span class="m-num sem-txt-${esc(nivel)}" title="${esc(tit)}">${esc(d)} d</span></span>`;
+}
+
+/* ---------- Celdas calculadas ---------- */
+
+/* No se editan: el clic abre lo que las cambia (una sección de la ficha o el
+   formulario de seguimiento). Lo maneja maestro-acciones.js. */
+const IR_TITULO = {
+  accionables: 'Abrir los accionables en la ficha', devoluciones: 'Abrir las devoluciones en la ficha',
+  renovaciones: 'Abrir las renovaciones en la ficha', seguimiento: 'Registrar un seguimiento'
+};
+function ir(destino, f, html) {
+  return `<button type="button" class="m-ir" data-mx-ir="${destino}" data-id="${esc(f.id)}"
+    title="${esc(IR_TITULO[destino])}">${html}</button>`;
 }
 
 function celdaConteo(pend, venc, frase) {
@@ -120,11 +141,11 @@ function celdaProducto(f) {
 
 /* ---------- Columnas ---------- */
 /* k, etiqueta, clase, edit, valor para ordenar, celda HTML. */
-export function columnas(prog) {
+export function columnas(prog, productos) {
   const base = '#/p/' + encodeURIComponent(prog.id);
-  const ciclo = columnasCiclo(prog);
+  const ciclo = columnasCiclo(prog, productos);
   return [
-    { k: 'nombre', lab: 'Cliente', cls: 'col-nombre', ord: f => txt(f.nombre),
+    { k: 'nombre', lab: 'Cliente', cls: 'col-nombre', edit: true, ord: f => txt(f.nombre),
       td: f => celdaCliente(f, base) },
     { k: 'prioridad', lab: 'Prioridad', cls: 'm-c-prio', edit: true, ord: f => PRIO_ORDEN[f.prioridad] ?? 9, td: selPrioridad },
     { k: 'responsable', lab: 'Responsable', cls: 'm-c-resp', edit: true, ord: f => txt(f.responsable) || '~',
@@ -138,28 +159,29 @@ export function columnas(prog) {
     ciclo.testimonio,
     { k: 'renovacion_estado', lab: 'Resell', cls: 'm-c-resell', edit: true,
       ord: f => RESELL_ORDEN[f.renovacion_estado] ?? 9, td: selResell },
-    { k: 'renovacion_producto', lab: 'Compró', cls: 'm-calc', ord: f => f.renovacion_producto || '~', td: celdaProducto },
+    { k: 'renovacion_producto', lab: 'Compró', cls: 'm-calc', ord: f => f.renovacion_producto || '~',
+      td: f => ir('renovaciones', f, celdaProducto(f)) },
     ciclo.aviso1,
     ciclo.aviso2,
     ciclo.estado,
     ciclo.producto,
-    { k: 'etapa', lab: 'Etapa', cls: 'm-calc', ord: f => txt(f.etapa) || '~',
-      td: f => (f.etapa ? esc(f.etapa) : '<span class="txt-gris">—</span>') },
-    { k: 'dias_restantes', lab: 'Días', cls: 'm-calc num', ord: f => (f.dias_restantes == null ? 99999 : num(f.dias_restantes)),
+    { k: 'etapa', lab: 'Etapa', cls: 'm-c-etapa', edit: true, ord: f => txt(f.etapa) || '~',
+      td: f => inpTexto('etapa', f, 'Etapa', 80, 'list="mx-etapas"') },
+    { k: 'dias_restantes', lab: 'Días', cls: 'm-c-dias', edit: true, ord: f => (f.dias_restantes == null ? 99999 : num(f.dias_restantes)),
       td: f => celdaDias(f, prog) },
     { k: 'acc', lab: 'Acc. pend.', cls: 'm-calc num', ord: f => num(f.acc_bpf_pendientes) + num(f.acc_cliente_pendientes),
-      td: f => celdaConteo(num(f.acc_bpf_pendientes) + num(f.acc_cliente_pendientes),
-        num(f.acc_bpf_vencidos) + num(f.acc_cliente_vencidos), 'vencidos') },
+      td: f => ir('accionables', f, celdaConteo(num(f.acc_bpf_pendientes) + num(f.acc_cliente_pendientes),
+        num(f.acc_bpf_vencidos) + num(f.acc_cliente_vencidos), 'vencidos')) },
     { k: 'dev_pendientes', lab: 'Dev. pend.', cls: 'm-calc num', ord: f => num(f.dev_pendientes),
-      td: f => celdaConteo(num(f.dev_pendientes), num(f.dev_vencidas_sla), 'fuera de SLA') },
+      td: f => ir('devoluciones', f, celdaConteo(num(f.dev_pendientes), num(f.dev_vencidas_sla), 'fuera de SLA')) },
     { k: 'ultimo_seguimiento_fecha', lab: 'Último seguimiento', cls: 'm-calc', ord: f => f.ultimo_seguimiento_fecha || '',
-      td: celdaSeguimiento },
+      td: f => ir('seguimiento', f, celdaSeguimiento(f)) },
     { k: 'ultimo_seguimiento_avance', lab: 'Avance', cls: 'm-calc',
-      ord: f => AVANCE_ORDEN[f.ultimo_seguimiento_avance] ?? 9, td: celdaAvance },
+      ord: f => AVANCE_ORDEN[f.ultimo_seguimiento_avance] ?? 9, td: f => ir('seguimiento', f, celdaAvance(f)) },
     { k: 'proximo_contacto', lab: 'Próximo contacto', cls: 'm-calc', ord: f => f.proximo_contacto || '9999',
-      td: celdaProximo },
+      td: f => ir('seguimiento', f, celdaProximo(f)) },
     { k: 'renovaciones_count', lab: 'Renov.', cls: 'm-calc num', ord: f => num(f.renovaciones_count),
-      td: f => esc(num(f.renovaciones_count)) }
+      td: f => ir('renovaciones', f, esc(num(f.renovaciones_count))) }
   ];
 }
 
@@ -177,31 +199,76 @@ function marcar(ctl, estado) {
 
 /* Falló: la celda vuelve al último valor guardado y el error se muestra claro. */
 function revertir(ctl, e, ctx) {
-  ctl.value = ctl.dataset.prev;
+  if (ctl.type === 'checkbox') ctl.checked = ctl.dataset.prev === '1';
+  else ctl.value = ctl.dataset.prev;
   marcar(ctl, 'error');
   const msg = e && e.code === '23505'
     ? 'Este cliente ya tiene una renovación abierta: se actualizó la planilla.'
-    : mensajeError(e);
+    : errorColumnas(e);
   toast(msg, 'error');
   /* Si un refresco repintó mientras se guardaba, este control ya no está en pantalla. */
   if (!ctl.isConnected || (e && e.code === '23505')) ctx.refrescar();
 }
 
+/* Los avisos guardan un timestamp (mediodía de Buenos Aires): van por registrarAviso. */
+const GUARDAR_CON = {
+  aviso_1_at: (f, v) => registrarAviso(f.id, 1, v || null),
+  aviso_2_at: (f, v) => registrarAviso(f.id, 2, v || null)
+};
+/* Mueven columnas calculadas (días, semáforo, avisos): se vuelve a pedir la vista. */
+const REFRESCA = ['estado', 'fecha_fin', 'producto_id', 'aviso_1_at', 'aviso_2_at'];
+const REPINTA = ['prioridad', 'proxima_accion_fecha', 'nombre'];
+
 async function guardarCampo(ctl, fila, ctx) {
   const campo = ctl.dataset.campo;
   const valor = ctl.value.trim();
   if (valor === ctl.dataset.prev) return;
+  if (campo === 'nombre' && !valor) {
+    ctl.value = ctl.dataset.prev;
+    toast('El nombre no puede quedar vacío.', 'error');
+    return;
+  }
   marcar(ctl, 'guardando');
   ctl.disabled = true;
   try {
-    await guardarCampoCliente(fila.id, campo, valor);
+    if (GUARDAR_CON[campo]) await GUARDAR_CON[campo](fila, valor);
+    else await guardarCampoCliente(fila.id, campo, valor);
     fila[campo] = valor || null;
     ctl.dataset.prev = valor;
     if (ctl.value !== valor) ctl.value = valor;
     ctl.title = ctl.type === 'date' ? '' : valor;
     marcar(ctl, 'ok');
     toast('Guardado.');
-    if (campo === 'prioridad' || campo === 'proxima_accion_fecha') ctx.repintar();
+    if (REFRESCA.includes(campo)) ctx.refrescar();
+    else if (REPINTA.includes(campo)) ctx.repintar();
+  } catch (e) {
+    revertir(ctl, e, ctx);
+  } finally {
+    ctl.disabled = false;
+  }
+}
+
+/* Columna nueva (071): el valor va a campos_extra[clave] con el tipo de la columna.
+   Vacío (o casilla sin tildar) borra la clave. */
+async function guardarExtra(ctl, fila, ctx) {
+  const clave = ctl.dataset.campo, tipo = ctl.dataset.extra;
+  const actual = tipo === 'casilla' ? (ctl.checked ? '1' : '') : ctl.value.trim();
+  if (actual === ctl.dataset.prev) return;
+  const valor = tipo === 'casilla' ? (ctl.checked || null)
+    : actual === '' ? null : tipo === 'numero' ? Number(actual) : actual;
+  marcar(ctl, 'guardando');
+  ctl.disabled = true;
+  try {
+    await guardarCampoExtra(fila.id, clave, valor);
+    const extra = { ...(fila.campos_extra || {}) };
+    if (valor == null) delete extra[clave];
+    else extra[clave] = valor;
+    fila.campos_extra = extra;
+    ctl.dataset.prev = actual;
+    if (tipo !== 'casilla') ctl.title = actual;
+    marcar(ctl, 'ok');
+    toast('Guardado.');
+    if (tipo === 'link') ctx.repintar();
   } catch (e) {
     revertir(ctl, e, ctx);
   } finally {
@@ -241,14 +308,15 @@ export async function manejarCambio(ev, ctx) {
   const fila = ctx.porId.get(ctl.dataset.id);
   if (!fila) return true;
   if (ctl.dataset.campo === 'resell') await guardarResell(ctl, fila, ctx);
-  else await guardarCampo(ctl, fila, ctx);
+  else if (ctl.dataset.extra) await guardarExtra(ctl, fila, ctx);
+  else if (!pedirConfirmacionEstado(ctl, fila, ctx)) await guardarCampo(ctl, fila, ctx);
   return true;
 }
 
 /* Enter guarda (sale del campo, dispara change); Escape descarta lo escrito. */
 export function manejarTecla(ev) {
   const ctl = ev.target.closest('input[data-campo]');
-  if (!ctl) return;
+  if (!ctl || ctl.type === 'checkbox') return;
   if (ev.key === 'Enter') { ev.preventDefault(); ctl.blur(); }
   if (ev.key === 'Escape') { ctl.value = ctl.dataset.prev; ctl.blur(); }
 }

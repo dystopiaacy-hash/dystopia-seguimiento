@@ -368,7 +368,8 @@ export async function traerMaestro(programaId) {
 }
 
 /* Campos de cs_clientes que el CSM edita desde el maestro. Texto vacío = null. */
-const CAMPOS_MAESTRO = ['prioridad', 'responsable', 'proxima_accion', 'proxima_accion_fecha', 'nota_csm', 'testimonio'];
+const CAMPOS_MAESTRO = ['prioridad', 'responsable', 'proxima_accion', 'proxima_accion_fecha', 'nota_csm', 'testimonio',
+  'nombre', 'etapa', 'producto_id', 'fecha_fin', 'estado'];
 
 export async function guardarCampoCliente(id, campo, valor) {
   if (!CAMPOS_MAESTRO.includes(campo)) throw new Error('Ese campo no se edita desde el maestro.');
