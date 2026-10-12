@@ -1,0 +1,98 @@
+/* =====================================================================
+   Dystopia Producto — Onboarding por link (093).
+   Landing pública (onboarding.html) + el bloque "Onboarding" de la ficha.
+   Parte de las clases pub-* de formularios.css (campos, opciones, errores).
+   ===================================================================== */
+
+/* ---------- Landing ---------- */
+.ob-card{padding:var(--sp-5);}
+.ob-marca{font-size:var(--fs-micro);font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-faint);margin-bottom:var(--sp-1);}
+
+.ob-progreso{margin:var(--sp-4) 0;}
+.ob-progreso-txt{font-size:var(--fs-meta);font-weight:700;color:var(--ink);margin-bottom:var(--sp-2);}
+.ob-barra{height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden;}
+.ob-barra > span{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;
+  transition:width .4s ease;}
+
+/* Lista de pasos: el actual resaltado, los siguientes apagados y con candado. */
+.ob-pasos{list-style:none;margin:0 0 var(--sp-5);padding:0;display:flex;flex-direction:column;gap:6px;}
+.ob-paso-item{display:flex;align-items:flex-start;gap:var(--sp-3);padding:var(--sp-2) var(--sp-3);
+  border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--fs-meta);
+  background:var(--surface);}
+.ob-paso-n{flex:0 0 22px;height:22px;border-radius:50%;display:grid;place-items:center;
+  font-size:12px;font-weight:800;background:var(--surface-2);color:var(--text-dim);}
+.ob-paso-t{flex:1;min-width:0;line-height:1.35;}
+.ob-bloq{display:block;font-size:var(--fs-micro);color:var(--text-faint);}
+.ob-paso-item.hecho{background:var(--success-soft);border-color:transparent;}
+.ob-paso-item.hecho .ob-paso-n{background:var(--success);color:#fff;}
+.ob-paso-item.actual{border-color:var(--accent);background:var(--accent-soft);font-weight:700;}
+.ob-paso-item.actual .ob-paso-n{background:var(--accent);color:#fff;}
+.ob-paso-item.bloqueado{opacity:.62;}
+
+/* Un solo paso a la vez. */
+.ob-paso{border-top:1px solid var(--border);padding-top:var(--sp-5);}
+.ob-titulo{margin:0 0 var(--sp-2);font-size:20px;line-height:1.25;font-weight:800;color:var(--ink);}
+.ob-texto{margin:0 0 var(--sp-4);font-size:var(--fs-body);line-height:1.55;color:var(--text);}
+.ob-meta{font-size:var(--fs-meta);color:var(--text-dim);margin-bottom:var(--sp-3);}
+.ob-sec-prog{font-size:var(--fs-meta);font-weight:700;color:var(--accent);margin:var(--sp-3) 0 var(--sp-4);}
+.ob-ayuda{font-size:var(--fs-meta);color:var(--text-dim);margin:-2px 0 var(--sp-2);}
+.ob-error{margin:var(--sp-3) 0;}
+
+/* Video 16:9 */
+.ob-video{position:relative;width:100%;aspect-ratio:16/9;border-radius:var(--radius);overflow:hidden;
+  background:#000;margin-bottom:var(--sp-3);}
+.ob-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+.ob-tiempo{font-size:var(--fs-meta);font-weight:600;color:var(--text);margin:var(--sp-2) 0 var(--sp-2);
+  min-height:20px;}
+#ob-barra-i{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;
+  transition:width .9s linear;}
+.ob-paso .ob-barra{margin-bottom:var(--sp-4);}
+.ob-paso .pub-enviar:disabled{opacity:.55;cursor:not-allowed;}
+
+/* Escala 1 a 10: dos filas de cinco, se toca con el pulgar. */
+.ob-escala{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+
+/* Navegación entre secciones */
+.ob-nav{display:flex;justify-content:space-between;align-items:center;gap:var(--sp-3);margin-top:var(--sp-5);}
+.ob-nav .btn{min-height:48px;min-width:120px;justify-content:center;font-size:var(--fs-card);}
+
+/* Accesos */
+.ob-accesos{display:flex;flex-direction:column;gap:var(--sp-3);}
+.ob-acceso{border:1px solid var(--border);border-radius:var(--radius);padding:var(--sp-4);background:var(--surface);}
+.ob-acceso.hecho{background:var(--success-soft);border-color:transparent;}
+.ob-acceso-t{font-weight:700;color:var(--ink);margin-bottom:var(--sp-3);line-height:1.35;}
+.ob-acceso-acc{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;}
+.ob-acceso-acc .btn{min-height:44px;justify-content:center;}
+.ob-ok{color:var(--success);font-weight:800;}
+.ob-hecho-txt{font-weight:700;color:var(--success);font-size:var(--fs-meta);}
+
+@media(max-width:520px){
+  .ob-card{padding:var(--sp-4);}
+  .ob-titulo{font-size:18px;}
+  .ob-acceso-acc .btn{flex:1 1 100%;}
+}
+
+/* =====================================================================
+   Bloque "Onboarding" de la ficha (staff)
+   ===================================================================== */
+.onb-bloque .onb-estado{display:flex;gap:var(--sp-3);align-items:center;flex-wrap:wrap;margin-bottom:var(--sp-3);}
+.onb-bloque .onb-linkbox{display:flex;gap:var(--sp-2);flex-wrap:wrap;margin:var(--sp-3) 0;}
+.onb-bloque .onb-linkbox input{flex:1;min-width:220px;background:var(--surface-2);border:1px solid transparent;
+  border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-3);font-family:var(--font-mono);font-size:var(--fs-meta);}
+.onb-ok{color:var(--success);font-weight:700;}
+button.hoy-toast-link{background:none;border:0;cursor:pointer;font:inherit;padding:0;}
+.onb-pasos{list-style:none;margin:var(--sp-3) 0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.onb-pasos li{display:flex;gap:var(--sp-2);align-items:baseline;font-size:var(--fs-meta);}
+.onb-pasos .ok{color:var(--success);font-weight:800;}
+.onb-pasos .pend{color:var(--text-faint);}
+.onb-dif{border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--sp-3);margin:var(--sp-2) 0;
+  background:color-mix(in srgb, var(--sem-amarillo) 10%, white);}
+.onb-dif-acc{display:flex;gap:var(--sp-2);margin-top:var(--sp-2);flex-wrap:wrap;}
+.onb-resp{margin-top:var(--sp-3);}
+.onb-resp summary{cursor:pointer;font-weight:700;padding:var(--sp-2) 0;}
+.onb-resp dl{margin:var(--sp-2) 0 var(--sp-3);}
+.onb-resp dt{font-size:var(--fs-meta);color:var(--text-dim);margin-top:var(--sp-2);}
+.onb-resp dd{margin:2px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;}
+.onb-resp .sec{font-size:var(--fs-micro);font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--text-faint);margin-top:var(--sp-4);}

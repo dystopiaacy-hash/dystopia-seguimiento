@@ -13,6 +13,7 @@ import { registrarAviso } from '../ciclo.js';
 import { tarjetaError } from './programa.js';
 import { abrirPanelContacto, hayPanelContacto } from './hoy-contacto.js';
 import { montarAltas } from './hoy-altas.js';
+import { montarOnboarding } from './hoy-onboarding.js';
 
 const GRUPOS = [['atrasado', 'Atrasado'], ['hoy', 'Hoy'], ['proximo', 'Próximos']];
 const TIPO_LABEL = {
@@ -79,8 +80,9 @@ function cabecera(todas, filtro, nAltas) {
 }
 
 export function vistaHoy(el, programaId, vigente) {
-  /* Dos contenedores: las altas (hoy-altas.js) arriba y la cola abajo, que se repinta entera. */
-  el.innerHTML = '<div></div><div><div class="loading-inline">Cargando…</div></div>';
+  /* Tres contenedores: las altas (hoy-altas.js) y el onboarding (hoy-onboarding.js)
+     arriba y la cola abajo, que se repinta entera. */
+  el.innerHTML = '<div></div><div></div><div><div class="loading-inline">Cargando…</div></div>';
   const cuerpo = el.lastElementChild;
   let cola = [], cargada = false;
   let filtro = '', sel = null, pedido = 0;
@@ -95,7 +97,7 @@ export function vistaHoy(el, programaId, vigente) {
     const todas = pendientes();
     if (filtro && !todas.some(t => t.tipo === filtro)) filtro = '';
     if (!todas.length) {
-      cuerpo.innerHTML = altas.cantidad() ? ''
+      cuerpo.innerHTML = altas.cantidad() || onboarding.cantidad() ? ''
         : '<div class="card empty-state"><div class="big">Nada pendiente para hoy</div></div>';
       return;
     }
@@ -196,6 +198,8 @@ export function vistaHoy(el, programaId, vigente) {
     if (recargarCola) cargar().catch(e => console.error('hoy', e));
   });
 
+  const onboarding = montarOnboarding(el.children[1], programaId, vigente, pintar);
+
   el.addEventListener('click', ev => {
     const chip = ev.target.closest('[data-tipo]');
     if (chip) { filtro = chip.dataset.tipo; pintar(); return; }
@@ -238,5 +242,5 @@ export function vistaHoy(el, programaId, vigente) {
       ? 'Falta correr la migración 069 (cola de hoy).' : mensajeError(e);
     cuerpo.innerHTML = tarjetaError('No se pudo cargar la cola de hoy', falta);
   });
-  return { refrescar: () => { altas.cargar(); return cargar().catch(e => console.error('hoy', e)); } };
+  return { refrescar: () => { altas.cargar(); onboarding.cargar(); return cargar().catch(e => console.error('hoy', e)); } };
 }

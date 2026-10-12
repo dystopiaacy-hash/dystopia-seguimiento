@@ -23,6 +23,7 @@ import { traerColumnasMaestro, guardarColumna, errorColumnas } from '../datos-co
 import { columnas, manejarCambio, manejarTecla } from './maestro-celdas.js';
 import { manejarClick, limpiarConfirmaciones } from './maestro-ciclo.js';
 import { armarColumnas } from './maestro-columnas.js';
+import { sumarAvanceOnboarding, columnaOnboarding } from './maestro-onboarding.js';
 import { manejarIr } from './maestro-acciones.js';
 import { abrirPanelColumnas } from './maestro-panel.js';
 
@@ -135,12 +136,15 @@ export function vistaMaestro(el, programaId, vigente) {
   /* Columnas (071). config null = sin 071. armado = { visibles, todas, archivadas }. */
   let productos = [], config = null, armado = { visibles: [], todas: [], archivadas: [] };
   let panel = null, renombrando = '', timerOrden = null;
+  let hayOnboarding = false;   // 093: algún alumno del programa tiene onboarding
   limpiarConfirmaciones();
 
   const puedeConfigurar = () => config !== null && esFundador();
 
   function armar() {
-    armado = armarColumnas(columnas(prog, productos), config);
+    const base = columnas(prog, productos);
+    if (hayOnboarding) base.push(columnaOnboarding());
+    armado = armarColumnas(base, config);
     cols = armado.visibles;
   }
 
@@ -298,6 +302,8 @@ export function vistaMaestro(el, programaId, vigente) {
     if (!p) { el.innerHTML = tarjetaError('Programa no encontrado', 'No existe o no tenés acceso.'); return; }
     prog = p;
     filas = datos;
+    hayOnboarding = await sumarAvanceOnboarding(programaId, filas);
+    if (!vigente()) return;
     productos = prods;
     config = conf;
     ctx.porId = mapaPorId(filas);

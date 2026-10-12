@@ -15,8 +15,10 @@ import {
   traerFormularios, traerHistorial, mensajeError
 } from '../datos.js';
 import { traerProductos, traerCicloCliente } from '../ciclo.js';
+import { traerOnboardingCliente } from '../datos-onboarding.js';
 import * as cabecera from './ficha-cabecera.js';
 import * as ciclo from './ficha-ciclo.js';
+import * as onboarding from './ficha-onboarding.js';
 import * as seguimientos from './ficha-seguimientos.js';
 import * as accionables from './ficha-accionables.js';
 import * as devoluciones from './ficha-devoluciones.js';
@@ -26,6 +28,7 @@ import * as historial from './ficha-historial.js';
 const BLOQUES = [
   ['cabecera', cabecera],
   ['ciclo', ciclo],
+  ['onboarding', onboarding],
   ['seguimientos', seguimientos],
   ['accionables', accionables],
   ['devoluciones', devoluciones],
@@ -41,7 +44,7 @@ async function cargarDatos(programaCorto, clienteId) {
   ]);
   if (!c) return null;
   const p = completo || programaCorto;
-  const [acc, devs, cls, rens, resp, segs, forms, productos, cicloCli] = await Promise.all([
+  const [acc, devs, cls, rens, resp, segs, forms, productos, cicloCli, onb] = await Promise.all([
     traerAccionablesCliente(c.id),
     traerDevolucionesCliente(c.id),
     traerCallsCliente(c.id),
@@ -50,7 +53,9 @@ async function cargarDatos(programaCorto, clienteId) {
     traerSeguimientosCliente(c.id),
     traerFormularios(p.id),
     traerProductos(p.id),
-    traerCicloCliente(c.id)
+    traerCicloCliente(c.id),
+    /* El onboarding no frena la ficha: sin 093 (o con error) el bloque no se muestra. */
+    traerOnboardingCliente(c.id).catch(e => { console.error('onboarding', e); return undefined; })
   ]);
   /* cs_historial se busca por registro_id: el cliente y todo lo que cuelga de él. */
   const ids = [c.id]
@@ -60,7 +65,8 @@ async function cargarDatos(programaCorto, clienteId) {
   return {
     p, c: { ...c, ...cicloCli }, productos,
     accionables: acc, devoluciones: devs, calls: cls, renovaciones: rens,
-    respuestas: resp, seguimientos: segs, formularios: forms, historial: hist
+    respuestas: resp, seguimientos: segs, formularios: forms, historial: hist,
+    onboarding: onb
   };
 }
 

@@ -25,7 +25,7 @@
 - Discord: solo conteos, nunca nombres de alumnos.
 - Migraciones de Producto en `migraciones/` de este repo. Última de Producto: **071-producto-columnas-maestro.sql** (corrida y verificada).
 - Numeración de migraciones: el número de cada migración lo asigna el jefe. No elijas números por tu cuenta: si necesitás una migración y no te dieron número, frená y pedilo en el resumen.
-- Dato histórico: la numeración es compartida entre las 4 apps. Última usada en todo el sistema al 12/10/2026: **074**.
+- Dato histórico: la numeración es compartida entre las 4 apps. Última usada en todo el sistema al 12/10/2026: **074**. Producto tiene asignada la **093** (onboarding por link, sin correr).
 
 ## Mapa del código
 - `js/views/programa.js`: router de pestañas del programa (`#/p/:programa/<sub>`).
@@ -38,6 +38,73 @@
 - `FASE0-PRODUCTO.md` (relevamiento de planillas) y `PLAN-PRODUCTO.md` (plan por fases): leerlos antes de seguir.
 
 ## Qué hicimos últimamente
+000000000. 12/10/2026, tarea "tres ajustes a la 093 tras probarla con PGlite" (SQL SIN PROBAR por este agente; el jefe vuelve a correr el banco; 093 sigue NO corrida en producción, mismo número):
+   - Privacidad: `cs_ob_armar_estado` ya no devuelve respuestas de formularios ENVIADOS (completo = true o paso con completado_at). Solo el borrador en curso, para retomar. La landing solo usaba
+     `estado.respuestas[p.key]` (onboarding-publico.js:197) para precargar el formulario en curso: no hizo falta tocar el front. Riesgo ACEPTADO: quien tiene el link (el closer siempre) ve el borrador mientras el alumno lo llena.
+   - Contador: `cs_onboarding_link` (fundador/producto, el botón de la ficha) reinicia `escrituras` a 0 en un onboarding no completado, conserva token y avance. El closer no lo reinicia.
+     Cuenta de un recorrido 1 a 1: 1 (bienvenida) + 1 (contacto) + 6 (diagnóstico: 5 borradores + envío) + 1 (perfil) + 1 (hoja de ruta) + 3 (accesos) = 13 de 400. Los latidos de video NO cuentan (cs_ob_latido no toca `escrituras`)
+     y el borrador se guarda solo al tocar "Siguiente", no por reloj. Se deja 400 (~30 veces lo normal).
+   - `select *`: el front nuevo no lee `cs_onboardings` directo (todo va por RPC); no hay `*` ni `select()` vacío. Las funciones `security invoker` (avance, hoy) nombran columnas con permiso. Las `security definer` usan `select *` como dueño (ok).
+   - Closer: alumno finalizado/baja ahora da P0002 `ALUMNO_INACTIVO: ...` con hint `ALUMNO_INACTIVO` (antes ALUMNO_SIN_ALTA). Misma firma. Respuesta OK sin cambios: `{token, estado, vence_at, alumno}`, estado `pendiente|en_curso|completado`.
+   - Anotado sin cambiar: el CHECK de `crm_members.rol` (075 de Marketing) no incluye `closer` en la lista reconstruida: hoy la vía del closer solo la usa el rol `ventas`.
+   - 093b: Q07 17 -> 20 comprobaciones (borrador visible, enviado no vuelve, tope), Q10 7 -> 9 (token del closer no lee enviados; ALUMNO_INACTIVO), Q11 nuevo (reinicio del contador, 4 comprobaciones).
+00000000. 12/10/2026, tarea "arreglar la 093 por segunda vez y revisarla a fondo" (SQL SIN PROBAR: sin Postgres local; revisión por lectura; 093 sigue NO corrida, conserva el número):
+   - Error de la 2ª corrida: `invalid regular expression: invalid repetition count(s)` en `cs_validar_onboarding_pasos`: `[^\s]{4,500}` (máximo 255 en las regex de PostgreSQL).
+     Ahora `~ '^https://[^\s]+$'` + `char_length(url) between 12 and 500`. Revisadas TODAS las regex de 093 y 093b: el resto usa {0,39}, {1,60}, {0,3}, {32}, {64}, {1,40} (bien).
+   - Como las funciones PL/pgSQL no se verifican al crearse, la 093 ya había pasado todas las `create function`: lo que nunca corrió es el SQL de adentro. Se repasó función por función
+     (columnas, tipos, casts, ambigüedad variable/columna, `%` de los `raise`, `case`, delimitadores) y el JSON de las dos plantillas contra el validador a mano. No apareció otro error de ejecución.
+   - Autochequeo al principio (antes de crear nada, sin tablas nuevas): versión de Postgres, tablas, columnas, funciones (cs_puede_*, cs_norm_*, cs_hoy, auth.uid) e índices únicos que usa la 093.
+     Mensajes que empiezan con `cs 093:`. Se sacó el `select` de diagnóstico previo al `begin` (lo cubre Q01).
+   - Validación con motivo: `cs_validar_onboarding_pasos_motivo(jsonb) -> text` (null = válido; si no, "paso 3 (diagnostico), campo x: regla"). `cs_validar_onboarding_pasos(jsonb)` queda como
+     wrapper booleano para el CHECK. Las dos plantillas se cargan desde un DO que las pasa por el motivo y, si falla, `raise exception 'cs 093: la plantilla 1a1 de liam no pasa la validación: <motivo>'`.
+   - Otros arreglos: `cs_onboarding_diferencia_resolver` aplicar `email` con un mail mal formado daba el error crudo del CHECK de cs_clientes: ahora mensaje claro (22023).
+   - Closer, alumno todavía sin alta en Producto: SQLSTATE `P0002`, message `ALUMNO_SIN_ALTA: el alumno todavía no está dado de alta en Producto. Lo da de alta la CSM desde Clientes nuevos.` y `hint = 'ALUMNO_SIN_ALTA'`.
+     En supabase-js: `error.hint === 'ALUMNO_SIN_ALTA'` (o `error.message.startsWith('ALUMNO_SIN_ALTA')`). Firma y respuesta OK de `cs_onboarding_link_closer(p_programa, p_telefono, p_nombre)` sin cambios.
+     Otros errores de esa RPC: 42501 sin permiso, 22023 faltan datos, 23505 más de un alumno coincide.
+   - Decisiones de Joaquín: el botón "Link de onboarding" del closer va en la app de VENTAS, en la llamada cerrada (lo hace otra tarea); el closer NO da altas: si el alumno no está, espera a la CSM.
+   - 093b: Q00 nuevo (qué objetos de la 093 existen, no depende de las tablas nuevas), Q03 +2 filas (funciones del validador), Q10 chequea el error fijo `ALUMNO_SIN_ALTA`.
+   - Dudas que quedan (no resolubles por lectura): (1) `a.attnum = any (i.indkey)` del autochequeo (idioma estándar, 093 línea 140); (2) nombres exactos de producto de liam (si no coinciden queda SIN ASIGNAR, ver Q01);
+     (3) que los closers tengan rol `ventas` o `closer` en crm_members (Q09); (4) un alumno finalizado/baja se ve como "sin alta" para el closer; (5) el SQL de adentro de las funciones recién corre en Q07/Q10.
+   - Controles de la 093b (líneas exactas, comentario inicial a `;`; correr de a una): Q00 14-72 (todo SÍ y RESUMEN "APLICADA COMPLETA"; antes de la 093 "NO APLICADA") · Q01 75-84 (4 productos con onboarding, Gestión de Capital SIN ASIGNAR) ·
+     Q02 87-102 (1a1: 7 pasos, 4 obligatorios, 2 videos opcionales, 38 preguntas; grupal: 4, 2, 1, 22) · Q03 105-162 (ok = true en todas) · Q04 165-176 (4 tablas, rls true, 1 política select) ·
+     Q05 179-189 (5 casillas y onb_avance = true) · Q06 192-202 (0 filas antes de probar) · Q07 205-473 (error "HUMO OK: 17 comprobaciones...") · Q08 476-490 (tras prueba real con alumno "PRUEBA ONBOARDING") ·
+     Q09 493-505 (informativo: closers y clientes asignados) · Q10 508-631 (error "HUMO OK: 7 comprobaciones...").
+0000000. 12/10/2026, tarea "video opcional + grupales unificados" (SQL y navegador SIN PROBAR; 093 sigue NO corrida y conserva el número):
+   - Obligatoriedad como dato del paso: `"obligatorio": false` (por defecto true; solo válido en `video` y `texto`). En Liam, los dos Loom (bienvenida y "Hoja de ruta") de 1a1 y el de bienvenida de grupal quedan opcionales.
+     Para volver a exigir un video: `jsonb_set(pasos, '{0,obligatorio}', 'true')` (utilidad B2 de la 093b). La base exige que un video obligatorio tenga `duracion_seg` o `minimo_seg`.
+   - Un paso opcional se muestra en su lugar con su botón habilitado de entrada, no bloquea a los siguientes (`cs_ob_bloqueado`: solo mira obligatorios pendientes antes) y no cuenta en el avance.
+   - Cuenta: `cs_ob_total` y `cs_ob_hechos` cuentan solo obligatorios. 1a1 = 4 (contacto, diagnóstico, perfil, accesos); grupal = 2 (formulario, accesos). El alumno ve "Paso n de N" con todos los pasos (posición).
+   - El tiempo de video se sigue guardando (latido). `visto_at` = llegó al 90 % de `duracion_seg` (o a `minimo_seg`); un video opcional seguido de largo queda completado pero NO visto, y no marca `x_ob_video`.
+   - Se sacó el mínimo provisorio de 54 s: sin duración conocida no hay mínimo (solo se guardan los segundos, tope 1 h). "Hoja de ruta" no tiene duración: se le sacó la casilla `x_ob_video`
+     (que queda solo con el video de bienvenida, 360 s) hasta que se conozca la duración. Etiqueta de la casilla: "Onboarding: video visto".
+   - Grupal Anual y Grupal 4 meses comparten el producto "BPF Grupal" y la plantilla `grupal`: no se crea producto ni plantilla aparte.
+   - Textos de los videos: ya no dicen "tenés que verlo"; botón "Continuar". Front: `onboarding-video.js`, `onboarding-publico.js`, `views/ficha-onboarding.js`.
+   - 093b: Q02 (4 y 2 obligatorios, + columna de videos opcionales), Q03 (+ cs_ob_bloqueado), Q07 (alumno A ve el video, alumno B lo saltea; avance 4 de 4), utilidades B y B2.
+000000. 12/10/2026, tarea "arreglar la 093 + permiso del closer" (SQL SIN PROBAR: sin Postgres local ni acceso a Supabase; 093 sigue NO corrida):
+   - La 093 falló al correrse (nada se aplicó): `if char_length(v_txt) > case when ... then ... end then` en `cs_ob_limpiar`. Ahora el límite va en una variable (`v_lim`).
+     Revisada entera: no quedan `case` dentro de condiciones de `if`/`elsif`/`while`/`exit when` en 093 ni 093b; el `case` de `cs_ob_contacto` es sentencia PL/pgSQL pura.
+   - Agregado a la 093: requisito de `crm_members`/`crm_asignaciones` (y sus columnas) y `lock table cs_programas, cs_productos, cs_clientes in share row exclusive mode`
+     antes de crear las tablas con FK (regla del deadlock).
+   - Permiso del closer: `cs_ob_generar_link(uuid)` (interna, sin chequeo), `cs_onboarding_link(uuid)` (misma firma, ahora chequea cs_puede_editar y la llama) y
+     `cs_onboarding_link_closer(p_programa, p_telefono, p_nombre)`: rol `ventas` o `closer` con el programa en `crm_asignaciones`; encuentra al alumno por últimos 8 dígitos del
+     teléfono o nombre normalizado (regla de la 070); una sola coincidencia o error; NO crea al alumno; devuelve token, estado, vence_at y primer nombre.
+     No da lectura de respuestas, ni del programa, ni del Maestro. No hay front en este repo ni se tocó Ventas.
+   - 093b: Q03 suma 4 filas del closer; Q09 (quién puede generar el link, informativo) y Q10 (humo del closer, se deshace sola). Líneas exactas en el resumen de la tarea.
+   - Ficha: el aviso del modal de contacto ya no dice "ningún dato financiero va a la base" (`views/ficha-cabecera.js`).
+   - Formulario Grupal pregunta 18 (`ultimo_empujon`): sin ayuda; no se inventaron los ejemplos (comentario en el seed).
+00000. 12/10/2026, tarea "Fase 6: onboarding por link, empezando por Liam" (SQL, JS y navegador SIN PROBAR: el agente no pudo ejecutar SQL, node ni el navegador; migración 093 asignada por el jefe, NO corrida):
+   - `migraciones/093-producto-onboarding-link.sql` + `093b-producto-onboarding-control.sql` (controles Q01 a Q08, sueltos; Q07 es una prueba de humo que se deshace sola).
+   - Tablas: `cs_onboarding_plantillas` (pasos como jsonb validado: video, formulario, acceso, texto, final), `cs_onboarding_plantilla_productos` (producto -> plantilla),
+     `cs_onboardings` (uno por alumno: token de 64 hex, avance, diferencias de contacto), `cs_onboarding_respuestas` (sensibles: solo cs_puede_ver).
+     No se reutilizó cs_formularios/cs_respuestas (004): su validador no tiene casillas, escala 1 a 10 ni secciones. Sí: cs_clientes, cs_productos, campos_extra, x_unio_school (079), cs_norm_* (070) y el accionable `formulario_onboarding`.
+   - RPC públicas (anon, por token): `cs_ob_estado`, `cs_ob_latido`, `cs_ob_avanzar`, `cs_ob_confirmar`. De la app: `cs_onboarding_link` (cs_puede_editar), `cs_onboarding_ficha`, `cs_onboarding_diferencia_resolver`, `cs_onboarding_avance`, `cs_onboarding_hoy`.
+     anon no tiene permiso sobre ninguna tabla; el token no es legible por la app (permiso por columna).
+   - Liam cargado: plantilla `1a1` (bienvenida, contacto, diagnóstico de 6 secciones, perfil, hoja de ruta, accesos, final) y `grupal` (bienvenida, formulario de 22 preguntas, Skool, final), asignadas por nombre exacto de producto: BPF 1-1 4/6/12 Meses -> 1a1; BPF Grupal -> grupal. "Gestión de Capital" queda sin onboarding.
+   - Video: tiempo en pantalla medido en el servidor con latidos cada 10 s (90 % de la duración). No prueba que lo haya mirado. (Hoy opcional: ver la entrada de arriba.)
+   - JS nuevo: `onboarding.html`, `js/onboarding-publico.js`, `onboarding-video.js`, `onboarding-formulario.js`, `css/onboarding.css`, `js/datos-onboarding.js`,
+     `views/ficha-onboarding.js` (bloque en la ficha), `views/onboarding-link.js` (botón y copiado), `views/hoy-onboarding.js` (aviso en Hoy), `views/maestro-onboarding.js` (columna "Onboarding").
+     Tocados: `ficha.js`, `hoy.js`, `hoy-altas.js` (botón en el aviso al crear cliente), `maestro.js`, `solo-lectura.js`, `index.html`.
+   - Casillas del Maestro de liam: x_ob_video, x_ob_formularios, x_ob_wpp, x_ob_escribio (+ x_unio_school de la 079). Las marca el alumno al confirmar; la CSM las corrige a mano.
 0000. 12/10/2026, tarea "unificar nav-areas.js": `AREAS` con los roles definidos por el jefe (marketing: fundador, cliente, editor, contenido · ventas: fundador, cliente, closer, setter, ventas, finanzas · producto: fundador, cliente, producto · finanzas: fundador, cliente, closer, setter, finanzas, ventas); cabecera reducida a una línea. Solo cambió `js/nav-areas.js`; sin migración.
    - Pantalla "Sin acceso" de Producto (`sesion.js`/`app.js`): no usa la lista de roles; entra `fundador` o quien tenga fila en `cs_accesos`. Coherente en la práctica (producto/cliente con cs_accesos), pero no es el mismo criterio que `AREAS`.
 000. 12/10/2026, segunda tarea "generar 080 y convivencia de roles" (SQL y navegador SIN PROBAR; el generador sí corrió con `npm run`):
@@ -81,7 +148,7 @@
    - A4: ¿agus sigue vendiendo "1 mes", "45 días" y Skool (sin vencimiento)?
    - A5: mails de los CSM, editores y closers para los accesos.
    - A6: hoja de respuestas del form de onboarding de agus, borrada.
-   - A7: pasos de onboarding antes de dar Discord y Skool.
+   - A7: pasos de onboarding antes de dar Discord y Skool. (Resuelta en la reunión del 07/10 con Nacho: video, formularios y accesos en orden, por link; ver Fase 6.)
    - A8: webhook de Discord.
 2. **Fase 7: teo, agus y lucas** (depende de A1-A5). Por cada cliente:
    - productos (teo 120 d; agus 90/30/45 y Skool sin vencimiento; lucas 90), plantilla de accionables, avisos (teo 21/10, agus 21/7);
@@ -91,7 +158,14 @@
 3. **Fase 2: liam al día y corte.** El CSM siguió cargando en el Sheet después del 29/09.
    Joaquín exporta el CSV a `datos/liam-clientes-<fecha>.csv`, Claude Code genera la importación de diferencias,
    se marca `cs_programas.maestro_cortado_en` y alguien le avisa al CSM. Joaquín pidió NO cortar hasta revisar con la agencia.
-4. **Fase 6: onboarding** con link único por cliente: checklist, encuesta de marketing en formularios de la app (004) y Discord/Skool al completar. Depende de A7.
+4. **Fase 6: onboarding por link.** Hecho para Liam (093, sin correr ni probar). A7 queda respondida: el contenido se define por programa (plantilla) y el link se genera por alumno.
+   Falta: correr 093 y la 093b (Q01 a Q07), probar con un alumno de prueba, confirmar los links transcriptos de capturas, la duración del Loom "Hoja de ruta" (hoy sin duración: opcional, solo guarda segundos y no marca la casilla; ver utilidad B de la 093b),
+   decidir cuándo activar la obligatoriedad de los videos (cambiar el dato `obligatorio`, utilidad B2), Discord de teo/agus, y cargar teo/agus/lucas (solo datos).
+   El closer (`ventas`/`closer`) puede generar el link por `cs_onboarding_link_closer` (en la 093). DECIDIDO: el botón "Link de onboarding" va en la app de Ventas, en la llamada cerrada
+   (lo implementa la app de Ventas); el closer NO da altas: si el alumno no está en Producto, la RPC devuelve `ALUMNO_SIN_ALTA` (P0002) y espera a la CSM ("Clientes nuevos").
+   Falta confirmar que `closer` también carga ventas de sus clientes (si no, sacarlo de la lista de roles de la RPC). Respuestas exportables para Valentín: no hecho.
+   Riesgos aceptados: el que tiene el link ve el borrador en curso; `crm_members.rol` quizá no admita `closer` (075). Q07 ahora da "HUMO OK: 20", Q10 "HUMO OK: 9", Q11 "HUMO OK: 4".
+   La 093 corregida hay que correrla de nuevo ENTERA (3ª vez); después Q00, Q01 a Q07 y Q09/Q10/Q11 (Q10 necesita un usuario ventas/closer asignado a liam). Si falla, el mensaje dice `cs 093:` + paso y regla.
 5. **Fase 4: ficha de un vistazo** (barra de tiempo y línea de contactos). Sin dependencias.
 6. **Fase 8: vista de cobranza** de solo lectura sobre `fin_cuotas` (solo liam tiene datos).
 7. Bajar `resell_gracia_dias` de liam de 200 a 30 cuando se cierren los 19 pipelines abiertos importados.

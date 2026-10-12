@@ -193,7 +193,7 @@ function modalDatos(ctx, api) {
         <div class="form-row"><label for="d-tel">Teléfono</label>
           <input type="tel" id="d-tel" maxlength="40" value="${esc(c.telefono || '')}" autocomplete="off"></div>
       </div>
-      <div class="hint">Solo nombre, email y teléfono: ningún dato financiero del cliente va a la base.</div>
+      <div class="hint">Acá solo nombre, email y teléfono. Las respuestas del onboarding (incluido el diagnóstico financiero) se guardan en la base y las ven solo fundador, Producto y el mentor.</div>
       <div id="d-error" class="login-error"></div>`,
     pie: `<button type="button" class="btn" data-cerrar="1">Cancelar</button>
           <button type="button" class="btn btn-accent" id="d-ok">Guardar</button>`

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="robots" content="noindex, nofollow">
+<!-- El token va en la URL: ningún link de salida (Loom, Skool, WhatsApp) tiene que recibirlo. -->
+<meta name="referrer" content="no-referrer">
+<title>Tu onboarding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Mobile first: las mismas tres hojas que form.html + la propia del onboarding. -->
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/componentes.css">
+<link rel="stylesheet" href="/css/formularios.css">
+<link rel="stylesheet" href="/css/onboarding.css">
+</head>
+<body>
+<div class="public-wrap">
+  <div class="card public-card ob-card" id="ob-root">
+    <div class="empty-state"><div class="small">Cargando…</div></div>
+  </div>
+</div>
+
+<!-- Misma versión fijada que la app. La página solo llama las cuatro RPC cs_ob_* de la 093. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
+<script type="module" src="/js/onboarding-publico.js"></script>
+</body>
+</html>

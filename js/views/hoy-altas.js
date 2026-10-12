@@ -7,6 +7,7 @@ import { esc, fmtFecha, toast } from '../ui.js';
 import { mensajeError } from '../datos.js';
 import { traerAltasPendientes, crearClienteDesdePago, descartarAlta } from '../datos-hoy.js';
 import { traerProductos, opcionesProducto } from '../ciclo.js';
+import { generarYCopiar } from './onboarding-link.js';
 
 const ESTADOS = [['onboarding', 'Onboarding'], ['activo', 'Activo']];
 
@@ -39,8 +40,19 @@ function toastFicha(programaId, clienteId, nombre) {
   a.textContent = 'Abrir ficha';
   a.addEventListener('click', () => t.remove());
   t.append(a);
+  /* Fase 6: el link de onboarding se genera y se copia desde acá mismo. */
+  const l = document.createElement('button');
+  l.type = 'button';
+  l.className = 'hoy-toast-link';
+  l.textContent = 'Link de onboarding';
+  l.addEventListener('click', async () => {
+    l.disabled = true;
+    t.remove();
+    await generarYCopiar(clienteId, nombre);
+  });
+  t.append(l);
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 6000);
+  setTimeout(() => t.remove(), 10000);
 }
 
 function tarjeta(a, f, opciones, ocupada) {
