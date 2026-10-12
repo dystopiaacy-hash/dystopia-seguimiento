@@ -1,0 +1,9 @@
+{
+  "name": "dystopia-seguimiento",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "liam:inspeccionar": "node scripts/generar-importacion-liam.mjs --inspeccionar",
+    "liam:generar": "node scripts/generar-importacion-liam.mjs"
+  }
+}

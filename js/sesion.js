@@ -1,9 +1,10 @@
-/* Usuario actual: rol (de crm_members, igual que Dystopia) y programas visibles.
-   La RLS de cs_programas (cs_puede_ver) ya recorta: fundador ve los 5, un 'cliente'
-   solo los asignados, un editor ninguno. */
+/* Usuario actual: rol (de crm_members, igual que Dystopia), programas visibles y nivel.
+   El acceso a Producto lo da 079: fundador (crm_members) ve y edita todo; el resto
+   entra por cs_accesos, por programa, con nivel 'lectura' o 'edicion'. La RLS de
+   cs_programas (cs_puede_ver) ya recorta los programas visibles. */
 import { sb } from './supabase.js';
 
-export const yo = { userId: null, email: '', rol: null, nombre: '', programas: [] };
+export const yo = { userId: null, email: '', rol: null, nombre: '', programas: [], niveles: {} };
 
 /* Mismo orden que las cuentas en Dystopia; activos primero. */
 const ORDEN = ['liam', 'agus', 'teo', 'mauro', 'lucas'];
@@ -30,13 +31,24 @@ export async function cargarSesion(user) {
   if (error) throw error;
   yo.rol = mem ? mem.rol : null;
   yo.nombre = (mem && mem.nombre) || yo.email;
-  if (yo.rol !== 'fundador' && yo.rol !== 'cliente') { yo.programas = []; return false; }
+  yo.niveles = {};
   await cargarProgramas();
+  if (yo.rol !== 'fundador') {
+    const { data: acc, error: errAcc } = await sb.from('cs_accesos').select('programa_id,nivel');
+    if (errAcc) throw errAcc;
+    for (const a of acc || []) yo.niveles[a.programa_id] = a.nivel;
+  }
   return yo.rol === 'fundador' || yo.programas.length > 0;
 }
 
 export function esFundador() {
   return yo.rol === 'fundador';
+}
+
+/* Sin ningún programa en 'edicion' (y sin ser fundador): la app es de solo lectura.
+   La base lo impone igual (cs_puede_editar); esto evita mostrar controles que fallarían. */
+export function soloLectura() {
+  return yo.rol !== 'fundador' && !Object.values(yo.niveles).includes('edicion');
 }
 
 export function programa(id) {
@@ -50,5 +62,6 @@ export function rutaInicio() {
 }
 
 export function etiquetaRol() {
-  return { fundador: 'Fundador', cliente: 'Cliente', editor: 'Editor' }[yo.rol] || '';
+  if (yo.rol === 'fundador') return 'Fundador';
+  return soloLectura() ? 'Solo lectura' : 'Edición';
 }

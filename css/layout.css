@@ -64,3 +64,9 @@
 .subhead{font-weight:700;font-size:var(--fs-micro);letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:var(--sp-5) 0 var(--sp-2);}
 .subhead:first-child{margin-top:0;}
 
+/* Usuario de solo lectura (js/solo-lectura.js): los controles de carga se ven apagados.
+   La escritura ya está bloqueada en el cliente y en la base. */
+body.solo-lectura .m-edit,
+body.solo-lectura [data-campo],
+body.solo-lectura [data-accion]{opacity:.65;cursor:not-allowed;}
+

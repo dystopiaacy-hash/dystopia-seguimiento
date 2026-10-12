@@ -6,6 +6,7 @@ import { esc } from './ui.js';
 import { ruta, rutaNoEncontrada, iniciarRouter, reemplazar, resolver } from './router.js';
 import { limpiar, suscribir, onChange } from './state.js';
 import { yo, cargarSesion, cargarProgramas, esFundador, programa, rutaInicio } from './sesion.js';
+import { activarSoloLectura } from './solo-lectura.js';
 import { renderLayout, renderNav, setHeader, setLive } from './layout.js';
 import { vistaPanel } from './views/panel.js';
 import { vistaPrograma } from './views/programa.js';
@@ -213,6 +214,7 @@ async function iniciarApp() {
     return;
   }
 
+  activarSoloLectura();
   renderLayout(app, salir);
   window.montarNavAreas(document.getElementById('nav-areas'), yo.rol);
   registrarRutas();

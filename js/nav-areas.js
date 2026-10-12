@@ -1,6 +1,4 @@
-/* nav-areas — barra común de las 4 áreas de Dystopia.
-   ESTE ARCHIVO ES IDÉNTICO EN LOS 4 REPOS (crm, ventas, seguimiento, finanzas).
-   No editarlo en un solo repo: si cambia, se copia igual a los cuatro.
+/* Menú entre apps Dystopia. Idéntico en los 4 repos. Roles por área definidos por el jefe el 2026-10-12.
 
    Lo único que cambia por repo es la constante AREA_ACTUAL, declarada FUERA
    de este archivo y antes de cargarlo:
@@ -15,13 +13,12 @@
 (function () {
   'use strict';
 
-  /* Orden fijo: Marketing | Ventas | Producto | Finanzas.
-     roles = roles de crm_members que ven la pestaña. */
+  /* Orden fijo: Marketing | Ventas | Producto | Finanzas. */
   var AREAS = [
-    { id: 'marketing', label: 'Marketing', url: 'https://dystopia-crm.vercel.app',         roles: ['fundador', 'cliente', 'editor'] },
-    { id: 'ventas',    label: 'Ventas',    url: 'https://dystopia-ventas.vercel.app',      roles: ['fundador', 'cliente', 'closer', 'setter'] },
-    { id: 'producto',  label: 'Producto',  url: 'https://dystopia-seguimiento.vercel.app', roles: ['fundador', 'cliente'] },
-    { id: 'finanzas',  label: 'Finanzas',  url: 'https://dystopia-finanzas.vercel.app',    roles: ['fundador', 'cliente', 'closer', 'setter'] }
+    { id: 'marketing', label: 'Marketing', url: 'https://dystopia-crm.vercel.app',         roles: ['fundador', 'cliente', 'editor', 'contenido'] },
+    { id: 'ventas',    label: 'Ventas',    url: 'https://dystopia-ventas.vercel.app',      roles: ['fundador', 'cliente', 'closer', 'setter', 'ventas', 'finanzas'] },
+    { id: 'producto',  label: 'Producto',  url: 'https://dystopia-seguimiento.vercel.app', roles: ['fundador', 'cliente', 'producto'] },
+    { id: 'finanzas',  label: 'Finanzas',  url: 'https://dystopia-finanzas.vercel.app',    roles: ['fundador', 'cliente', 'closer', 'setter', 'finanzas', 'ventas'] }
   ];
 
   function esc(s) {
