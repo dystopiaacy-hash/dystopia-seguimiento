@@ -24,6 +24,7 @@ import { columnas, manejarCambio, manejarTecla } from './maestro-celdas.js';
 import { manejarClick, limpiarConfirmaciones } from './maestro-ciclo.js';
 import { armarColumnas } from './maestro-columnas.js';
 import { sumarAvanceOnboarding, columnaOnboarding } from './maestro-onboarding.js';
+import { sumarUltimaLlamada, columnaUltimaLlamada, celdaUltimaLlamadaMaestro } from './llamada-semaforo.js';
 import { manejarIr } from './maestro-acciones.js';
 import { abrirPanelColumnas } from './maestro-panel.js';
 import { crearSeleccion } from './seleccion-masiva.js';
@@ -138,6 +139,7 @@ export function vistaMaestro(el, programaId, vigente) {
   let productos = [], config = null, armado = { visibles: [], todas: [], archivadas: [] };
   let panel = null, renombrando = '', timerOrden = null;
   let hayOnboarding = false;   // 093: algún alumno del programa tiene onboarding
+  let hayLlamadas = false;     // 102: existe cs_v_ultima_llamada (columna "Última llamada")
   limpiarConfirmaciones();
   /* Selección y edición masiva (solo quien edita este programa). Se pierde al salir de la vista. */
   const sel = crearSeleccion({
@@ -150,6 +152,7 @@ export function vistaMaestro(el, programaId, vigente) {
   function armar() {
     const base = columnas(prog, productos);
     if (hayOnboarding) base.push(columnaOnboarding());
+    if (hayLlamadas) base.push(columnaUltimaLlamada('m-calc', celdaUltimaLlamadaMaestro));
     armado = armarColumnas(base, config);
     cols = armado.visibles;
   }
@@ -315,6 +318,7 @@ export function vistaMaestro(el, programaId, vigente) {
     filas = datos;
     sel.alRecargar(filas);
     hayOnboarding = await sumarAvanceOnboarding(programaId, filas);
+    hayLlamadas = await sumarUltimaLlamada(programaId, filas);
     if (!vigente()) return;
     productos = prods;
     config = conf;

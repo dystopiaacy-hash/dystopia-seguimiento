@@ -11,6 +11,7 @@ import {
 } from '../datos.js';
 import { abrirModalNuevoCliente } from './cliente-nuevo.js';
 import { crearSeleccion } from './seleccion-masiva.js';
+import { sumarUltimaLlamada, columnaUltimaLlamada } from './llamada-semaforo.js';
 
 const n = v => Number(v) || 0;
 const SEM_ORDEN = { rojo: 0, amarillo: 1, verde: 2, gris: 3 };
@@ -263,10 +264,13 @@ export function vistaClientes(el, programaId, vigente) {
     const [prog, filas] = await Promise.all([traerPrograma(programaId), traerClientes(programaId)]);
     if (!vigente()) return;
     if (!prog) { el.innerHTML = tarjetaError('Programa no encontrado', 'No existe o no tenés acceso.'); return; }
+    const hayLlamadas = await sumarUltimaLlamada(programaId, filas);   // 102: sin la migración no hay columna
+    if (!vigente()) return;
     p = prog;
     clientes = filas;
     sel.alRecargar(filas);
     cols = columnas(p);
+    if (hayLlamadas) cols.push(columnaUltimaLlamada('col-chq'));
     pintarTodo();
   }
 

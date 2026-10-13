@@ -16,11 +16,14 @@ import {
 } from '../datos.js';
 import { traerProductos, traerCicloCliente } from '../ciclo.js';
 import { traerOnboardingCliente } from '../datos-onboarding.js';
+import { traerLlamadasCliente } from '../datos-llamadas.js';
 import * as cabecera from './ficha-cabecera.js';
 import * as ciclo from './ficha-ciclo.js';
 import * as onboarding from './ficha-onboarding.js';
 import * as seguimientos from './ficha-seguimientos.js';
 import * as accionables from './ficha-accionables.js';
+import * as llamadas from './ficha-llamadas.js';
+import * as recursos from './ficha-recursos.js';
 import * as devoluciones from './ficha-devoluciones.js';
 import * as calls from './ficha-calls.js';
 import * as historial from './ficha-historial.js';
@@ -31,6 +34,8 @@ const BLOQUES = [
   ['onboarding', onboarding],
   ['seguimientos', seguimientos],
   ['accionables', accionables],
+  ['llamadas', llamadas],
+  ['recursos', recursos],
   ['devoluciones', devoluciones],
   ['calls', calls],
   ['historial', historial]
@@ -44,7 +49,7 @@ async function cargarDatos(programaCorto, clienteId) {
   ]);
   if (!c) return null;
   const p = completo || programaCorto;
-  const [acc, devs, cls, rens, resp, segs, forms, productos, cicloCli, onb] = await Promise.all([
+  const [acc, devs, cls, rens, resp, segs, forms, productos, cicloCli, onb, llam] = await Promise.all([
     traerAccionablesCliente(c.id),
     traerDevolucionesCliente(c.id),
     traerCallsCliente(c.id),
@@ -55,7 +60,9 @@ async function cargarDatos(programaCorto, clienteId) {
     traerProductos(p.id),
     traerCicloCliente(c.id),
     /* El onboarding no frena la ficha: sin 093 (o con error) el bloque no se muestra. */
-    traerOnboardingCliente(c.id).catch(e => { console.error('onboarding', e); return undefined; })
+    traerOnboardingCliente(c.id).catch(e => { console.error('onboarding', e); return undefined; }),
+    /* Igual con las llamadas (102): sin la migración (o con error) no se muestran sus bloques. */
+    traerLlamadasCliente(c.id).catch(e => { console.error('llamadas', e); return undefined; })
   ]);
   /* cs_historial se busca por registro_id: el cliente y todo lo que cuelga de él. */
   const ids = [c.id]
@@ -66,7 +73,7 @@ async function cargarDatos(programaCorto, clienteId) {
     p, c: { ...c, ...cicloCli }, productos,
     accionables: acc, devoluciones: devs, calls: cls, renovaciones: rens,
     respuestas: resp, seguimientos: segs, formularios: forms, historial: hist,
-    onboarding: onb
+    onboarding: onb, llamadas: llam
   };
 }
 
@@ -91,7 +98,10 @@ export function vistaFicha(el, p, clienteId, vigente) {
     }
     for (const [id, mod] of BLOQUES) {
       const cont = el.querySelector('#b-' + id);
-      if (cont) cont.innerHTML = mod.html(ctx);
+      if (cont) {
+        cont.innerHTML = mod.html(ctx);
+        if (mod.montar) mod.montar(cont, ctx);   // listeners propios del bloque (una vez por contenedor)
+      }
     }
   }
 

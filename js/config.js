@@ -12,3 +12,10 @@ export const TZ = 'America/Argentina/Buenos_Aires';
    dominio, o con poner acá 'https://producto.dystopia.com.ar' (sin barra final).
    La app de Ventas arma el link con su propia base: la 096 le devuelve el path. */
 export const ONBOARDING_BASE_URL = 'https://producto.dystopia.com.ar';
+
+/* Semáforo de "Última llamada" (102): días desde la última llamada con el alumno.
+   Verde hasta AMARILLO_DESDE - 1, amarillo de AMARILLO_DESDE a ROJO_DESDE - 1, rojo desde ROJO_DESDE.
+   Único lugar donde se definen: Clientes, Maestro y Hoy leen estos dos números.
+   Pendiente de decisión de Joaquín: 15 / 21 (los de Evolve) o 7 / 10. */
+export const LLAMADA_AMARILLO_DESDE = 15;
+export const LLAMADA_ROJO_DESDE = 21;

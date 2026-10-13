@@ -1,0 +1,67 @@
+/* Llamadas, accionables por llamada y recursos (102). Ficha del alumno y semáforo de última llamada. */
+
+/* ---------- Semáforo de última llamada (Clientes, Maestro, Hoy) ---------- */
+.ll-sem{display:inline-flex;align-items:center;gap:var(--sp-2);white-space:nowrap;}
+
+/* ---------- Accionables por llamada ---------- */
+.ll-card{display:flex;flex-direction:column;gap:var(--sp-4);}
+.ll-avance{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap;}
+.ll-avance-n{font-weight:800;font-size:var(--fs-card);color:var(--ink);font-variant-numeric:tabular-nums;}
+.ll-avance-pct{font-size:var(--fs-meta);font-weight:700;color:var(--text-dim);min-width:3ch;}
+.ll-barra{flex:1;min-width:120px;height:8px;border-radius:999px;background:var(--surface-2);overflow:hidden;}
+.ll-barra-fill{display:block;height:100%;background:var(--accent);border-radius:999px;}
+
+.ll-grupo{display:flex;flex-direction:column;gap:var(--sp-2);padding-top:var(--sp-3);border-top:1px solid var(--border-soft);}
+.ll-grupo:first-of-type{border-top:none;padding-top:0;}
+.ll-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2);flex-wrap:wrap;}
+.ll-head-tit{display:flex;align-items:baseline;gap:var(--sp-2);flex-wrap:wrap;}
+.ll-fecha{font-weight:800;color:var(--ink);}
+.ll-titulo{color:var(--text-dim);font-weight:600;}
+.ll-cuenta{font-size:var(--fs-micro);font-weight:700;color:var(--text-faint);}
+.ll-vacio{padding:var(--sp-1) 0;}
+
+.ll-item{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-2);flex-wrap:wrap;
+  padding:var(--sp-2) 0;border-bottom:1px solid var(--border-soft);}
+.ll-item:last-child{border-bottom:none;}
+.ll-sub{margin-left:var(--sp-5);}
+.ll-contexto .acc-titulo{color:var(--text-faint);}
+.ll-item-acc{display:inline-flex;gap:var(--sp-1);flex-wrap:wrap;}
+
+.ll-alta{display:flex;gap:var(--sp-2);align-items:flex-start;flex-wrap:wrap;}
+.ll-alta textarea{flex:1;min-width:180px;min-height:var(--control-h);resize:vertical;background:var(--surface-2);
+  border:1px solid transparent;border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-3);color:var(--ink);
+  font:inherit;font-size:var(--fs-meta);}
+.ll-alta textarea:focus{background:var(--surface);border-color:var(--accent-line);outline:none;}
+
+.ll-hechos{border-top:1px solid var(--border-soft);}
+.ll-hecha{border-bottom:1px solid var(--border-soft);}
+.ll-hecha:last-child{border-bottom:none;}
+.ll-hecha .ll-item{border-bottom:none;padding-bottom:0;}
+.ll-meta{margin:0 0 var(--sp-2) 24px;font-size:var(--fs-micro);color:var(--text-faint);}
+.ll-nunca summary{cursor:pointer;font-size:var(--fs-meta);font-weight:700;color:var(--text-dim);padding:var(--sp-2) 0;}
+
+/* ---------- Recursos ---------- */
+.rec-card{display:flex;flex-direction:column;gap:var(--sp-3);}
+.rec-buscar input{width:100%;max-width:360px;background:var(--surface-2);border:1px solid transparent;
+  border-radius:var(--radius-sm);min-height:var(--control-h);padding:0 var(--sp-3);color:var(--ink);}
+.rec-buscar input:focus{background:var(--surface);border-color:var(--accent-line);outline:none;}
+.rec-grupo{display:flex;flex-direction:column;}
+.rec-tipo{font-size:var(--fs-meta);font-weight:800;color:var(--text-dim);text-transform:uppercase;
+  letter-spacing:.04em;padding:var(--sp-2) 0;border-bottom:1px solid var(--border-soft);}
+.rec-tipo-n{font-weight:700;color:var(--text-faint);}
+.rec-fila{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);flex-wrap:wrap;
+  padding:var(--sp-2) 0;border-bottom:1px solid var(--border-soft);}
+.rec-fila:last-child{border-bottom:none;}
+.rec-main{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.rec-link{font-weight:700;overflow-wrap:anywhere;}
+.rec-meta{font-size:var(--fs-micro);color:var(--text-faint);overflow-wrap:anywhere;}
+.rec-alta{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;border-top:1px solid var(--border-soft);padding-top:var(--sp-3);}
+.rec-alta input,.rec-alta select{background:var(--surface-2);border:1px solid transparent;border-radius:var(--radius-sm);
+  min-height:var(--control-h);padding:0 var(--sp-3);color:var(--ink);font-size:var(--fs-meta);}
+.rec-alta input[name=titulo]{flex:1;min-width:140px;}
+.rec-alta input[name=url]{flex:2;min-width:180px;}
+.rec-alta input:focus,.rec-alta select:focus{background:var(--surface);border-color:var(--accent-line);outline:none;}
+
+@media (max-width:720px){
+  .ll-sub{margin-left:var(--sp-3);}
+}
