@@ -232,13 +232,14 @@ export function vistaMaestro(el, programaId, vigente) {
   el.addEventListener('change', async ev => {
     if (ev.target.id === 'mx-th-ren') { await renombrar(ev.target.dataset.colRen, ev.target.value); return; }
     const clave = FILTRO_POR_ID[ev.target.id];
-    if (clave) { f[clave] = ev.target.value; pintarTabla(); return; }
+    if (clave) { f[clave] = ev.target.value; sel.alCambiarFiltro(); pintarTabla(); return; }
     await manejarCambio(ev, ctx);
   });
 
   el.addEventListener('input', ev => {
     if (ev.target.id !== 'mx-q') return;
     f.q = ev.target.value;
+    sel.alCambiarFiltro();
     clearTimeout(timerBusqueda);
     timerBusqueda = setTimeout(pintarTabla, 150);
   });
@@ -275,6 +276,7 @@ export function vistaMaestro(el, programaId, vigente) {
     if (manejarIr(ev, ctx)) return;
     if (ev.target.closest('#mx-limpiar')) {
       Object.assign(f, FILTROS_VACIOS);
+      sel.alCambiarFiltro();
       pintarTodo();
       return;
     }

@@ -44,6 +44,7 @@ export function crearSeleccion({ el, programaId, prog, filas, recargar }) {
   let visibles = [];           // ids de lo que muestra la tabla ahora (filtros y búsqueda aplicados)
   let productos = null;        // se piden la primera vez que se elige Producto
   let ocupado = false;
+  let observador = null;       // mide la barra flotante para reservarle lugar abajo
   const est = { campo: '', valor: SIN_ELEGIR, sinResp: false };
 
   const activo = () => puedeEditarPrograma(programaId);
@@ -73,13 +74,11 @@ export function crearSeleccion({ el, programaId, prog, filas, recargar }) {
   function alPintar(filasVisibles) {
     visibles = filasVisibles.map(f => f.id);
     sincronizar();
-    const fuera = el.querySelector('#sel-fuera');
-    if (fuera) fuera.textContent = textoFuera();
   }
 
-  function textoFuera() {
-    const n = [...ids].filter(id => !visibles.includes(id)).length;
-    return n ? ` · ${n} fuera del filtro actual` : '';
+  /* Cambió un filtro o la búsqueda: la selección se vacía, así nunca hay marcados que no se ven. */
+  function alCambiarFiltro() {
+    if (ids.size) limpiar();
   }
 
   /* Datos nuevos: lo que ya no existe sale de la selección. */
@@ -124,10 +123,15 @@ export function crearSeleccion({ el, programaId, prog, filas, recargar }) {
   function pintarBarra() {
     const cont = el.querySelector('#sel-barra');
     if (!cont) return;
-    if (!activo() || !ids.size) { cont.innerHTML = ''; return; }
+    if (!activo() || !ids.size) {
+      cont.innerHTML = '';
+      if (observador) observador.disconnect();
+      el.style.paddingBottom = '';
+      return;
+    }
     cont.innerHTML = `
       <div class="card sel-barra" role="region" aria-label="Edición masiva">
-        <div class="sel-cuenta"><strong>${esc(plural(ids.size, 'seleccionado'))}</strong><span id="sel-fuera" class="hint">${esc(textoFuera())}</span>
+        <div class="sel-cuenta"><strong>${esc(plural(ids.size, 'seleccionado'))}</strong>
           <button type="button" class="btn btn-ghost btn-sm" data-sel-limpiar>Limpiar selección</button></div>
         <div class="sel-accion">
           <label class="flabel" for="sel-campo">Cambiar</label>
@@ -138,6 +142,15 @@ export function crearSeleccion({ el, programaId, prog, filas, recargar }) {
         </div>
       </div>`;
     actualizarBoton();
+    /* La barra es flotante (no empuja la tabla): se deja lugar abajo para no tapar la última fila. */
+    const barra = cont.querySelector('.sel-barra');
+    const reservar = () => { el.style.paddingBottom = (barra.offsetHeight + 32) + 'px'; };
+    reservar();
+    if (typeof ResizeObserver === 'function') {
+      if (!observador) observador = new ResizeObserver(reservar);
+      observador.disconnect();
+      observador.observe(barra);
+    }
   }
 
   /* Devuelve { ok, valor, texto } con lo elegido en la barra. */
@@ -177,7 +190,11 @@ export function crearSeleccion({ el, programaId, prog, filas, recargar }) {
 
   /* ---------- Confirmación y aplicación ---------- */
 
-  const listaNombres = items => `<ul class="sel-lista">${items.map(i => `<li>${esc(i.nombre || '(sin nombre)')}</li>`).join('')}</ul>`;
+  /* Primeros 20 nombres y, si hay más, "y N más". */
+  const TOPE_NOMBRES = 20;
+  const listaNombres = items => `<ul class="sel-lista">${items.slice(0, TOPE_NOMBRES)
+    .map(i => `<li>${esc(i.nombre || '(sin nombre)')}</li>`).join('')}${items.length > TOPE_NOMBRES
+    ? `<li class="sel-mas">y ${items.length - TOPE_NOMBRES} más</li>` : ''}</ul>`;
 
   function resultadoModal(titulo, hechos, fallas, verbo) {
     const cuerpo = `
@@ -392,6 +409,6 @@ export function crearSeleccion({ el, programaId, prog, filas, recargar }) {
 
   return {
     get activo() { return activo(); },
-    thHtml, tdHtml, contenedorHtml, pintarBarra, alPintar, alRecargar
+    thHtml, tdHtml, contenedorHtml, pintarBarra, alPintar, alRecargar, alCambiarFiltro
   };
 }

@@ -39,6 +39,12 @@
 - `FASE0-PRODUCTO.md` (relevamiento de planillas) y `PLAN-PRODUCTO.md` (plan por fases): leerlos antes de seguir.
 
 ## Qué hicimos últimamente
+00000000000000. 13/10/2026, tarea "tres arreglos de seguridad de uso en la selección masiva" (JS y CSS SIN PROBAR en navegador; sin migración, la 098 NO se usó):
+   - Barra flotante: `.sel-barra` pasa a `position:fixed` abajo y centrada (`css/seleccion.css`, z-index 50, ancho `min(960px, 100vw - 32px)`, `max-height:60vh`). Ya no ocupa lugar en el flujo: marcar la primera casilla no mueve la tabla.
+     Para no tapar la última fila, `pintarBarra` mide la barra (ResizeObserver) y le pone `padding-bottom` al contenedor de la vista mientras está visible.
+   - La selección se vacía al cambiar cualquier filtro o la búsqueda, y al "Limpiar filtros": `sel.alCambiarFiltro()` en `clientes.js` y `maestro.js`. Se sacó el texto "fuera del filtro actual" (`textoFuera`, `#sel-fuera`).
+   - Confirmaciones de edición masiva y borrado: `listaNombres` muestra los primeros 20 nombres y "y N más". Se mantiene escribir la cantidad para borrar.
+   - Tocados: `js/views/seleccion-masiva.js`, `clientes.js`, `maestro.js`, `css/seleccion.css`. Cambiar de programa sigue limpiando la selección (no se tocó).
 0000000000000. 13/10/2026, tarea "selección múltiple y edición masiva de clientes" (JS y CSS SIN PROBAR: el agente no pudo correr node ni navegador, `node --check` quedó sin correr; sin migración, la 098 NO se usó):
    - `js/views/seleccion-masiva.js` (nuevo): casilla por fila + casilla de encabezado ("todos los filtrados", respeta filtros y búsqueda) + barra con "N seleccionados", "Limpiar selección", campo, valor, "Aplicar…" y "Borrar seleccionados". Integrado en `clientes.js` y `maestro.js`; CSS en `css/seleccion.css` (link en `index.html`).
    - Permisos: `puedeEditarPrograma(id)` nueva en `sesion.js` (fundador o nivel `edicion` en ESE programa). Sin eso (cliente@, solo lectura) no hay casillas ni barra. "Borrar seleccionados" solo si `esFundador()`.
@@ -175,6 +181,7 @@
 6. Antes de este chat: 036-039, la importación de 133 clientes de liam (040) y 417 accionables marcados como históricos.
 
 ## Pendientes (por prioridad)
+0000. **Selección masiva (arreglos 13/10):** `node --check` de los 3 JS y probar en el navegador: marcar/desmarcar no mueve filas ni encabezado (Clientes y Maestro, también con scroll horizontal), barra legible en pantalla angosta y sin tapar la última fila, cambiar filtro/búsqueda deja 0 seleccionados, confirmaciones con tope de 20 y "y N más". Ojo: el toast (z-index 200, abajo al centro) tapa la barra unos segundos.
 000. **Edición masiva:** correr `node --check` de `seleccion-masiva.js`, `clientes.js`, `maestro.js`, `sesion.js` y probar en el navegador con alumnos DE PRUEBA (nunca reales): marcar varios en Clientes y en Maestro, los 7 campos, recargar y ver que persiste; "todos los filtrados" con filtro y búsqueda; fundador vs `producto@` vs `cliente@`; borrar con la cantidad. Sin commit hasta probar.
 00. Copiar el `js/nav-areas.js` unificado idéntico a Marketing, Ventas y Finanzas (el jefe decide); confirmar si el acceso a Producto debe seguir por `cs_accesos` y no por rol.
 0. **Liam hoy (12/10):** orden: 075 (Finanzas) -> 079 -> 080 simulacro -> 080 con aplicar = 'si' -> probar con cada usuario -> push.

@@ -230,19 +230,21 @@ export function vistaClientes(el, programaId, vigente) {
 
   function conectarFiltros() {
     const on = (id, ev, fn) => { const e = document.getElementById(id); if (e) e.addEventListener(ev, fn); };
-    on('f-estado', 'change', e => { f.estado = e.target.value; pintarTabla(); });
-    on('f-semaforo', 'change', e => { f.semaforo = e.target.value; pintarTabla(); });
-    on('f-responsable', 'change', e => { f.responsable = e.target.value; pintarTabla(); });
-    on('f-etapa', 'change', e => { f.etapa = e.target.value; pintarTabla(); });
-    on('f-onb', 'change', e => { f.onboarding = e.target.value; pintarTabla(); });
-    on('f-vencer', 'change', e => { f.vencer = e.target.checked; pintarTabla(); });
+    on('f-estado', 'change', e => { f.estado = e.target.value; sel.alCambiarFiltro(); pintarTabla(); });
+    on('f-semaforo', 'change', e => { f.semaforo = e.target.value; sel.alCambiarFiltro(); pintarTabla(); });
+    on('f-responsable', 'change', e => { f.responsable = e.target.value; sel.alCambiarFiltro(); pintarTabla(); });
+    on('f-etapa', 'change', e => { f.etapa = e.target.value; sel.alCambiarFiltro(); pintarTabla(); });
+    on('f-onb', 'change', e => { f.onboarding = e.target.value; sel.alCambiarFiltro(); pintarTabla(); });
+    on('f-vencer', 'change', e => { f.vencer = e.target.checked; sel.alCambiarFiltro(); pintarTabla(); });
     on('f-q', 'input', e => {
       f.q = e.target.value;
+      sel.alCambiarFiltro();
       clearTimeout(timerBusqueda);
       timerBusqueda = setTimeout(pintarTabla, 150);
     });
     on('f-limpiar', 'click', () => {
       Object.assign(f, { estado: '', semaforo: '', responsable: '', etapa: '', onboarding: '', vencer: false, q: '' });
+      sel.alCambiarFiltro();
       pintarTodo();
     });
     on('btn-nuevo', 'click', () => abrirModalNuevoCliente(p, () => cargar().catch(e => console.error('clientes', e))));
