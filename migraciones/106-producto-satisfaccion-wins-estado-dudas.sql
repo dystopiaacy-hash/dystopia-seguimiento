@@ -1363,7 +1363,7 @@ commit;
 -- =====================================================================
 -- CONTROLES (correr de a uno, despues de la migracion)
 -- =====================================================================
--- C1. Tablas, RLS y politicas. Esperado: 12 filas, rls = true.
+-- C1. Tablas, RLS y politicas. Esperado: 9 filas, rls = true.
 --     politicas: cs_discord_canales 1, cs_discord_avisos 1, cs_satisf_momentos 4, cs_satisf_envios 2,
 --     cs_llamada_transcripciones 4, cs_dudas 4, cs_duda_menciones 4, cs_wins 4, cs_upsell_marcas 4.
 -- select c.relname, c.relrowsecurity as rls,
@@ -1409,8 +1409,12 @@ commit;
 --        (select count(*) from public.cs_maestro_columnas) as columnas_maestro;
 --
 -- C7. Quien llegaria a un momento hoy (informativo; no crea nada). Reemplazar el programa.
---     Antes de definir momentos devuelve 0 filas: es lo esperado.
+--     Antes de definir momentos devuelve 0 filas: es lo esperado. Correr las 4 lineas juntas: la funcion
+--     exige sesion, asi que se simula al fundador dentro de una transaccion que se deshace.
+-- begin;
+-- select set_config('request.jwt.claim.sub', (select user_id::text from public.crm_members where rol = 'fundador' limit 1), true);
 -- select * from public.cs_satisf_pendientes('liam') limit 20;
+-- rollback;
 --
 -- C8. PRUEBA DE HUMO (se revierte sola: termina en error "HUMO OK"). Necesita un fundador y dos
 --     usuarios no fundadores en auth.users. Crea y borra un programa de prueba. No manda nada a Discord
