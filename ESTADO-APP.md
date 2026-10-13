@@ -32,12 +32,22 @@
 - `js/views/hoy.js` y `hoy-contacto.js`, `hoy-altas.js`: pantalla "Hoy" (cola del CSM), panel de contacto y "Clientes nuevos".
 - `js/views/maestro.js`, `maestro-celdas.js`, `maestro-ciclo.js`: grilla Maestro editable.
 - `js/views/maestro-columnas.js`, `maestro-panel.js`, `maestro-acciones.js`: columnas configurables (071) y clic en calculadas.
+- `js/views/seleccion-masiva.js`: selección múltiple, edición masiva y borrado masivo (Clientes y Maestro).
 - `js/datos.js` (≈485 líneas, al tope), `js/datos-hoy.js`, `js/datos-columnas.js`: acceso a Supabase.
 - `js/views/ficha*.js`: ficha del cliente (cabecera, ciclo, calls, seguimientos, historial).
 - `migraciones/`: 001-004 (esquema, funciones, formularios), 036-039, 068-071.
 - `FASE0-PRODUCTO.md` (relevamiento de planillas) y `PLAN-PRODUCTO.md` (plan por fases): leerlos antes de seguir.
 
 ## Qué hicimos últimamente
+0000000000000. 13/10/2026, tarea "selección múltiple y edición masiva de clientes" (JS y CSS SIN PROBAR: el agente no pudo correr node ni navegador, `node --check` quedó sin correr; sin migración, la 098 NO se usó):
+   - `js/views/seleccion-masiva.js` (nuevo): casilla por fila + casilla de encabezado ("todos los filtrados", respeta filtros y búsqueda) + barra con "N seleccionados", "Limpiar selección", campo, valor, "Aplicar…" y "Borrar seleccionados". Integrado en `clientes.js` y `maestro.js`; CSS en `css/seleccion.css` (link en `index.html`).
+   - Permisos: `puedeEditarPrograma(id)` nueva en `sesion.js` (fundador o nivel `edicion` en ESE programa). Sin eso (cliente@, solo lectura) no hay casillas ni barra. "Borrar seleccionados" solo si `esFundador()`.
+   - Campos, sin camino paralelo (alumno por alumno, en serie): Estado, Etapa, Responsable, Producto, Testimonio y Fecha de fin van por `guardarCampoCliente` (el mismo del Maestro: update de `cs_clientes`, mismos triggers); Resell por `guardarCampoExtra(id, 'x_resell', true|false)` (igual que la ficha).
+     Reglas de la ficha repetidas: estados elegibles sin en_renovacion/pausado; fecha de fin obligatoria y no anterior al inicio (falla ese alumno, no se manda); Producto no mueve la fecha de fin.
+     La confirmación muestra campo, valor, cuántos cambian y sus nombres; avisa del offboarding (finalizado/baja), de los pausados que se reanudan y de los que ya tienen el valor (se saltean si la vista trae la columna).
+   - Resultado: al terminar recarga los datos; si alguno falla, un modal lista nombre y motivo, y quedan seleccionados solo esos para reintentar.
+   - Borrado: `borrarFila('cs_clientes', id)` por alumno (mismo camino que "Borrar cliente" de la ficha; la base lo exige con `cs_puede_borrar()`). Confirmación con la lista de nombres y hay que escribir la cantidad. Un delete que la base filtra no da error: se verifica recargando y los que siguen figuran como no borrados.
+   - La selección vive en la vista: se pierde al cambiar de programa o de pestaña; los que ya no existen salen solos al recargar.
 000000000000. 13/10/2026, tarea "precarga de contacto traía solo la primera palabra del nombre" (JS, releído a mano, sin navegador ni node; sin migración, la 098 NO se usó):
    - `js/onboarding-formulario.js` `precargarContacto`: si el paso tiene un campo con `contacto = apellido`, nombre = primera palabra y apellido = el resto (Grupal, como antes);
      si NO hay campo apellido (Datos de contacto del 1 a 1), el campo `contacto = nombre` recibe el nombre completo. Sigue siendo solo si el campo está vacío y solo sin borrador en memoria.
@@ -165,6 +175,7 @@
 6. Antes de este chat: 036-039, la importación de 133 clientes de liam (040) y 417 accionables marcados como históricos.
 
 ## Pendientes (por prioridad)
+000. **Edición masiva:** correr `node --check` de `seleccion-masiva.js`, `clientes.js`, `maestro.js`, `sesion.js` y probar en el navegador con alumnos DE PRUEBA (nunca reales): marcar varios en Clientes y en Maestro, los 7 campos, recargar y ver que persiste; "todos los filtrados" con filtro y búsqueda; fundador vs `producto@` vs `cliente@`; borrar con la cantidad. Sin commit hasta probar.
 00. Copiar el `js/nav-areas.js` unificado idéntico a Marketing, Ventas y Finanzas (el jefe decide); confirmar si el acceso a Producto debe seguir por `cs_accesos` y no por rol.
 0. **Liam hoy (12/10):** orden: 075 (Finanzas) -> 079 -> 080 simulacro -> 080 con aplicar = 'si' -> probar con cada usuario -> push.
    Ya no hace falta exportar CSV: `npm run liam:generar` lee el xlsx. Si el xlsx cambia, volver a generar (el archivo lleva la fecha en el nombre).

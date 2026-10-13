@@ -26,6 +26,7 @@ import { armarColumnas } from './maestro-columnas.js';
 import { sumarAvanceOnboarding, columnaOnboarding } from './maestro-onboarding.js';
 import { manejarIr } from './maestro-acciones.js';
 import { abrirPanelColumnas } from './maestro-panel.js';
+import { crearSeleccion } from './seleccion-masiva.js';
 
 /* ---------- Filtros ---------- */
 
@@ -113,8 +114,8 @@ function tablaHtml(filas, cols, orden, total, hayFiltro, opt) {
         <div class="small">${total ? 'Probá con "Limpiar" para ver los ' + plural(total, 'cliente') + '.' : 'Se cargan desde Clientes.'}</div>
       </div>`;
   }
-  const th = cols.map(c => thHtml(c, orden, opt)).join('');
-  const tr = filas.map(fila => `<tr data-fila="${esc(fila.id)}">${cols.map(c =>
+  const th = opt.sel.thHtml() + cols.map(c => thHtml(c, orden, opt)).join('');
+  const tr = filas.map(fila => `<tr data-fila="${esc(fila.id)}">${opt.sel.tdHtml(fila)}${cols.map(c =>
     `<td class="${c.edit ? 'm-td-edit ' : ''}${esc(c.cls)}" data-label="${esc(c.lab)}">${c.td(fila)}</td>`).join('')}</tr>`).join('');
   const abiertos = filas.filter(fl => renAbierta(fl.renovacion_estado)).length;
   return `
@@ -138,6 +139,11 @@ export function vistaMaestro(el, programaId, vigente) {
   let panel = null, renombrando = '', timerOrden = null;
   let hayOnboarding = false;   // 093: algún alumno del programa tiene onboarding
   limpiarConfirmaciones();
+  /* Selección y edición masiva (solo quien edita este programa). Se pierde al salir de la vista. */
+  const sel = crearSeleccion({
+    el, programaId, prog: () => prog, filas: () => filas,
+    recargar: () => cargar().catch(e => console.error('maestro', e))
+  });
 
   const puedeConfigurar = () => config !== null && esFundador();
 
@@ -176,16 +182,18 @@ export function vistaMaestro(el, programaId, vigente) {
     const visibles = ordenar(filas.filter(fl => pasa(fl, f)), cols, orden);
     conservando(() => {
       cont.innerHTML = tablaHtml(visibles, cols, orden, filas.length, hayFiltro(),
-        { config: puedeConfigurar(), ren: renombrando });
+        { config: puedeConfigurar(), ren: renombrando, sel });
     });
+    sel.alPintar(visibles);
   }
 
   function pintarTodo() {
     conservando(() => {
-      el.innerHTML = barraFiltros(f, filas, puedeConfigurar())
+      el.innerHTML = barraFiltros(f, filas, puedeConfigurar()) + sel.contenedorHtml()
         + `<datalist id="mx-responsables">${opcionesLista(responsables(filas))}</datalist>
            <datalist id="mx-etapas">${opcionesLista(etapasDe(prog))}</datalist><div id="mx-tabla"></div>`;
     });
+    sel.pintarBarra();
     pintarTabla();
   }
 
@@ -302,6 +310,7 @@ export function vistaMaestro(el, programaId, vigente) {
     if (!p) { el.innerHTML = tarjetaError('Programa no encontrado', 'No existe o no tenés acceso.'); return; }
     prog = p;
     filas = datos;
+    sel.alRecargar(filas);
     hayOnboarding = await sumarAvanceOnboarding(programaId, filas);
     if (!vigente()) return;
     productos = prods;

@@ -10,6 +10,7 @@ import {
   ESTADO_LABEL, ESTADO_COLOR, ONBOARDING_LABEL
 } from '../datos.js';
 import { abrirModalNuevoCliente } from './cliente-nuevo.js';
+import { crearSeleccion } from './seleccion-masiva.js';
 
 const n = v => Number(v) || 0;
 const SEM_ORDEN = { rojo: 0, amarillo: 1, verde: 2, gris: 3 };
@@ -163,7 +164,7 @@ function barraFiltros(f, clientes, p, puedeCrear) {
 
 /* ---------- Tabla ---------- */
 
-function tablaHtml(filas, cols, orden, total, hayFiltro) {
+function tablaHtml(filas, cols, orden, total, hayFiltro, sel) {
   if (!filas.length) {
     return `<div class="card empty-state">
         <div class="big">${total ? 'Ningún cliente coincide con los filtros' : 'Todavía no hay clientes en este programa'}</div>
@@ -177,11 +178,11 @@ function tablaHtml(filas, cols, orden, total, hayFiltro) {
       scope="col" title="Ordenar por ${esc(c.lab)}">${esc(c.lab)}${flecha}</th>`;
   }).join('');
 
-  const tr = filas.map(c => `<tr>${cols.map(col =>
+  const tr = filas.map(c => `<tr>${sel.tdHtml(c)}${cols.map(col =>
     `<td class="${esc(col.cls)}" data-label="${esc(col.lab)}">${col.td(c)}</td>`).join('')}</tr>`).join('');
 
   return `
-    <div class="card table-card tabla-clientes"><table class="data-table"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>
+    <div class="card table-card tabla-clientes"><table class="data-table"><thead><tr>${sel.thHtml()}${th}</tr></thead><tbody>${tr}</tbody></table></div>
     <div class="table-foot">${hayFiltro ? `${filas.length} de ${plural(total, 'cliente')}` : plural(total, 'cliente')}</div>`;
 }
 
@@ -193,6 +194,11 @@ export function vistaClientes(el, programaId, vigente) {
   const orden = { k: 'semaforo', desc: false };
   let p = null, clientes = [], cols = [];
   let timerBusqueda = null;
+  /* Selección y edición masiva (solo quien edita este programa). Se pierde al salir de la vista. */
+  const sel = crearSeleccion({
+    el, programaId, prog: () => p, filas: () => clientes,
+    recargar: () => cargar().catch(e => console.error('clientes', e))
+  });
 
   function hayFiltro() {
     return !!(f.estado || f.semaforo || f.responsable || f.etapa || f.onboarding || f.vencer || f.q.trim());
@@ -202,7 +208,8 @@ export function vistaClientes(el, programaId, vigente) {
     const cont = el.querySelector('#cli-tabla');
     if (!cont) return;
     const filas = ordenar(aplicar(clientes, f, p), cols, orden);
-    cont.innerHTML = tablaHtml(filas, cols, orden, clientes.length, hayFiltro());
+    cont.innerHTML = tablaHtml(filas, cols, orden, clientes.length, hayFiltro(), sel);
+    sel.alPintar(filas);
   }
 
   /* La barra de filtros se repinta solo cuando cambian sus opciones, para no
@@ -210,8 +217,9 @@ export function vistaClientes(el, programaId, vigente) {
   function pintarTodo() {
     const foco = document.activeElement && document.activeElement.id === 'f-q';
     const pos = foco ? document.getElementById('f-q').selectionStart : null;
-    el.innerHTML = barraFiltros(f, clientes, p, true) + '<div id="cli-tabla"></div>';
+    el.innerHTML = barraFiltros(f, clientes, p, true) + sel.contenedorHtml() + '<div id="cli-tabla"></div>';
     conectarFiltros();
+    sel.pintarBarra();
     pintarTabla();
     if (foco) {
       const inp = document.getElementById('f-q');
@@ -255,6 +263,7 @@ export function vistaClientes(el, programaId, vigente) {
     if (!prog) { el.innerHTML = tarjetaError('Programa no encontrado', 'No existe o no tenés acceso.'); return; }
     p = prog;
     clientes = filas;
+    sel.alRecargar(filas);
     cols = columnas(p);
     pintarTodo();
   }

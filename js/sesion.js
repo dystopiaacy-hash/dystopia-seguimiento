@@ -51,6 +51,12 @@ export function soloLectura() {
   return yo.rol !== 'fundador' && !Object.values(yo.niveles).includes('edicion');
 }
 
+/* Edición por programa (selección y edición masiva): fundador, o nivel 'edicion' en ESE programa.
+   soloLectura() mira todos los programas; acá el cliente@ de un programa no edita otro. */
+export function puedeEditarPrograma(id) {
+  return yo.rol === 'fundador' || yo.niveles[id] === 'edicion';
+}
+
 export function programa(id) {
   return yo.programas.find(p => p.id === id) || null;
 }
