@@ -32,7 +32,7 @@ export async function traerProductos(programaId) {
 /* cs_v_clientes no trae las columnas de 039 (mantiene sus columnas): se piden aparte. */
 export async function traerCicloCliente(id) {
   const { data, error } = await sb.from('cs_clientes')
-    .select('producto_id,pausado_desde,aviso_1_at,aviso_2_at,testimonio').eq('id', id).maybeSingle();
+    .select('producto_id,pausado_desde,aviso_1_at,aviso_2_at,testimonio,campos_extra').eq('id', id).maybeSingle();
   if (error) throw error;
   return data || {};
 }

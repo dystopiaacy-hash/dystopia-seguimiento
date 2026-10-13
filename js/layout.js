@@ -9,6 +9,7 @@ export const SECCIONES = [
   ['', 'Dashboard', false],
   ['clientes', 'Clientes', false],
   ['maestro', 'Maestro', false],
+  ['onboarding', 'Onboarding', false],
   ['accionables', 'Accionables', false],
   ['devoluciones', 'Devoluciones', false],
   ['calls', 'Calls', false],

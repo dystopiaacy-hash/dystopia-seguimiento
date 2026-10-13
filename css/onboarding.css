@@ -96,3 +96,24 @@ button.hoy-toast-link{background:none;border:0;cursor:pointer;font:inherit;paddi
 .onb-resp dd{margin:2px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;}
 .onb-resp .sec{font-size:var(--fs-micro);font-weight:800;text-transform:uppercase;letter-spacing:.05em;
   color:var(--text-faint);margin-top:var(--sp-4);}
+
+/* =====================================================================
+   096: Volver, "Otros" con texto libre y pestaña Onboarding
+   ===================================================================== */
+.ob-volver{margin:0 0 var(--sp-4);}
+.ob-volver .btn{min-height:44px;justify-content:center;}
+.ob-hecho-aviso{margin:0 0 var(--sp-4);padding:var(--sp-3);border-radius:var(--radius-sm);
+  background:var(--success-soft);font-weight:600;line-height:1.4;}
+.ob-ayuda{white-space:pre-line;}
+.pub-otro{display:block;width:100%;margin-top:var(--sp-2);}
+.pub-otro[hidden]{display:none;}
+
+@media(max-width:520px){
+  .ob-volver .btn{width:100%;}
+}
+
+/* Pestaña Onboarding (staff) */
+.onb-chips{display:flex;gap:var(--sp-2);flex-wrap:wrap;}
+.onb-fila-acc{display:flex;gap:var(--sp-2);flex-wrap:wrap;}
+.onb-tabla .data-table td{max-width:220px;}
+.onb-resp-modal .onb-resp{margin-top:var(--sp-2);}

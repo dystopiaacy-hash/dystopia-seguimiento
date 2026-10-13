@@ -5,6 +5,7 @@
 import { esc, hoyAR, sumarDias, fmtFecha, plural, toast, abrirModal, cerrarModal } from '../ui.js';
 import { crearCliente, traerGeneradoAlCrear, mensajeError, ESTADO_LABEL, ONBOARDING_LABEL } from '../datos.js';
 import { traerProductos, opcionesProducto } from '../ciclo.js';
+import { generarYCopiar } from './onboarding-link.js';
 
 /* Un cliente nuevo arranca en onboarding o ya activo. 'en_renovacion' lo pone el
    trigger al iniciar una renovación, y 'finalizado'/'baja' cierran el ciclo: ninguno
@@ -23,6 +24,8 @@ function campoProducto(productos) {
         <label for="c-producto">Producto</label>
         <select id="c-producto">${opciones([['', 'Sin producto (duración a mano)']]
           .concat(opcionesProducto(productos, null)), '')}</select>
+        <label class="check-row"><input type="checkbox" id="c-resell">
+          Resell (renovó o compró de vuelta)</label>
       </div>`;
 }
 
@@ -102,6 +105,7 @@ function resumenCreado(p, cliente, generado) {
       `<li>${esc(a.titulo)} <span class="txt-gris">(${esc(a.responsable === 'bpf' ? 'BPF' : 'Cliente')}${a.vence ? ' · vence ' + esc(fmtFecha(a.vence)) : ''})</span></li>`).join('')}</ul>` : ''}
     <div class="aviso-acciones">
       <a class="btn btn-accent" href="${base}/c/${encodeURIComponent(cliente.id)}">Ir a la ficha</a>
+      ${cliente.producto_id ? '<button type="button" class="btn" id="c-onb-link">Link de onboarding</button>' : ''}
     </div>`;
 }
 
@@ -171,7 +175,10 @@ export async function abrirModalNuevoCliente(p, alCrear) {
         estado: valor('c-estado') || 'onboarding',
         etapa: valor('c-etapa') || null,
         responsable: valor('c-responsable') || null,
-        plan: valor('c-plan') || null
+        plan: valor('c-plan') || null,
+        /* Resell (096): casilla x_resell del Maestro, en campos_extra. */
+        ...(document.getElementById('c-resell') && document.getElementById('c-resell').checked
+          ? { campos_extra: { x_resell: true } } : {})
       });
       let generado = { calls: [], accionables: [] };
       try { generado = await traerGeneradoAlCrear(cliente.id); }
@@ -179,6 +186,15 @@ export async function abrirModalNuevoCliente(p, alCrear) {
       toast('Cliente creado.');
       if (alCrear) alCrear();
       abrirModal({ titulo: 'Cliente creado', cuerpo: resumenCreado(p, cliente, generado) });
+      /* El link de onboarding queda a un clic (necesita producto con onboarding). */
+      const bLink = document.getElementById('c-onb-link');
+      if (bLink) {
+        bLink.onclick = async () => {
+          bLink.disabled = true;
+          await generarYCopiar(cliente.id, cliente.nombre);
+          if (bLink.isConnected) bLink.disabled = false;
+        };
+      }
     } catch (e) {
       btn.disabled = false;
       errEl.textContent = mensajeError(e);

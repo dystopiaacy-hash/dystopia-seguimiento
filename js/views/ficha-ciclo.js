@@ -9,8 +9,23 @@ import {
   fechaSugeridaAviso, registrarAviso
 } from '../ciclo.js';
 import { opcionesHtml, guardar } from './comunes.js';
+import { guardarCampoExtra } from '../datos-columnas.js';
+import { soloLectura } from '../sesion.js';
 
 const CERRADO = ['finalizado', 'baja'];
+
+/* Resell (096): alumno que renovó o compró de vuelta. Es la casilla x_resell del
+   Maestro (campos_extra): la misma que se puede mostrar como columna. */
+const esResell = c => !!(c.campos_extra && c.campos_extra.x_resell === true);
+
+function campoResell(c) {
+  return `
+    <div class="form-row">
+      <label for="f-resell">Resell</label>
+      <label class="check-row"><input type="checkbox" id="f-resell" data-resell="1"${esResell(c) ? ' checked' : ''}${soloLectura() ? ' disabled' : ''}>
+        Renovó o compró de vuelta</label>
+    </div>`;
+}
 
 function campoProducto(ctx) {
   const { c, productos } = ctx;
@@ -76,6 +91,7 @@ export function html(ctx) {
     <div class="card ficha-ciclo">
       <div class="ficha-campos">
         ${campoProducto(ctx)}
+        ${campoResell(c)}
         ${campoTestimonio(c)}
       </div>
       <div class="ciclo-pausa">${bloquePausa(c)}</div>
@@ -120,6 +136,15 @@ export async function manejar(ev, ctx, api) {
   const c = ctx.c;
 
   if (ev.type === 'change') {
+    const rs = ev.target.closest('[data-resell]');
+    if (rs) {
+      const marcado = rs.checked;
+      await guardar(() => guardarCampoExtra(c.id, 'x_resell', marcado), {
+        ok: marcado ? 'Marcado como Resell.' : 'Marca de Resell quitada.',
+        luego: () => api.refrescar(), control: rs
+      });
+      return true;
+    }
     const sel = ev.target.closest('[data-ciclo]');
     if (sel) {
       const campo = sel.dataset.ciclo;

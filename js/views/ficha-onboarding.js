@@ -10,6 +10,7 @@ import { soloLectura } from '../sesion.js';
 import { resolverDiferenciaOnboarding } from '../datos-onboarding.js';
 import { guardar } from './comunes.js';
 import { generarYCopiar, mensajeOnboarding } from './onboarding-link.js';
+import { respuestasHtml } from './onboarding-respuestas.js';
 
 const ESTADO = {
   pendiente: ['Sin empezar', 'var(--text-dim)'],
@@ -36,34 +37,13 @@ function filaPaso(o, p) {
   }
   if (p.obligatorio === false) detalle += ' <span class="pend">· opcional</span>';
   const ok = hecho(o, p.key);
+  /* Completó el onboarding antes de que existiera este paso (096): no le corresponde. */
+  if (!ok && o.estado === 'completado') {
+    return `<li><span class="pend" aria-hidden="true">–</span>
+      <span>${esc(p.titulo)} <span class="pend">(paso agregado después: no lo hizo)</span></span></li>`;
+  }
   return `<li><span class="${ok ? 'ok' : 'pend'}" aria-hidden="true">${ok ? '✓' : '○'}</span>
     <span>${esc(p.titulo)}${detalle}</span></li>`;
-}
-
-function valorTexto(c, v) {
-  if (Array.isArray(v)) return v.join(', ');
-  if (c.tipo === 'escala_1_10') return `${v} / 10`;
-  return String(v);
-}
-
-function respuestasHtml(o) {
-  const bloques = [];
-  for (const p of o.pasos) {
-    if (p.tipo !== 'formulario') continue;
-    const r = o.respuestas && o.respuestas[p.key];
-    if (!r) continue;
-    const vals = r.respuestas || {};
-    const cuerpo = (p.secciones || []).map(s => {
-      const filas = s.campos.filter(c => vals[c.key] !== undefined && vals[c.key] !== null && vals[c.key] !== '')
-        .map(c => `<dt>${esc(c.label)}</dt><dd>${esc(valorTexto(c, vals[c.key]))}</dd>`).join('');
-      return filas ? `${s.titulo ? `<div class="sec">${esc(s.titulo)}</div>` : ''}<dl>${filas}</dl>` : '';
-    }).join('');
-    bloques.push(`<details class="onb-resp">
-      <summary>${esc(p.titulo)} ${r.completo ? '' : '<span class="pend">(borrador, sin enviar)</span>'}</summary>
-      ${cuerpo || '<div class="muted-empty">Sin respuestas todavía.</div>'}
-    </details>`);
-  }
-  return bloques.join('');
 }
 
 function diferenciasHtml(o, editable) {

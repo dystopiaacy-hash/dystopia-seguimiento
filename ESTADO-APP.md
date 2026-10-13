@@ -25,7 +25,7 @@
 - Discord: solo conteos, nunca nombres de alumnos.
 - Migraciones de Producto en `migraciones/` de este repo. Última de Producto: **071-producto-columnas-maestro.sql** (corrida y verificada).
 - Numeración de migraciones: el número de cada migración lo asigna el jefe. No elijas números por tu cuenta: si necesitás una migración y no te dieron número, frená y pedilo en el resumen.
-- Dato histórico: la numeración es compartida entre las 4 apps. Última usada en todo el sistema al 12/10/2026: **074**. Producto tiene asignada la **093** (onboarding por link, sin correr).
+- Dato histórico: la numeración es compartida entre las 4 apps. Última usada en todo el sistema al 12/10/2026: **074**. Producto tiene asignada la **093** (onboarding por link, ya en producción) y la **096** (cambios de la reunión con Nacho, sin correr).
 
 ## Mapa del código
 - `js/views/programa.js`: router de pestañas del programa (`#/p/:programa/<sub>`).
@@ -38,6 +38,20 @@
 - `FASE0-PRODUCTO.md` (relevamiento de planillas) y `PLAN-PRODUCTO.md` (plan por fases): leerlos antes de seguir.
 
 ## Qué hicimos últimamente
+0000000000. 12/10/2026, tarea "cambios al onboarding de la reunión con Nacho" (SQL, JS y navegador SIN PROBAR: el agente no pudo correr SQL, node ni navegador; migración 096 asignada por el jefe, NO corrida; 093 ya está en producción y NO se toca):
+   - `migraciones/096-producto-onboarding-cambios-nacho.sql` + `096b-...-control.sql`. Un solo bloque, autochequeo con `v_esperado_*` al inicio, respaldo en `cs_bak_096_plantillas` y `cs_bak_096_funciones`.
+     Pisa: `pasos` de la plantilla 1a1 de liam (respaldada) y 5 funciones (respaldadas). No borra nada.
+   - Paso nuevo `como_nos_conociste` en la 1a1 de liam, entre `perfil_inversor` y `hoja_de_ruta`: preguntas 6 a 21 del form de Liam, textos y tipos del original (con sus tipeos; única corrección: ejemplo de la 18 "Vi un video de Liam donde entendí..."). Obligatorio: 1 a 1 pasa de 4 a 5. Grupal intacta.
+     Dudas de fidelidad resueltas literal: P16 queda opción única (el original lo es aunque la ayuda diga "Podes elegir varias"; cambiar `opcion` por `casillas` en `problemas_principales` si se prefiere) y P13 sin "3 a 6 meses".
+   - Alumnos con link: el progreso va por clave de paso, así que el paso nuevo les aparece pendiente sin perder nada. Los ya COMPLETADOS quedan completados (avance 5 de 5, `cs_ob_hechos_est`); reabrir uno a mano: utilidad B de la 096b.
+   - "Otros" con texto libre: campo `"otro": "<opción>"` en opcion/casillas, texto en `<key>_otro` (`cs_validar_onboarding_otros`, `cs_ob_limpiar`, front y ficha).
+   - Landing: botón "Volver al paso anterior" (todos menos el primero); borradores en memoria + `guardarBorrador` al volver; un formulario enviado muestra "ya enviado" sin respuestas y deja avanzar.
+   - Resell: casilla `x_resell` (campos_extra) en `cs_maestro_columnas` de cada programa, OCULTA (disponible). Ficha (`ficha-ciclo.js`), modal Nuevo cliente, pestaña Onboarding y RPC del closer. No había dato equivalente (`renovaciones_count` cuenta renovaciones dentro de la app).
+   - Ventas (closer): `cs_closer_productos(programa)` y `cs_onboarding_alta_closer(programa, nombre, producto, telefono, email, resell)`. Duplicado (nombre en cualquier orden o teléfono, entre activos) = error `ALUMNO_YA_EXISTE`, no devuelve el link del otro: se pide con `cs_onboarding_link_closer`.
+   - Pestaña "Onboarding" (`views/onboarding-lista.js`, ruta `#/p/:programa/onboarding`, en `layout.js` SECCIONES; `nav-areas.js` NO se tocó): `cs_onboarding_lista(programa)`; filtros todos/sin empezar/en curso/completos; abrir alumno = todas las respuestas por paso (`views/onboarding-respuestas.js`, compartido con la ficha).
+     "Nuevo cliente" usa `cliente-nuevo.js` y deja el botón "Link de onboarding" en el resumen. `cs_onboarding_lista` agregada a las RPC de lectura de `solo-lectura.js`.
+   - Dominio: base del link en `js/config.js` (`ONBOARDING_BASE_URL`, vacía = `window.location.origin`), usada solo por `urlOnboarding` en `js/datos-onboarding.js`. Login: `signInWithPassword` (mail y contraseña), sin redirects ni OAuth ni link mágico en el código.
+   - 096b (líneas; correr de a una): Q00 15-54 · Q01 57-68 · Q02 71-85 · Q03 88-100 · Q04 103-112 · Q05 115-121 · Q06 124-136 · Q07 139-316 (humo closer, "HUMO OK: 11", o 10 si liam no tiene productos sin onboarding) · Q08 319-494 (humo recorrido, "HUMO OK: 10") · B y C comentadas 498-end.
 000000000. 12/10/2026, tarea "tres ajustes a la 093 tras probarla con PGlite" (SQL SIN PROBAR por este agente; el jefe vuelve a correr el banco; 093 sigue NO corrida en producción, mismo número):
    - Privacidad: `cs_ob_armar_estado` ya no devuelve respuestas de formularios ENVIADOS (completo = true o paso con completado_at). Solo el borrador en curso, para retomar. La landing solo usaba
      `estado.respuestas[p.key]` (onboarding-publico.js:197) para precargar el formulario en curso: no hizo falta tocar el front. Riesgo ACEPTADO: quien tiene el link (el closer siempre) ve el borrador mientras el alumno lo llena.
@@ -166,6 +180,9 @@
    Falta confirmar que `closer` también carga ventas de sus clientes (si no, sacarlo de la lista de roles de la RPC). Respuestas exportables para Valentín: no hecho.
    Riesgos aceptados: el que tiene el link ve el borrador en curso; `crm_members.rol` quizá no admita `closer` (075). Q07 ahora da "HUMO OK: 20", Q10 "HUMO OK: 9", Q11 "HUMO OK: 4".
    La 093 corregida hay que correrla de nuevo ENTERA (3ª vez); después Q00, Q01 a Q07 y Q09/Q10/Q11 (Q10 necesita un usuario ventas/closer asignado a liam). Si falla, el mensaje dice `cs 093:` + paso y regla.
+4b. **096 (cambios de Nacho):** probarla en el banco de pruebas (necesita 093 aplicada completa, 071, 079, 070, 039 y crm_members/crm_asignaciones), correr Q00 a Q08 de la 096b, y recién ahí en producción.
+   Pendiente de decisión: la pantalla de Ventas (otra app) usa `cs_closer_productos` / `cs_onboarding_alta_closer`; reabrir completados para que llenen el paso nuevo (utilidad B); decidir si P16 va como casillas;
+   mostrar la columna Resell en el Maestro (hoy oculta, la muestra el fundador desde Columnas); la pestaña Onboarding lista también a los ~133 alumnos históricos como "sin empezar" (no tienen link). Dominio `producto.dystopia.com.ar`: ver Cuidado con.
 5. **Fase 4: ficha de un vistazo** (barra de tiempo y línea de contactos). Sin dependencias.
 6. **Fase 8: vista de cobranza** de solo lectura sobre `fin_cuotas` (solo liam tiene datos).
 7. Bajar `resell_gracia_dias` de liam de 200 a 30 cuando se cierren los 19 pipelines abiertos importados.
@@ -175,6 +192,8 @@
 - Decisiones de Joaquín: fecha de corte de cada cliente y quién avisa al CSM.
 
 ## Cuidado con
+- **Cambio de dominio (`producto.dystopia.com.ar`):** las sesiones de Supabase viven en el localStorage del origen: al pasar de dominio hay que volver a loguearse. El link de onboarding sale de `window.location.origin` (o de `ONBOARDING_BASE_URL` en `js/config.js`):
+  los links ya mandados con `vercel.app` siguen funcionando mientras ese dominio siga activo. `js/nav-areas.js` tiene URLs fijas `*.vercel.app` de las 4 apps (no se tocó). En Supabase Auth hay que agregar el dominio nuevo a Site URL / Redirect URLs solo si el proyecto manda mails de reset o link mágico (esta app no los usa). CORS de la API de Supabase no restringe origen.
 - **Choque de numeración:** 072, 073 y 074 existen DOS veces, en `dystopia\dystopia\migraciones` (Marketing) y en `dystopia-finanzas\migraciones` (Finanzas/Ventas). Ya corridos; no se renumeran.
 - Producto NUNCA escribe caja: la renovación guarda solo el tipo (`resell_producto`). Los pagos van por Finanzas. Para enlazar con un pago, usar `fin_pagos.clave`, NUNCA `fin_pagos.id` (cambia cada 15 min con la sync).
 - Columnas del Maestro: la clave interna de las 21 del sistema no cambia, renombrar solo cambia la etiqueta.

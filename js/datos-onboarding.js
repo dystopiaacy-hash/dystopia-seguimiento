@@ -2,6 +2,7 @@
    Todo pasa por RPC: la app no lee cs_onboardings directo (el token no es legible).
    Si la 093 no se corrió, las lecturas devuelven null / [] y la app se ve como antes. */
 import { sb } from './supabase.js';
+import { ONBOARDING_BASE_URL } from './config.js';
 
 /* La función no existe: 093 sin correr (42883 de Postgres, PGRST202 de PostgREST). */
 function faltaFuncion(e) {
@@ -9,8 +10,10 @@ function faltaFuncion(e) {
     || /cs_onboarding_/.test(e.message || '') && /does not exist|schema cache/i.test(e.message || ''));
 }
 
-/* El link completo que se le manda al alumno. Mismo dominio que la app. */
-export const urlOnboarding = token => `${window.location.origin}/onboarding?t=${encodeURIComponent(token)}`;
+/* El link completo que se le manda al alumno. La base se define en config.js
+   (ONBOARDING_BASE_URL); vacía, es el mismo dominio desde el que se abre la app. */
+export const urlOnboarding = token =>
+  `${ONBOARDING_BASE_URL || window.location.origin}/onboarding?t=${encodeURIComponent(token)}`;
 
 /* Crea el onboarding del alumno (o devuelve el que ya existe).
    { token, estado, creado, vence_at, plantilla }. Lanza con mensaje "cs: ..." si no se puede. */
@@ -51,6 +54,20 @@ export async function traerOnboardingHoy(programaId) {
   const { data, error } = await sb.rpc('cs_onboarding_hoy', { p_programa: programaId });
   if (error) {
     if (faltaFuncion(error)) return [];
+    throw error;
+  }
+  return data || [];
+}
+
+/* Pestaña "Onboarding" (096). Una fila por alumno no finalizado ni dado de baja:
+   { cliente_id, nombre, estado_cliente, producto_id, producto, resell, fecha_alta,
+     onboarding: sin_link | pendiente | en_curso | completado | sin_plantilla,
+     hechos, total, paso_actual, ultimo_movimiento, link_vence_at, skool, wpp }.
+   undefined = la 096 no se corrió (la pestaña avisa); skool/wpp null = ese dato no existe. */
+export async function traerListaOnboarding(programaId) {
+  const { data, error } = await sb.rpc('cs_onboarding_lista', { p_programa: programaId });
+  if (error) {
+    if (faltaFuncion(error)) return undefined;
     throw error;
   }
   return data || [];

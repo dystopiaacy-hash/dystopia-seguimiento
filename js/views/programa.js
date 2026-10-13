@@ -8,6 +8,7 @@ import { vistaHoy } from './hoy.js';
 import { vistaDashboard } from './dashboard.js';
 import { vistaClientes } from './clientes.js';
 import { vistaMaestro } from './maestro.js';
+import { vistaOnboarding } from './onboarding-lista.js';
 import { vistaFicha } from './ficha.js';
 import { vistaAccionables } from './accionables.js';
 import { vistaDevoluciones } from './devoluciones.js';
@@ -77,6 +78,7 @@ export function vistaPrograma(el, { p, sub, clienteId, vigente }) {
   if (sub === '') return vistaDashboard(cont, p.id, vigente);
   if (sub === 'clientes') return vistaClientes(cont, p.id, vigente);
   if (sub === 'maestro') return vistaMaestro(cont, p.id, vigente);
+  if (sub === 'onboarding') return vistaOnboarding(cont, p.id, vigente);
   if (sub === 'accionables') return vistaAccionables(cont, p.id, vigente);
   if (sub === 'devoluciones') return vistaDevoluciones(cont, p.id, vigente);
   if (sub === 'calls') return vistaCalls(cont, p.id, vigente);
