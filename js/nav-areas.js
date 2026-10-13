@@ -15,10 +15,10 @@
 
   /* Orden fijo: Marketing | Ventas | Producto | Finanzas. */
   var AREAS = [
-    { id: 'marketing', label: 'Marketing', url: 'https://dystopia-crm.vercel.app',         roles: ['fundador', 'cliente', 'editor', 'contenido'] },
-    { id: 'ventas',    label: 'Ventas',    url: 'https://dystopia-ventas.vercel.app',      roles: ['fundador', 'cliente', 'closer', 'setter', 'ventas', 'finanzas'] },
-    { id: 'producto',  label: 'Producto',  url: 'https://dystopia-seguimiento.vercel.app', roles: ['fundador', 'cliente', 'producto'] },
-    { id: 'finanzas',  label: 'Finanzas',  url: 'https://dystopia-finanzas.vercel.app',    roles: ['fundador', 'cliente', 'closer', 'setter', 'finanzas', 'ventas'] }
+    { id: 'marketing', label: 'Marketing', url: 'https://mkt.dystopia.com.ar',         roles: ['fundador', 'cliente', 'editor', 'contenido'] },
+    { id: 'ventas',    label: 'Ventas',    url: 'https://ventas.dystopia.com.ar',      roles: ['fundador', 'cliente', 'closer', 'setter', 'ventas', 'finanzas'] },
+    { id: 'producto',  label: 'Producto',  url: 'https://producto.dystopia.com.ar', roles: ['fundador', 'cliente', 'producto'] },
+    { id: 'finanzas',  label: 'Finanzas',  url: 'https://finanzas.dystopia.com.ar',    roles: ['fundador', 'cliente', 'closer', 'setter', 'finanzas', 'ventas'] }
   ];
 
   function esc(s) {
