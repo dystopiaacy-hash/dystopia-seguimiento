@@ -34,12 +34,15 @@ function normalizarValores(secciones, valores) {
 }
 
 /* Precarga de los datos de contacto que ya están en el alta (solo si el campo está
-   vacío). El nombre completo se parte en primera palabra + resto: es editable. */
+   vacío). Si el paso tiene campo de nombre Y de apellido, el nombre completo se parte
+   en primera palabra + resto; si tiene solo el de nombre, va completo. Es editable. */
 function precargarContacto(secciones, valores, contacto) {
   if (!contacto) return;
-  const partes = String(contacto.nombre || '').trim().split(/\s+/).filter(Boolean);
+  const completo = String(contacto.nombre || '').trim().replace(/\s+/g, ' ');
+  const partes = completo.split(' ').filter(Boolean);
+  const conApellido = secciones.some(s => s.campos.some(c => c.contacto === 'apellido'));
   const dato = {
-    nombre: partes[0] || '',
+    nombre: conApellido ? (partes[0] || '') : completo,
     apellido: partes.slice(1).join(' '),
     email: String(contacto.email || '').trim(),
     telefono: String(contacto.telefono || '').trim()

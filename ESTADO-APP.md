@@ -38,6 +38,10 @@
 - `FASE0-PRODUCTO.md` (relevamiento de planillas) y `PLAN-PRODUCTO.md` (plan por fases): leerlos antes de seguir.
 
 ## Qué hicimos últimamente
+000000000000. 13/10/2026, tarea "precarga de contacto traía solo la primera palabra del nombre" (JS, releído a mano, sin navegador ni node; sin migración, la 098 NO se usó):
+   - `js/onboarding-formulario.js` `precargarContacto`: si el paso tiene un campo con `contacto = apellido`, nombre = primera palabra y apellido = el resto (Grupal, como antes);
+     si NO hay campo apellido (Datos de contacto del 1 a 1), el campo `contacto = nombre` recibe el nombre completo. Sigue siendo solo si el campo está vacío y solo sin borrador en memoria.
+   - "Nombre y apellido" de Diagnóstico y Perfil inversor (1 a 1): no tienen `contacto` en la plantilla (093 líneas 1605 y 1639), así que NO se precargan. No se tocó.
 00000000000. 13/10/2026, tarea "función de lectura para Ventas y ajustes del onboarding tras probar en producción" (SQL, JS y navegador SIN PROBAR: el agente no pudo correr SQL, node ni navegador; migración 097 asignada por el jefe, NO corrida; 096 ya en producción):
    - `migraciones/097-producto-onboarding-ajustes-prueba.sql` + `097b-...-control.sql`. Un solo bloque, guardas `v_esperado_*`, respaldo en `cs_bak_097_plantillas` y `cs_bak_097_funciones`.
      Pisa: el tipo de UN campo de la plantilla 1a1 de liam (respaldada) y 3 funciones (respaldadas: cs_ob_limpiar, cs_ob_armar_estado, cs_onboarding_lista). Crea 1 función. No borra nada ni toca alumnos, onboardings ni respuestas.
