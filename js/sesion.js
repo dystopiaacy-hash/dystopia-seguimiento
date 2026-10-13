@@ -7,7 +7,7 @@ import { sb } from './supabase.js';
 export const yo = { userId: null, email: '', rol: null, nombre: '', programas: [], niveles: {} };
 
 /* Mismo orden que las cuentas en Dystopia; activos primero. */
-const ORDEN = ['liam', 'agus', 'teo', 'mauro', 'lucas'];
+const ORDEN = ['liam', 'agus', 'teo'];
 
 function ordenar(lista) {
   const pos = id => { const i = ORDEN.indexOf(id); return i < 0 ? ORDEN.length : i; };

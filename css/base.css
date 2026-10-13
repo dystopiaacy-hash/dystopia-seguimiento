@@ -27,7 +27,7 @@
   --font-mono:'Manrope',var(--font-sans);
   --font-sans:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
   /* Color fijo por programa (= cuenta de la agencia), mismo que en Dystopia. */
-  --c-liam:#D9A441; --c-agus:#9B7EDE; --c-teo:#2FA99B; --c-mauro:#E0687A; --c-lucas:#5E8FD9;
+  --c-liam:#D9A441; --c-agus:#9B7EDE; --c-teo:#2FA99B;
 
   /* Semáforo. Verde y rojo = --success / --danger de Dystopia. Amarillo = ámbar de
      CHART_PALETTE (#F59E0B); su texto usa #8A6212 (ya usado en Dystopia) por contraste. */
