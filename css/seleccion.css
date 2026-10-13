@@ -12,7 +12,8 @@
 .sel-barra{position:fixed;left:50%;bottom:var(--sp-4);transform:translateX(-50%);z-index:50;
   width:min(960px,calc(100vw - 2 * var(--sp-4)));max-height:60vh;overflow-y:auto;box-sizing:border-box;
   display:flex;flex-direction:column;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);margin:0;
-  border-color:var(--accent-line);background:var(--accent-soft);box-shadow:var(--shadow-md);}
+  border:1px solid var(--accent);border-top:3px solid var(--accent);background:var(--surface);color:var(--text);
+  box-shadow:var(--shadow-md);}
 .sel-cuenta,.sel-accion{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);}
 .sel-valor-wrap{display:inline-flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);}
 .sel-barra select,.sel-barra input[type="text"],.sel-barra input[type="date"]{min-height:var(--control-h-sm);}

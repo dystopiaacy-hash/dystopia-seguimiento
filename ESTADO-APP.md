@@ -39,6 +39,10 @@
 - `FASE0-PRODUCTO.md` (relevamiento de planillas) y `PLAN-PRODUCTO.md` (plan por fases): leerlos antes de seguir.
 
 ## Qué hicimos últimamente
+000000000000000. 13/10/2026, tarea "pulido visual de la selección masiva" (solo presentación, sin migración, la 098 NO se usó; sin probar en navegador):
+   - Barra `.sel-barra` (`css/seleccion.css`): fondo opaco `var(--surface)`, texto `var(--text)`, borde `1px var(--accent)` y filo superior de 3px `var(--accent)`, sombra `var(--shadow-md)`. Posición, tamaño y z-index igual.
+   - Títulos del resultado (`seleccion-masiva.js`): 0 aplicados = "Cambio masivo: no se aplicó"; 0 borrados = "Borrado: no se borró"; si hubo algunos, "resultado parcial" como antes.
+   - Campo de confirmación del borrado: placeholder "Cantidad" (antes repetía el número a escribir).
 00000000000000. 13/10/2026, tarea "tres arreglos de seguridad de uso en la selección masiva" (JS y CSS SIN PROBAR en navegador; sin migración, la 098 NO se usó):
    - Barra flotante: `.sel-barra` pasa a `position:fixed` abajo y centrada (`css/seleccion.css`, z-index 50, ancho `min(960px, 100vw - 32px)`, `max-height:60vh`). Ya no ocupa lugar en el flujo: marcar la primera casilla no mueve la tabla.
      Para no tapar la última fila, `pintarBarra` mide la barra (ResizeObserver) y le pone `padding-bottom` al contenedor de la vista mientras está visible.
@@ -181,6 +185,7 @@
 6. Antes de este chat: 036-039, la importación de 133 clientes de liam (040) y 417 accionables marcados como históricos.
 
 ## Pendientes (por prioridad)
+00000. **Pulido selección masiva (13/10):** mirar en navegador la barra sobre filas a mitad de scroll (contraste del texto y controles), el modal "no se aplicó" con un cambio que falle en todos y el placeholder "Cantidad" del borrado.
 0000. **Selección masiva (arreglos 13/10):** `node --check` de los 3 JS y probar en el navegador: marcar/desmarcar no mueve filas ni encabezado (Clientes y Maestro, también con scroll horizontal), barra legible en pantalla angosta y sin tapar la última fila, cambiar filtro/búsqueda deja 0 seleccionados, confirmaciones con tope de 20 y "y N más". Ojo: el toast (z-index 200, abajo al centro) tapa la barra unos segundos.
 000. **Edición masiva:** correr `node --check` de `seleccion-masiva.js`, `clientes.js`, `maestro.js`, `sesion.js` y probar en el navegador con alumnos DE PRUEBA (nunca reales): marcar varios en Clientes y en Maestro, los 7 campos, recargar y ver que persiste; "todos los filtrados" con filtro y búsqueda; fundador vs `producto@` vs `cliente@`; borrar con la cantidad. Sin commit hasta probar.
 00. Copiar el `js/nav-areas.js` unificado idéntico a Marketing, Ventas y Finanzas (el jefe decide); confirmar si el acceso a Producto debe seguir por `cs_accesos` y no por rol.

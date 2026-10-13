@@ -285,7 +285,7 @@ export function crearSeleccion({ el, programaId, prog, filas, recargar }) {
       ocupado = false;
       actualizarBoton();
       m.cerrar();
-      if (fallas.length) resultadoModal('Cambio masivo: resultado parcial', hechos, fallas, 'Se aplicó');
+      if (fallas.length) resultadoModal(hechos === 0 ? 'Cambio masivo: no se aplicó' : 'Cambio masivo: resultado parcial', hechos, fallas, 'Se aplicó');
       else toast(`Listo: ${etiquetaCampo(campo)} actualizado en ${plural(hechos, 'alumno')}.`);
     });
   }
@@ -305,7 +305,7 @@ export function crearSeleccion({ el, programaId, prog, filas, recargar }) {
         <p class="conf-detalle">Accionables, devoluciones, calls, renovaciones y seguimientos se borran con cada cliente. No se puede deshacer.</p>
         ${listaNombres(todos)}
         <div class="form-row"><label for="sel-conf">Para habilitar el botón, escribí la cantidad: <strong>${n}</strong></label>
-          <input type="text" id="sel-conf" inputmode="numeric" autocomplete="off" placeholder="${n}"></div>
+          <input type="text" id="sel-conf" inputmode="numeric" autocomplete="off" placeholder="Cantidad"></div>
         <div id="sel-progreso" class="hint" role="status"></div>`,
       pie: `<button type="button" class="btn" data-sel-no>Cancelar</button>
             <button type="button" class="btn btn-danger" data-sel-si disabled>Borrar ${esc(plural(n, 'cliente'))}</button>`
@@ -345,7 +345,7 @@ export function crearSeleccion({ el, programaId, prog, filas, recargar }) {
       sincronizar();
       ocupado = false;
       m.cerrar();
-      if (fallas.length) resultadoModal('Borrado: resultado parcial', hechos, fallas, 'Se borró');
+      if (fallas.length) resultadoModal(hechos === 0 ? 'Borrado: no se borró' : 'Borrado: resultado parcial', hechos, fallas, 'Se borró');
       else toast(`Se ${hechos === 1 ? 'borró' : 'borraron'} ${plural(hechos, 'cliente')}.`);
     });
   }
