@@ -133,6 +133,7 @@ create table if not exists public.cs_llamada_accionables (
   updated_at       timestamptz not null default now(),
   constraint cs_llamada_acc_hecho_chk check (
     (hecho and hecho_at is not null) or (not hecho and hecho_at is null and hecho_por is null)),
+  constraint cs_llamada_acc_padre_distinto_chk check (padre_id is null or padre_id <> id),
   constraint cs_llamada_acc_cliente_fk foreign key (cliente_id, programa_id)
     references public.cs_clientes (id, programa_id) on delete cascade,
   constraint cs_llamada_acc_llamada_fk foreign key (llamada_id, cliente_id)
