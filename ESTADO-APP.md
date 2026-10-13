@@ -39,6 +39,18 @@
 - `FASE0-PRODUCTO.md` (relevamiento de planillas) y `PLAN-PRODUCTO.md` (plan por fases): leerlos antes de seguir.
 
 ## Qué hicimos últimamente
+00000000000000000. 13/10/2026, tarea "tarjeta Onboarding pendientes del Dashboard no coincidía con la pestaña Onboarding" (JS SIN PROBAR en navegador y `node --check` NO corrido: el agente no pudo ejecutarlo; sin migración, la 098 NO se usó):
+   - Antes: `cs_v_kpis_programa.onboarding_pendientes` = alumnos vivos con `onboarding_estado = 'pendiente_agendar'` (el flujo viejo de agendar, 037). Con el onboarding por link daba 0 aunque la pestaña tenga 116 "Sin empezar".
+   - Ahora: sin empezar (`sin_link` + `pendiente`) + en curso, con la definición compartida en `js/onboarding-estados.js` (`contarOnboarding`), sobre un único `cs_onboarding_lista` (el mismo pedido de la pestaña). Detalle debajo: "N sin empezar · M en curso". No cuenta completos ni sin onboarding.
+   - La tarjeta ya era clicable: ahora lleva a `#/p/:programa/onboarding` (antes `clientes?onboarding=pendiente_agendar`). Si `cs_onboarding_lista` falla o falta la 096, cae al número viejo de la vista, sin detalle.
+   - Se sacó de la tarjeta el aviso "demorados / SLA" (medía `pendiente_agendar`, ya no aplica) y su resaltado de alerta.
+   - Tocados: `js/views/dashboard.js`, `js/views/onboarding-lista.js` (solo importa la definición compartida; mismo comportamiento), `js/onboarding-estados.js` (nuevo).
+   - No tocado: el cron diario (036/038/039) sigue mandando a Discord "Onboarding pendientes" con el número viejo de la vista; Hoy y el panel del fundador no muestran esta cuenta.
+0000000000000000. 13/10/2026, tarea "qué ve y qué puede hacer cada usuario de Liam" (SOLO LECTURA del código, sin cambios de código ni migración, la 098 NO se usó; nada probado en navegador ni en la base):
+   - Fuentes leídas: `sesion.js`, `solo-lectura.js`, `layout.js`, `programa.js`, `app.js`, `nav-areas.js`, migraciones 001, 070, 071, 079, 093, 096, 097.
+   - Modelo real: entra a Producto el fundador (crm_members.rol = 'fundador') o quien tenga fila en `cs_accesos` (079). El rol de área (producto, cliente, ventas...) NO da acceso por sí solo. Borrar = solo `es_fundador()`; escribir = `cs_puede_editar` (fundador o nivel 'edicion').
+   - Producto no guarda ni muestra montos: ninguna tabla `cs_*` tiene plata y `cs_altas_pendientes` devuelve fecha, alumno, teléfono, programa y concepto, sin importes.
+   - Resultado del relevamiento entregado en el resumen de la tarea. Sin verificar contra la base real si la 079 está corrida (ver Pendientes).
 000000000000000. 13/10/2026, tarea "pulido visual de la selección masiva" (solo presentación, sin migración, la 098 NO se usó; sin probar en navegador):
    - Barra `.sel-barra` (`css/seleccion.css`): fondo opaco `var(--surface)`, texto `var(--text)`, borde `1px var(--accent)` y filo superior de 3px `var(--accent)`, sombra `var(--shadow-md)`. Posición, tamaño y z-index igual.
    - Títulos del resultado (`seleccion-masiva.js`): 0 aplicados = "Cambio masivo: no se aplicó"; 0 borrados = "Borrado: no se borró"; si hubo algunos, "resultado parcial" como antes.
@@ -185,6 +197,8 @@
 6. Antes de este chat: 036-039, la importación de 133 clientes de liam (040) y 417 accionables marcados como históricos.
 
 ## Pendientes (por prioridad)
+0000000. **Tarjeta Onboarding pendientes (13/10):** `node --check` de `dashboard.js`, `onboarding-lista.js`, `onboarding-estados.js` y mirar en navegador que la tarjeta de liam coincida con "Sin empezar" + "En curso" de la pestaña (116 + los en curso). Decidir si el mensaje de Discord del cron (usa `onboarding_pendientes` viejo de la vista, 0 con el flujo nuevo) pasa a la misma definición: requiere migración, pedir número.
+000000. **Permisos de Liam (13/10):** antes de habilitar al equipo, correr el control 03/04/04b de la 079 y confirmar que cada mail tiene el acceso esperado (cliente@ = lectura, producto@ = edición, ventas@/finanzas@/contenido@ sin fila). Confirmar con Joaquín: mail real del fundador (dystopia.acy@gmail.com vs fundador@agencia.dystopia de la 079), si cliente@ debe ver respuestas del onboarding (datos personales y financieros del alumno) y si la lectura de `token_publico` por cliente@ es aceptable.
 00000. **Pulido selección masiva (13/10):** mirar en navegador la barra sobre filas a mitad de scroll (contraste del texto y controles), el modal "no se aplicó" con un cambio que falle en todos y el placeholder "Cantidad" del borrado.
 0000. **Selección masiva (arreglos 13/10):** `node --check` de los 3 JS y probar en el navegador: marcar/desmarcar no mueve filas ni encabezado (Clientes y Maestro, también con scroll horizontal), barra legible en pantalla angosta y sin tapar la última fila, cambiar filtro/búsqueda deja 0 seleccionados, confirmaciones con tope de 20 y "y N más". Ojo: el toast (z-index 200, abajo al centro) tapa la barra unos segundos.
 000. **Edición masiva:** correr `node --check` de `seleccion-masiva.js`, `clientes.js`, `maestro.js`, `sesion.js` y probar en el navegador con alumnos DE PRUEBA (nunca reales): marcar varios en Clientes y en Maestro, los 7 campos, recargar y ver que persiste; "todos los filtrados" con filtro y búsqueda; fundador vs `producto@` vs `cliente@`; borrar con la cantidad. Sin commit hasta probar.

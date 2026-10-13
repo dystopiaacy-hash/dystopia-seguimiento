@@ -14,6 +14,7 @@ import { traerListaOnboarding, traerOnboardingCliente } from '../datos-onboardin
 import { abrirModalNuevoCliente } from './cliente-nuevo.js';
 import { generarYCopiar, mensajeOnboarding } from './onboarding-link.js';
 import { respuestasHtml } from './onboarding-respuestas.js';
+import { SIN_EMPEZAR, EN_CURSO, COMPLETOS, SIN_ONBOARDING, contarOnboarding } from '../onboarding-estados.js';
 
 const ESTADO = {
   sin_link: ['Sin link', 'var(--text-faint)'],
@@ -27,10 +28,10 @@ const ESTADO = {
    "Todos": "Sin onboarding" es el producto que no tiene plantilla. */
 const FILTROS = [
   ['todos', 'Todos', null],
-  ['sin_empezar', 'Sin empezar', ['sin_link', 'pendiente']],
-  ['en_curso', 'En curso', ['en_curso']],
-  ['completos', 'Completos', ['completado']],
-  ['sin_onboarding', 'Sin onboarding', ['sin_plantilla']]
+  ['sin_empezar', 'Sin empezar', SIN_EMPEZAR],
+  ['en_curso', 'En curso', EN_CURSO],
+  ['completos', 'Completos', COMPLETOS],
+  ['sin_onboarding', 'Sin onboarding', SIN_ONBOARDING]
 ];
 
 /* Primero lo que requiere mirar: en curso, después sin empezar, al final completos. */
@@ -99,11 +100,11 @@ function tablaHtml(filas, base, editable, total, hayFiltro) {
 }
 
 function resumenHtml(alumnos) {
-  const n = k => alumnos.filter(a => k.includes(a.onboarding)).length;
-  return `<div class="hint">${esc(plural(n(['en_curso']), 'alumno'))} en curso ·
-    ${esc(plural(n(['sin_link', 'pendiente']), 'alumno'))} sin empezar ·
-    ${esc(plural(n(['completado']), 'alumno'))} con el onboarding completo ·
-    ${esc(plural(n(['sin_plantilla']), 'alumno'))} sin onboarding (su producto no tiene)</div>`;
+  const c = contarOnboarding(alumnos);
+  return `<div class="hint">${esc(plural(c.enCurso, 'alumno'))} en curso ·
+    ${esc(plural(c.sinEmpezar, 'alumno'))} sin empezar ·
+    ${esc(plural(c.completos, 'alumno'))} con el onboarding completo ·
+    ${esc(plural(c.sinOnboarding, 'alumno'))} sin onboarding (su producto no tiene)</div>`;
 }
 
 export function vistaOnboarding(el, programaId, vigente) {

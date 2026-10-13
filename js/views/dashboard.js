@@ -8,6 +8,8 @@ import {
   traerPrograma, traerKpis, traerClientes, traerAlertas, traerDevolucionesAbiertas, resolverAlerta,
   atrasoPorCliente, mensajeError, etiquetaUsuario, esVivo, ALERTA_LABEL, nivelAlerta
 } from '../datos.js';
+import { traerListaOnboarding } from '../datos-onboarding.js';
+import { contarOnboarding } from '../onboarding-estados.js';
 
 const n = v => Number(v) || 0;
 const nn = v => (v == null || v === '' ? null : Number(v));
@@ -34,18 +36,26 @@ function fmtNps(v) {
   return v == null ? '—' : (v > 0 ? '+' : '') + Math.round(v);
 }
 
-/* Onboardings pendientes que ya pasaron el SLA del programa. La vista de KPIs da el
-   total de pendientes pero no cuántos están demorados: se cuenta sobre cs_v_clientes
-   con el mismo criterio que usa el semáforo (dias_transcurridos > sla_onboarding_dias). */
-function onboardingDemorados(clientes, p) {
-  return clientes.filter(c => esVivo(c)
-    && c.onboarding_estado === 'pendiente_agendar'
-    && n(c.dias_transcurridos) > n(p.sla_onboarding_dias)).length;
+/* "Onboarding pendientes" = sin empezar + en curso de la pestaña Onboarding, con la
+   misma definición (onboarding-estados.js) sobre cs_onboarding_lista. Si esa lista no
+   está disponible (falta la 096 o falló el pedido) se muestra el número viejo de la vista. */
+function tarjetaOnboarding(k, lista, base) {
+  if (!lista) {
+    return kpi({
+      valor: fmtNum(n(k.onboarding_pendientes)), label: 'Onboarding pendientes',
+      href: base + '/onboarding'
+    });
+  }
+  const c = contarOnboarding(lista);
+  return kpi({
+    valor: fmtNum(c.pendientes), label: 'Onboarding pendientes',
+    subs: [[`${fmtNum(c.sinEmpezar)} sin empezar · ${fmtNum(c.enCurso)} en curso`]],
+    href: base + '/onboarding'
+  });
 }
 
-function filaKpis(k, clientes, p) {
+function filaKpis(k, p, lista) {
   const base = '#/p/' + encodeURIComponent(p.id);
-  const demorados = onboardingDemorados(clientes, p);
   const devPend = n(k.dev_pendientes);
   const accVenc = n(k.acc_bpf_vencidos);
   const resp = n(k.respuestas_90d);
@@ -58,12 +68,7 @@ function filaKpis(k, clientes, p) {
         subs: [['Onboarding, activos y en renovación']],
         href: base + '/clientes?estado=vivos'
       })}
-      ${kpi({
-        valor: fmtNum(n(k.onboarding_pendientes)), label: 'Onboarding pendientes',
-        subs: [demorados ? [`${plural(demorados, 'demorado')} (pasó el SLA de ${plural(n(p.sla_onboarding_dias), 'día')})`, 'txt-rojo'] : ['Dentro del SLA']],
-        alerta: demorados > 0,
-        href: base + '/clientes?onboarding=pendiente_agendar'
-      })}
+      ${tarjetaOnboarding(k, lista, base)}
       ${kpi({
         valor: fmtNum(n(k.acc_bpf_pendientes)), label: 'Accionables BPF pendientes',
         subs: [accVenc ? [`${plural(accVenc, 'vencido')}`, 'txt-rojo'] : ['Ninguno vencido']],
@@ -181,9 +186,9 @@ function bloqueAlertas(alertas) {
 
 /* ---------- Vista ---------- */
 
-function html(p, k, clientes, alertas, atrasos) {
+function html(p, k, clientes, alertas, atrasos, lista) {
   const kpis = k
-    ? filaKpis(k, clientes, p)
+    ? filaKpis(k, p, lista)
     : '<div class="card empty-state"><div class="big">Sin KPIs todavía</div><div class="small">Este programa no devolvió datos de seguimiento.</div></div>';
   return kpis + bloqueAtencion(clientes, p, atrasos) + bloqueAlertas(alertas);
 }
@@ -192,13 +197,15 @@ export function vistaDashboard(el, programaId, vigente) {
   el.innerHTML = '<div class="loading-inline">Cargando…</div>';
 
   async function cargar() {
-    const [p, k, clientes, alertas, devs] = await Promise.all([
+    /* La lista de onboarding es un único pedido liviano; si falla, la tarjeta cae al número de la vista. */
+    const [p, k, clientes, alertas, devs, lista] = await Promise.all([
       traerPrograma(programaId), traerKpis(programaId),
-      traerClientes(programaId), traerAlertas(programaId), traerDevolucionesAbiertas(programaId)
+      traerClientes(programaId), traerAlertas(programaId), traerDevolucionesAbiertas(programaId),
+      traerListaOnboarding(programaId).catch(() => undefined)
     ]);
     if (!vigente()) return;
     if (!p) { el.innerHTML = tarjetaError('Programa no encontrado', 'No existe o no tenés acceso.'); return; }
-    el.innerHTML = html(p, k, clientes, alertas, atrasoPorCliente(devs, p.sla_devolucion_horas));
+    el.innerHTML = html(p, k, clientes, alertas, atrasoPorCliente(devs, p.sla_devolucion_horas), lista);
   }
 
   el.onclick = async ev => {
