@@ -58,7 +58,13 @@ function mensaje(error) {
   return 'No se pudo guardar. Probá de nuevo en un momento.';
 }
 
-const api = { rpc, token, mensaje, borrador, aplicar: s => { aplicar(s); } };
+/* contacto: nombre, mail y teléfono del propio alumno (los trae cs_ob_estado) para
+   precargar el paso de datos de contacto. */
+const api = {
+  rpc, token, mensaje, borrador,
+  contacto: () => (estado && estado.contacto) || null,
+  aplicar: s => { aplicar(s); }
+};
 
 /* ---------- Pantallas fijas ---------- */
 

@@ -25,7 +25,7 @@
 - Discord: solo conteos, nunca nombres de alumnos.
 - Migraciones de Producto en `migraciones/` de este repo. Última de Producto: **071-producto-columnas-maestro.sql** (corrida y verificada).
 - Numeración de migraciones: el número de cada migración lo asigna el jefe. No elijas números por tu cuenta: si necesitás una migración y no te dieron número, frená y pedilo en el resumen.
-- Dato histórico: la numeración es compartida entre las 4 apps. Última usada en todo el sistema al 12/10/2026: **074**. Producto tiene asignada la **093** (onboarding por link, ya en producción) y la **096** (cambios de la reunión con Nacho, sin correr).
+- Dato histórico: la numeración es compartida entre las 4 apps. Última usada en todo el sistema al 12/10/2026: **074**. Producto tiene asignada la **093** (onboarding por link, ya en producción), la **096** (cambios de la reunión con Nacho, ya en producción) y la **097** (ajustes tras probar la 096, sin correr).
 
 ## Mapa del código
 - `js/views/programa.js`: router de pestañas del programa (`#/p/:programa/<sub>`).
@@ -38,6 +38,18 @@
 - `FASE0-PRODUCTO.md` (relevamiento de planillas) y `PLAN-PRODUCTO.md` (plan por fases): leerlos antes de seguir.
 
 ## Qué hicimos últimamente
+00000000000. 13/10/2026, tarea "función de lectura para Ventas y ajustes del onboarding tras probar en producción" (SQL, JS y navegador SIN PROBAR: el agente no pudo correr SQL, node ni navegador; migración 097 asignada por el jefe, NO corrida; 096 ya en producción):
+   - `migraciones/097-producto-onboarding-ajustes-prueba.sql` + `097b-...-control.sql`. Un solo bloque, guardas `v_esperado_*`, respaldo en `cs_bak_097_plantillas` y `cs_bak_097_funciones`.
+     Pisa: el tipo de UN campo de la plantilla 1a1 de liam (respaldada) y 3 funciones (respaldadas: cs_ob_limpiar, cs_ob_armar_estado, cs_onboarding_lista). Crea 1 función. No borra nada ni toca alumnos, onboardings ni respuestas.
+   - Ventas: `cs_onboarding_link_estado_closer(p_programa, p_telefono, p_nombre)`, solo lectura, misma búsqueda y mismo permiso (`cs_ob_es_closer`) que `cs_onboarding_link_closer`; jsonb con alta, inactivo, tiene_link, estado, vence_at, vencido, alumno, producto, con_onboarding. Sin token.
+   - `problemas_principales` del 1 a 1 pasa a casillas (la Grupal ya lo era desde la 093). Texto viejo: `cs_ob_limpiar` lo toma como una opción, el front lo normaliza al reabrir un borrador, y la ficha/pestaña muestran texto o lista (`onboarding-respuestas.js`).
+   - "Otros" sin texto: error en el front (junto al campo) y en `cs_ob_limpiar` al enviar el paso (en borrador no frena).
+   - Teléfono: regla única (solo dígitos, + ( ) . espacios y guiones, 8 a 15 dígitos) para todo campo `contacto = telefono` (1 a 1 y Grupal), en `onboarding-formulario.js` y en `cs_ob_limpiar` al enviar. Antes no había validación de teléfono en ninguno de los dos.
+   - Precarga del contacto: `cs_ob_armar_estado` devuelve `contacto` {nombre, email, telefono} mientras quede un paso con campos de contacto sin completar; la landing los precarga si el campo está vacío (nombre = primera palabra, apellido = el resto).
+   - Pestaña Onboarding: filtro "Sin onboarding" y cuenta en el resumen; Accesos evalúa solo lo que pide la plantilla (`cs_onboarding_lista`: skool/wpp null si la plantilla no tiene ese enlace); el modal "Respuestas de…" se cierra al cambiar de ruta (hashchange).
+   - Video (punto 8): CONFIRMADO por lectura que el contador suma tiempo con la pestaña visible (latido cada 10 s), no reproducción. NO se cambió: el iframe de Loom no tiene un evento de play documentado/verificado acá. Opciones en Pendientes.
+   - 096b Q07 (comprobación 3b): `cs_onboarding_lista` se consulta con la sesión de un usuario con acceso (cs_accesos de liam o fundador) y se vuelve a la del closer. La función no cambió.
+   - 097b (líneas; correr de a una): Q00 10-17 · Q01 20-28 · Q02 31-39 · Q03 42-48 · Q04 51-139 ("HUMO OK: 10") · Q05 142-268 ("HUMO OK: 10"; necesita un ventas/closer asignado a liam) · Q06 271-327 ("HUMO OK: 2") · Q07 330-359 (error "RESULTADO: ...").
 0000000000. 12/10/2026, tarea "cambios al onboarding de la reunión con Nacho" (SQL, JS y navegador SIN PROBAR: el agente no pudo correr SQL, node ni navegador; migración 096 asignada por el jefe, NO corrida; 093 ya está en producción y NO se toca):
    - `migraciones/096-producto-onboarding-cambios-nacho.sql` + `096b-...-control.sql`. Un solo bloque, autochequeo con `v_esperado_*` al inicio, respaldo en `cs_bak_096_plantillas` y `cs_bak_096_funciones`.
      Pisa: `pasos` de la plantilla 1a1 de liam (respaldada) y 5 funciones (respaldadas). No borra nada.
@@ -183,6 +195,9 @@
 4b. **096 (cambios de Nacho):** probarla en el banco de pruebas (necesita 093 aplicada completa, 071, 079, 070, 039 y crm_members/crm_asignaciones), correr Q00 a Q08 de la 096b, y recién ahí en producción.
    Pendiente de decisión: la pantalla de Ventas (otra app) usa `cs_closer_productos` / `cs_onboarding_alta_closer`; reabrir completados para que llenen el paso nuevo (utilidad B); decidir si P16 va como casillas;
    mostrar la columna Resell en el Maestro (hoy oculta, la muestra el fundador desde Columnas); la pestaña Onboarding lista también a los ~133 alumnos históricos como "sin empezar" (no tienen link). Dominio `producto.dystopia.com.ar`: ver Cuidado con.
+4c. **097 (ajustes tras probar la 096):** correrla en el banco de pruebas (necesita 093 y 096 aplicadas) y después Q00 a Q07 de la 097b. Pendiente: pasar el contrato de `cs_onboarding_link_estado_closer` a la app de Ventas;
+   decidir qué hacer con el tiempo de video (hoy mide tiempo en pantalla; contar reproducción real exige un evento de play del reproductor de Loom, o cambiar de reproductor/usar la API de player.js si Loom la soporta: no verificado);
+   la 097 no cambia el texto "Podes elegir varias" de la pregunta (ya coincide con casillas).
 5. **Fase 4: ficha de un vistazo** (barra de tiempo y línea de contactos). Sin dependencias.
 6. **Fase 8: vista de cobranza** de solo lectura sobre `fin_cuotas` (solo liam tiene datos).
 7. Bajar `resell_gracia_dias` de liam de 200 a 30 cuando se cierren los 19 pipelines abiertos importados.

@@ -23,12 +23,14 @@ const ESTADO = {
   sin_plantilla: ['Sin onboarding', 'var(--text-faint)']
 };
 
-/* Filtros: qué estados de la base entran en cada uno. */
+/* Filtros: qué estados de la base entran en cada uno. Los cuatro estados suman
+   "Todos": "Sin onboarding" es el producto que no tiene plantilla. */
 const FILTROS = [
   ['todos', 'Todos', null],
   ['sin_empezar', 'Sin empezar', ['sin_link', 'pendiente']],
   ['en_curso', 'En curso', ['en_curso']],
-  ['completos', 'Completos', ['completado']]
+  ['completos', 'Completos', ['completado']],
+  ['sin_onboarding', 'Sin onboarding', ['sin_plantilla']]
 ];
 
 /* Primero lo que requiere mirar: en curso, después sin empezar, al final completos. */
@@ -100,7 +102,8 @@ function resumenHtml(alumnos) {
   const n = k => alumnos.filter(a => k.includes(a.onboarding)).length;
   return `<div class="hint">${esc(plural(n(['en_curso']), 'alumno'))} en curso ·
     ${esc(plural(n(['sin_link', 'pendiente']), 'alumno'))} sin empezar ·
-    ${esc(plural(n(['completado']), 'alumno'))} con el onboarding completo</div>`;
+    ${esc(plural(n(['completado']), 'alumno'))} con el onboarding completo ·
+    ${esc(plural(n(['sin_plantilla']), 'alumno'))} sin onboarding (su producto no tiene)</div>`;
 }
 
 export function vistaOnboarding(el, programaId, vigente) {
@@ -172,12 +175,16 @@ export function vistaOnboarding(el, programaId, vigente) {
     const cuerpo = !o
       ? '<div class="muted-empty">Este alumno todavía no tiene onboarding.</div>'
       : (respuestasHtml(o, true) || '<div class="muted-empty">Todavía no respondió ningún formulario.</div>');
+    /* El modal es de esta pantalla: se cierra si la ruta cambia (por ejemplo al ir a la ficha). */
+    const alCambiarRuta = () => cerrarModal();
+    window.addEventListener('hashchange', alCambiarRuta);
     abrirModal({
       titulo: a ? `Respuestas de ${a.nombre}` : 'Respuestas',
       ancho: true,
       cuerpo: `<div class="onb-resp-modal">${cuerpo}
         ${a ? `<p class="hint"><a href="${base}/c/${encodeURIComponent(clienteId)}">Abrir la ficha</a></p>` : ''}</div>`,
-      pie: '<button type="button" class="btn btn-accent" data-cerrar="1">Cerrar</button>'
+      pie: '<button type="button" class="btn btn-accent" data-cerrar="1">Cerrar</button>',
+      alCerrar: () => window.removeEventListener('hashchange', alCambiarRuta)
     });
     const b = document.querySelector('[data-cerrar="1"]');
     if (b) b.onclick = cerrarModal;

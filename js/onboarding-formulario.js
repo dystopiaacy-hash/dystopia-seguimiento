@@ -13,6 +13,42 @@ const vacio = v => v == null || v === '' || (Array.isArray(v) && !v.length);
    texto va en la clave "<key>_otro" y solo cuenta si esa opción está elegida. */
 const otroElegido = (c, v) => !!c.otro && (Array.isArray(v) ? v.includes(c.otro) : v === c.otro);
 
+/* Teléfono (campos con contacto = telefono): solo números, +, espacios, guiones,
+   puntos y paréntesis, con 8 a 15 dígitos. Misma regla que cs_ob_limpiar (097). */
+export const MSG_TELEFONO = 'Revisá el teléfono: escribilo con prefijo, solo con números, + , espacios o guiones (mínimo 8 dígitos).';
+export function telefonoValido(t) {
+  const s = String(t == null ? '' : t).trim();
+  if (!/^[0-9+().\s-]+$/.test(s)) return false;
+  const n = (s.match(/\d/g) || []).length;
+  return n >= 8 && n <= 15;
+}
+
+/* Una pregunta que antes era de opción única y hoy es de casillas puede traer el
+   valor viejo como texto: se lo toma como una sola opción elegida. */
+function normalizarValores(secciones, valores) {
+  for (const s of secciones) for (const c of s.campos) {
+    const v = valores[c.key];
+    if (c.tipo === 'casillas' && typeof v === 'string') valores[c.key] = v.trim() ? [v.trim()] : [];
+  }
+  return valores;
+}
+
+/* Precarga de los datos de contacto que ya están en el alta (solo si el campo está
+   vacío). El nombre completo se parte en primera palabra + resto: es editable. */
+function precargarContacto(secciones, valores, contacto) {
+  if (!contacto) return;
+  const partes = String(contacto.nombre || '').trim().split(/\s+/).filter(Boolean);
+  const dato = {
+    nombre: partes[0] || '',
+    apellido: partes.slice(1).join(' '),
+    email: String(contacto.email || '').trim(),
+    telefono: String(contacto.telefono || '').trim()
+  };
+  for (const s of secciones) for (const c of s.campos) {
+    if (c.contacto && dato[c.contacto] && vacio(valores[c.key])) valores[c.key] = dato[c.contacto];
+  }
+}
+
 function cajaOtro(c, v, vOtro) {
   if (!c.otro) return '';
   return `<input type="text" class="pub-otro" data-k="${esc(c.key + '_otro')}" maxlength="300"
@@ -69,6 +105,8 @@ export function pasoFormulario(box, paso, resp0, api) {
   const secciones = paso.secciones || [];
   const mem = api.borrador ? api.borrador(paso.key) : { valores: null, sec: null };
   const valores = mem.valores || { ...(resp0 || {}) };
+  normalizarValores(secciones, valores);
+  if (!mem.valores) precargarContacto(secciones, valores, api.contacto && api.contacto());
   mem.valores = valores;
   let sec = 0, enviando = false;
 
@@ -99,17 +137,28 @@ export function pasoFormulario(box, paso, resp0, api) {
     if (campo) campo.classList.toggle('pub-campo-mal', !!texto);
   }
 
+  /* Mensaje de error de un campo ('' = bien). */
+  function errorDe(c) {
+    const v = valores[c.key];
+    if (vacio(v) || (typeof v === 'string' && !v.trim())) {
+      return c.requerido ? 'Falta completar esto.' : '';
+    }
+    if (c.contacto === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v).trim())) {
+      return 'Revisá el mail: tiene que tener la forma nombre@dominio.com';
+    }
+    if (c.contacto === 'telefono' && !telefonoValido(v)) return MSG_TELEFONO;
+    /* "Otros" elegido: el texto es obligatorio, aunque la pregunta no lo sea. */
+    if (otroElegido(c, v) && !String(valores[c.key + '_otro'] || '').trim()) {
+      return `Escribí cuál es tu respuesta en "${c.otro}".`;
+    }
+    return '';
+  }
+
   /* Devuelve la primera key con error (y marca todas las de la sección). */
   function validarSeccion(i) {
     let primero = null;
     for (const c of secciones[i].campos) {
-      const v = valores[c.key];
-      let msg = '';
-      if (vacio(v) || (typeof v === 'string' && !v.trim())) {
-        if (c.requerido) msg = 'Falta completar esto.';
-      } else if (c.contacto === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v).trim())) {
-        msg = 'Revisá el mail: tiene que tener la forma nombre@dominio.com';
-      }
+      const msg = errorDe(c);
       marcar(c.key, msg);
       if (msg && !primero) primero = c.key;
     }
@@ -151,6 +200,7 @@ export function pasoFormulario(box, paso, resp0, api) {
       valores[k] = t.value;
     }
     marcar(k, '');
+    if (k.endsWith('_otro')) marcar(k.slice(0, -5), '');
     /* Mostrar u ocultar la caja de "Otros" según lo elegido. */
     const campo = secciones.flatMap(s => s.campos).find(c => c.key === k && c.otro);
     if (campo) {
@@ -204,12 +254,10 @@ export function pasoFormulario(box, paso, resp0, api) {
 
     /* Envío final: se revisan todas las secciones antes de mandar. */
     for (let i = 0; i < secciones.length; i++) {
-      const faltaAlguna = secciones[i].campos.some(c => c.requerido && (vacio(valores[c.key])
-        || (typeof valores[c.key] === 'string' && !valores[c.key].trim())));
-      if (faltaAlguna) {
+      if (secciones[i].campos.some(c => errorDe(c))) {
         enviando = false;
         sec = i;
-        pintar('Falta completar algo obligatorio en esta sección.');
+        pintar('Hay algo para revisar en esta sección.');
         validarSeccion(i);
         return;
       }

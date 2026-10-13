@@ -18,7 +18,9 @@ function valorTexto(c, vals) {
   return conOtro(c, vals, String(v));
 }
 
-const hayValor = (vals, k) => vals[k] !== undefined && vals[k] !== null && vals[k] !== '';
+/* El valor puede ser texto (respuestas viejas de opción única) o lista (casillas). */
+const hayValor = (vals, k) => vals[k] !== undefined && vals[k] !== null && vals[k] !== ''
+  && !(Array.isArray(vals[k]) && !vals[k].length);
 
 /* abierto = true despliega todos los pasos (pestaña); false los deja plegados (ficha). */
 export function respuestasHtml(o, abierto = false) {

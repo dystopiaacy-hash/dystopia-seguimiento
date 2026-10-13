@@ -146,6 +146,7 @@ order by 1;
 do $humo$
 declare
   v_uid  uuid;
+  v_ver  uuid;
   v_prod uuid;
   v_sin  uuid;
   v_j    jsonb;
@@ -164,6 +165,12 @@ begin
   if v_uid is null then
     raise exception 'HUMO NO CORRIÓ: ningún usuario ventas o closer está asignado a liam en crm_asignaciones';
   end if;
+  select u.user_id into v_ver
+    from (select a.user_id, 0 as o from public.cs_accesos a where a.programa_id = 'liam'
+          union all
+          select m.user_id, 1 from public.crm_members m where m.rol = 'fundador') u
+   order by u.o
+   limit 1;
   select pp.producto_id into v_prod
     from public.cs_onboarding_plantilla_productos pp
     join public.cs_onboarding_plantillas t on t.id = pp.plantilla_id
@@ -214,9 +221,21 @@ begin
     end if;
     select count(*) into v_cnt from public.cs_onboardings o where o.cliente_id = v_row.id;
     if v_cnt <> 1 then v_f := v_f || ' [onboarding: ' || v_cnt || ' filas]'; end if;
-    -- 3b. aparece en la lista de la pestaña, con Resell y sin empezar
+    -- 3b. aparece en la lista de la pestaña, con Resell y sin empezar.
+    -- cs_onboarding_lista exige cs_puede_ver, que el closer (ventas) no tiene por
+    -- diseño: se la consulta con la sesión de un usuario que sí ve liam (acceso en
+    -- cs_accesos o fundador) y después se vuelve a la sesión del closer.
+    if v_ver is null then
+      raise exception 'HUMO NO CORRIÓ: no hay un usuario que pueda ver liam (cs_accesos o fundador en crm_members) para la comprobación 3b';
+    end if;
+    perform set_config('request.jwt.claim.sub', v_ver::text, true);
+    perform set_config('request.jwt.claims',
+                       jsonb_build_object('sub', v_ver::text, 'role', 'authenticated')::text, true);
     select count(*) into v_cnt from public.cs_onboarding_lista('liam') l
      where l.cliente_id = v_row.id and l.resell and l.onboarding = 'pendiente' and l.hechos = 0;
+    perform set_config('request.jwt.claim.sub', v_uid::text, true);
+    perform set_config('request.jwt.claims',
+                       jsonb_build_object('sub', v_uid::text, 'role', 'authenticated')::text, true);
     if v_cnt <> 1 then v_f := v_f || ' [lista: no aparece como Resell sin empezar]'; end if;
   end if;
 
