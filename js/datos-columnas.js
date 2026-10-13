@@ -1,7 +1,8 @@
 /* Columnas configurables del Maestro (071). Separado de datos.js por tamaño.
    cs_maestro_columnas solo tiene filas de lo que se tocó: una columna del sistema
-   sin fila va con su nombre y su orden de siempre. Cambia la estructura solo un
-   fundador (lo valida la base); los valores los edita cualquiera con acceso. */
+   sin fila va con su nombre y su orden de siempre. Cambia la estructura quien edita el
+   programa (fundador o producto, 100) y solo el fundador archiva/borra (lo valida la
+   base); los valores los edita cualquiera con edición. */
 import { sb } from './supabase.js';
 import { mensajeError } from './datos.js';
 

@@ -7,11 +7,11 @@
    cs_renovaciones del programa; se repinta conservando el campo con foco y lo
    que tiene escrito (mismo patrón que la ficha). En celular, tarjetas.
    Columnas configurables (071): la lista sale de maestro-columnas.js (definiciones
-   + config del programa). El fundador las cambia desde el botón "Columnas"
+   + config del programa). Quien edita el programa (fundador o producto) las cambia desde el botón "Columnas"
    (maestro-panel.js) o con doble clic en un encabezado. Sin la 071, la planilla
    de siempre y sin botón. */
 import { esc, plural, toast } from '../ui.js';
-import { esFundador } from '../sesion.js';
+import { esFundador, puedeEditarPrograma } from '../sesion.js';
 import { tarjetaError } from './programa.js';
 import { filtroSelect, opcionesHtml, repintarConservandoFoco, mapaPorId } from './comunes.js';
 import {
@@ -145,7 +145,7 @@ export function vistaMaestro(el, programaId, vigente) {
     recargar: () => cargar().catch(e => console.error('maestro', e))
   });
 
-  const puedeConfigurar = () => config !== null && esFundador();
+  const puedeConfigurar = () => config !== null && puedeEditarPrograma(programaId);
 
   function armar() {
     const base = columnas(prog, productos);
@@ -283,7 +283,8 @@ export function vistaMaestro(el, programaId, vigente) {
     if (ev.target.closest('#mx-columnas')) {
       if (!puedeConfigurar()) return;
       panel = abrirPanelColumnas({
-        programaId, estado: () => armado, recargar: recargarColumnas, alCerrar: () => { panel = null; }
+        programaId, estado: () => armado, recargar: recargarColumnas, puedeBorrar: esFundador(),
+        alCerrar: () => { panel = null; }
       });
       return;
     }

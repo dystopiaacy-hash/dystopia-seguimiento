@@ -1,4 +1,5 @@
-/* Maestro — panel lateral "Columnas" (071). Solo fundador: lo abre maestro.js.
+/* Maestro — panel lateral "Columnas" (071). Lo abre maestro.js a quien edita el programa;
+   archivar y recuperar (borrar) solo con puedeBorrar (fundador).
    Ordenar (arrastrar o flechas), renombrar en el lugar, mostrar u ocultar, y en
    las columnas nuevas: opciones, archivar y recuperar. "+ Nueva columna" abajo.
    Cada cambio es una llamada a la base; al volver se recarga la config, se
@@ -33,13 +34,13 @@ function editorOpciones(c) {
     </div>`;
 }
 
-function itemHtml(c, i, total, abierta) {
+function itemHtml(c, i, total, abierta, puedeBorrar) {
   const nombre = c.k === 'nombre';
   const extra = c.sistema ? '' : `
     <div class="mc-extra"><span class="mc-tipo">${esc(TIPO_COLUMNA_LABEL[c.tipo] || c.tipo)}</span>
       ${c.tipo === 'opcion' ? `<button type="button" class="btn btn-sm btn-ghost" data-mc="opciones" aria-expanded="${abierta}">
         Opciones (${c.opciones.length})</button>` : ''}
-      <button type="button" class="btn btn-sm btn-ghost" data-mc="archivar">Archivar</button></div>
+      ${puedeBorrar ? '<button type="button" class="btn btn-sm btn-ghost" data-mc="archivar">Archivar</button>' : ''}</div>
     ${abierta ? editorOpciones(c) : ''}`;
   return `<li class="mc-item${c.visible ? '' : ' mc-oculta'}" data-clave="${esc(c.k)}">
       <div class="mc-fila">
@@ -56,7 +57,8 @@ function itemHtml(c, i, total, abierta) {
       </div>${extra}</li>`;
 }
 
-function cuerpoHtml({ todas, archivadas }, ui) {
+function cuerpoHtml({ todas, archivadas: archTodas }, ui, puedeBorrar) {
+  const archivadas = puedeBorrar ? archTodas : [];
   const arch = archivadas.map(c => `
     <li class="mc-fila" data-clave="${esc(c.k)}"><span class="mc-arch-nombre">${esc(c.lab)}</span>
       <span class="mc-tipo">${esc(TIPO_COLUMNA_LABEL[c.tipo] || c.tipo)}</span>
@@ -65,7 +67,7 @@ function cuerpoHtml({ todas, archivadas }, ui) {
   return `
     <p class="mc-nota">Arrastrá o usá las flechas para ordenar. Vale para todo el equipo de este programa.
       En las del sistema, dejar el nombre vacío vuelve al original.</p>
-    <ul class="mc-lista">${todas.map((c, i) => itemHtml(c, i, todas.length, ui.opciones === c.k)).join('')}</ul>
+    <ul class="mc-lista">${todas.map((c, i) => itemHtml(c, i, todas.length, ui.opciones === c.k, puedeBorrar)).join('')}</ul>
     ${archivadas.length ? `<details class="mc-archivadas"${ui.archivadas ? ' open' : ''}>
       <summary>Archivadas (${archivadas.length})</summary><ul>${arch}</ul></details>` : ''}
     <div class="mc-nueva">
@@ -82,7 +84,7 @@ function cuerpoHtml({ todas, archivadas }, ui) {
 }
 
 /* estado() -> { todas, archivadas } vigente; recargar() vuelve a pedir la config y repinta la planilla. */
-export function abrirPanelColumnas({ programaId, estado, recargar, alCerrar = null }) {
+export function abrirPanelColumnas({ programaId, estado, recargar, puedeBorrar = false, alCerrar = null }) {
   const ui = { opciones: null, archivadas: false, nueva: null };
   const overlay = document.createElement('div');
   overlay.className = 'mc-overlay';
@@ -97,7 +99,7 @@ export function abrirPanelColumnas({ programaId, estado, recargar, alCerrar = nu
   function pintar() {
     if (!overlay.isConnected) return;
     const y = body.scrollTop;
-    repintarConservandoFoco(body, () => { body.innerHTML = cuerpoHtml(estado(), ui); });
+    repintarConservandoFoco(body, () => { body.innerHTML = cuerpoHtml(estado(), ui, puedeBorrar); });
     body.scrollTop = y;
   }
 
@@ -159,6 +161,7 @@ export function abrirPanelColumnas({ programaId, estado, recargar, alCerrar = nu
         `Columna "${nombre}" creada.`);
       return;
     }
+    if ((accion === 'recuperar' || accion === 'archivar') && !puedeBorrar) return;
     if (accion === 'recuperar') { operar(() => archivarColumna(programaId, k, false), 'Columna recuperada.'); return; }
     if (!c) return;
     if (accion === 'subir' || accion === 'bajar') {
