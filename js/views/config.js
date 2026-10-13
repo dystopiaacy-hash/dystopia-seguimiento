@@ -10,6 +10,7 @@ import {
 } from '../datos.js';
 import { esFundador } from '../sesion.js';
 import { guardar, num } from './comunes.js';
+import { htmlCanales, montarCanales } from './config-canales.js';
 import {
   htmlEtapas, leerEtapas, htmlPlantilla, leerPlantilla,
   completarKeys, validarPlantilla
@@ -93,12 +94,16 @@ export function vistaConfig(el, programaId, vigente) {
         <span class="hint">Manda un mensaje de prueba al canal. Si hay cambios sin guardar, los guarda antes.</span>` : ''}`,
         '<button type="button" class="btn btn-accent btn-sm" id="cf-guardar-discord">Guardar Discord</button>')}
 
+      ${htmlCanales()}
+
       ${seccion('Chequeo diario', `
         <div class="hint">Aplica las plantillas que ya vencieron, finaliza los programas vencidos
           y recalcula las alertas. Es lo mismo que corre el cron: se puede correr las veces que
           haga falta, no duplica nada.</div>
         <button type="button" class="btn btn-accent" id="cf-chequeo">Correr chequeo ahora</button>
         <div class="chequeo-res" id="cf-chequeo-res"></div>`)}`;
+    montarCanales(el.querySelector('#cf-canales'), programaId, vigente)
+      .catch(e => console.error('canales', e));   // 106: no frena el resto de la pantalla
   }
 
   function repintarEtapas() {

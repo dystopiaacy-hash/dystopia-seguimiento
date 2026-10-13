@@ -19,3 +19,15 @@ export const ONBOARDING_BASE_URL = 'https://producto.dystopia.com.ar';
    Pendiente de decisión de Joaquín: 15 / 21 (los de Evolve) o 7 / 10. */
 export const LLAMADA_AMARILLO_DESDE = 15;
 export const LLAMADA_ROJO_DESDE = 21;
+
+/* Satisfacción por etapa (106): color del último puntaje. Menos de ROJO_MENOS = rojo,
+   de ahí hasta VERDE_DESDE - 1 = amarillo (7 y 8), VERDE_DESDE o más = verde (9 y 10).
+   Los avisos a Discord (menos de 7, y 9 o 10 con testimonio) los dispara la base con los mismos números. */
+export const SATISF_ROJO_MENOS = 7;
+export const SATISF_VERDE_DESDE = 9;
+
+/* "Sugerido para upsell" (106). Regla visible: al menos un win en los últimos UPSELL_WINS_DIAS días,
+   último puntaje de satisfacción >= UPSELL_PUNTAJE_MIN (si tiene) y semáforo de última llamada
+   que no esté en rojo. La sugerencia no marca sola: el CSM confirma. */
+export const UPSELL_WINS_DIAS = 30;
+export const UPSELL_PUNTAJE_MIN = 9;

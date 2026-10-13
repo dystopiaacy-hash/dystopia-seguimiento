@@ -8,7 +8,8 @@ import { soloLectura } from './sesion.js';
 
 /* RPC que solo leen (o son del formulario público): el resto se bloquea. */
 const RPC_LECTURA = new Set(['cs_cola_hoy', 'cs_altas_pendientes', 'cs_form_publico',
-  'cs_onboarding_ficha', 'cs_onboarding_avance', 'cs_onboarding_hoy', 'cs_onboarding_lista']);
+  'cs_onboarding_ficha', 'cs_onboarding_avance', 'cs_onboarding_hoy', 'cs_onboarding_lista',
+  'cs_satisf_pendientes', 'cs_alumno_buscar']);
 const ESCRITURAS = ['insert', 'update', 'upsert', 'delete'];
 
 function errorLectura() {

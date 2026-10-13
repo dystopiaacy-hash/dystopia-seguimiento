@@ -17,7 +17,13 @@ import {
 import { traerProductos, traerCicloCliente } from '../ciclo.js';
 import { traerOnboardingCliente } from '../datos-onboarding.js';
 import { traerLlamadasCliente } from '../datos-llamadas.js';
+import { traerResumenCliente, traerUltimaLlamadaCliente } from '../datos-estado.js';
+import { traerEnviosCliente, traerMomentos } from '../datos-satisfaccion.js';
+import { traerWinsCliente } from '../datos-wins.js';
 import * as cabecera from './ficha-cabecera.js';
+import * as estado from './ficha-estado.js';
+import * as satisfaccion from './ficha-satisfaccion.js';
+import * as wins from './ficha-wins.js';
 import * as ciclo from './ficha-ciclo.js';
 import * as onboarding from './ficha-onboarding.js';
 import * as seguimientos from './ficha-seguimientos.js';
@@ -30,12 +36,15 @@ import * as historial from './ficha-historial.js';
 
 const BLOQUES = [
   ['cabecera', cabecera],
+  ['estado', estado],
   ['ciclo', ciclo],
   ['onboarding', onboarding],
   ['seguimientos', seguimientos],
   ['accionables', accionables],
   ['llamadas', llamadas],
   ['recursos', recursos],
+  ['satisfaccion', satisfaccion],
+  ['wins', wins],
   ['devoluciones', devoluciones],
   ['calls', calls],
   ['historial', historial]
@@ -49,7 +58,10 @@ async function cargarDatos(programaCorto, clienteId) {
   ]);
   if (!c) return null;
   const p = completo || programaCorto;
-  const [acc, devs, cls, rens, resp, segs, forms, productos, cicloCli, onb, llam] = await Promise.all([
+  /* Lo de la 106 (estado, satisfacción, wins) nunca frena la ficha: sin la migración o con error
+     queda undefined y sus bloques no se muestran. */
+  const opcional = (fn, que) => fn().catch(e => { console.error(que, e); return undefined; });
+  const [acc, devs, cls, rens, resp, segs, forms, productos, cicloCli, onb, llam, resumen, ultima, momentos, envios, winsCli] = await Promise.all([
     traerAccionablesCliente(c.id),
     traerDevolucionesCliente(c.id),
     traerCallsCliente(c.id),
@@ -62,8 +74,15 @@ async function cargarDatos(programaCorto, clienteId) {
     /* El onboarding no frena la ficha: sin 093 (o con error) el bloque no se muestra. */
     traerOnboardingCliente(c.id).catch(e => { console.error('onboarding', e); return undefined; }),
     /* Igual con las llamadas (102): sin la migración (o con error) no se muestran sus bloques. */
-    traerLlamadasCliente(c.id).catch(e => { console.error('llamadas', e); return undefined; })
+    traerLlamadasCliente(c.id).catch(e => { console.error('llamadas', e); return undefined; }),
+    opcional(() => traerResumenCliente(c.id), 'resumen'),
+    opcional(() => traerUltimaLlamadaCliente(c.id), 'ultima llamada'),
+    opcional(() => traerMomentos(p.id), 'momentos'),
+    opcional(() => traerEnviosCliente(c.id), 'satisfacción'),
+    opcional(() => traerWinsCliente(c.id), 'wins')
   ]);
+  /* 106 corrida = la vista del resumen respondió (con fila o null). */
+  const con106 = resumen !== undefined;
   /* cs_historial se busca por registro_id: el cliente y todo lo que cuelga de él. */
   const ids = [c.id]
     .concat(acc.map(x => x.id), devs.map(x => x.id), cls.map(x => x.id), rens.map(x => x.id));
@@ -73,7 +92,10 @@ async function cargarDatos(programaCorto, clienteId) {
     p, c: { ...c, ...cicloCli }, productos,
     accionables: acc, devoluciones: devs, calls: cls, renovaciones: rens,
     respuestas: resp, seguimientos: segs, formularios: forms, historial: hist,
-    onboarding: onb, llamadas: llam
+    onboarding: onb, llamadas: llam,
+    estado: con106 ? { resumen: resumen || {}, ultima: ultima || null } : undefined,
+    satisfaccion: con106 && momentos !== undefined && envios !== undefined ? { momentos, envios } : undefined,
+    wins: con106 ? winsCli : undefined
   };
 }
 

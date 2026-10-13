@@ -15,6 +15,8 @@ import { abrirPanelContacto, hayPanelContacto } from './hoy-contacto.js';
 import { montarAltas } from './hoy-altas.js';
 import { montarOnboarding } from './hoy-onboarding.js';
 import { montarSinLlamada } from './hoy-llamadas.js';
+import { montarSatisfaccionHoy } from './hoy-satisfaccion.js';
+import { montarWinsHoy } from './hoy-wins.js';
 
 const GRUPOS = [['atrasado', 'Atrasado'], ['hoy', 'Hoy'], ['proximo', 'Próximos']];
 const TIPO_LABEL = {
@@ -81,9 +83,10 @@ function cabecera(todas, filtro, nAltas) {
 }
 
 export function vistaHoy(el, programaId, vigente) {
-  /* Cuatro contenedores: las altas (hoy-altas.js), el onboarding (hoy-onboarding.js) y los
-     alumnos sin llamada (hoy-llamadas.js) arriba y la cola abajo, que se repinta entera. */
-  el.innerHTML = '<div></div><div></div><div></div><div><div class="loading-inline">Cargando…</div></div>';
+  /* Seis contenedores: las altas (hoy-altas.js), el onboarding (hoy-onboarding.js), los alumnos
+     sin llamada (hoy-llamadas.js), la satisfacción para enviar (hoy-satisfaccion.js, 106) y los
+     referidos para pedir (hoy-wins.js, 106) arriba y la cola abajo, que se repinta entera. */
+  el.innerHTML = '<div></div><div></div><div></div><div></div><div></div><div><div class="loading-inline">Cargando…</div></div>';
   const cuerpo = el.lastElementChild;
   let cola = [], cargada = false;
   let filtro = '', sel = null, pedido = 0;
@@ -98,7 +101,8 @@ export function vistaHoy(el, programaId, vigente) {
     const todas = pendientes();
     if (filtro && !todas.some(t => t.tipo === filtro)) filtro = '';
     if (!todas.length) {
-      cuerpo.innerHTML = altas.cantidad() || onboarding.cantidad() || sinLlamada.cantidad() ? ''
+      cuerpo.innerHTML = altas.cantidad() || onboarding.cantidad() || sinLlamada.cantidad()
+        || satisfaccion.cantidad() || wins.cantidad() ? ''
         : '<div class="card empty-state"><div class="big">Nada pendiente para hoy</div></div>';
       return;
     }
@@ -201,6 +205,8 @@ export function vistaHoy(el, programaId, vigente) {
 
   const onboarding = montarOnboarding(el.children[1], programaId, vigente, pintar);
   const sinLlamada = montarSinLlamada(el.children[2], programaId, vigente, pintar);
+  const satisfaccion = montarSatisfaccionHoy(el.children[3], programaId, vigente, pintar);
+  const wins = montarWinsHoy(el.children[4], programaId, vigente, pintar);
 
   el.addEventListener('click', ev => {
     const chip = ev.target.closest('[data-tipo]');
@@ -244,5 +250,10 @@ export function vistaHoy(el, programaId, vigente) {
       ? 'Falta correr la migración 069 (cola de hoy).' : mensajeError(e);
     cuerpo.innerHTML = tarjetaError('No se pudo cargar la cola de hoy', falta);
   });
-  return { refrescar: () => { altas.cargar(); onboarding.cargar(); sinLlamada.cargar(); return cargar().catch(e => console.error('hoy', e)); } };
+  return {
+    refrescar: () => {
+      altas.cargar(); onboarding.cargar(); sinLlamada.cargar(); satisfaccion.cargar(); wins.cargar();
+      return cargar().catch(e => console.error('hoy', e));
+    }
+  };
 }

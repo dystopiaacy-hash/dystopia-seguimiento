@@ -7,13 +7,12 @@
    Permisos: fundador y quien edita el programa crean, editan y marcan; solo lectura
    (cliente@) ve; borrar es solo del fundador (la base lo exige igual). Sin la 102 el
    bloque no se muestra. */
-import { esc, fmtFecha, plural, abrirModal, cerrarModal, confirmar, hoyAR } from '../ui.js';
+import { esc, fmtFecha, plural, abrirModal, cerrarModal, confirmar } from '../ui.js';
 import { esFundador, puedeEditarPrograma } from '../sesion.js';
 import { actualizarFila, borrarFila } from '../datos.js';
 import { guardar } from './comunes.js';
-import {
-  crearLlamada, agregarAccionables, agregarSubtarea, parsearAccionables, parsearLinks
-} from '../datos-llamadas.js';
+import { agregarAccionables, agregarSubtarea, parsearAccionables } from '../datos-llamadas.js';
+import { modalNueva, modalEditarLlamada } from './ficha-llamada-modales.js';
 
 const T_ACC = 'cs_llamada_accionables';
 const hijosDe = (items, id) => items.filter(a => a.padre_id === id);
@@ -51,6 +50,15 @@ function cabeceraLlamada(ll, items, editar, fundador) {
     </div>`;
 }
 
+/* Resumen, "En qué está" y "Próximos pasos" de la llamada (106). Vacío si no hay nada cargado. */
+function infoLlamada(ll) {
+  const partes = [['Resumen', ll.resumen], ['En qué está', ll.en_que_esta], ['Próximos pasos', ll.proximos_pasos]]
+    .filter(([, v]) => v && String(v).trim());
+  if (!partes.length) return '';
+  return `<div class="ll-info">${partes.map(([t, v]) =>
+    `<div><span class="ll-info-lab">${esc(t)}</span> ${esc(v)}</div>`).join('')}</div>`;
+}
+
 function grupoPendientes(ll, items, editar, fundador) {
   const raices = items.filter(a => !a.padre_id);
   const filas = [];
@@ -68,6 +76,7 @@ function grupoPendientes(ll, items, editar, fundador) {
     </form>` : '';
   return `<div class="ll-grupo">
       ${cabeceraLlamada(ll, items, editar, fundador)}
+      ${infoLlamada(ll)}
       ${filas.length ? `<div class="acc-lista">${filas.join('')}</div>`
         : '<div class="muted-empty ll-vacio">No hay accionables pendientes de esta llamada.</div>'}
       ${alta}
@@ -123,70 +132,7 @@ export function html(ctx) {
 
 /* ---------- Modales ---------- */
 
-function modalNueva(ctx, api) {
-  abrirModal({
-    titulo: 'Nueva llamada',
-    cuerpo: `
-      <div class="form-grid2">
-        <div class="form-row"><label for="ll-fecha">Fecha de la llamada *</label>
-          <input type="date" id="ll-fecha" value="${esc(hoyAR())}" max="${esc(hoyAR())}"></div>
-        <div class="form-row"><label for="ll-titulo">Título (opcional)</label>
-          <input type="text" id="ll-titulo" maxlength="120" autocomplete="off" placeholder="Ej: Revisión de embudo"></div>
-      </div>
-      <div class="form-row"><label for="ll-acc">Accionables (uno por línea)</label>
-        <textarea id="ll-acc" rows="6" maxlength="8000"
-          placeholder="Pegá la lista acá. Una línea con sangría (2 espacios) es subtarea de la de arriba."></textarea></div>
-      <div class="form-row"><label for="ll-links">Links de la llamada (uno por línea)</label>
-        <textarea id="ll-links" rows="3" maxlength="4000"
-          placeholder="https://...  o  Título | https://..."></textarea></div>
-      <div id="ll-error" class="login-error"></div>`,
-    pie: `<button type="button" class="btn" id="ll-cancelar">Cancelar</button>
-          <button type="button" class="btn btn-accent" id="ll-ok">Guardar llamada</button>`
-  });
-  document.getElementById('ll-cancelar').onclick = cerrarModal;
-  document.getElementById('ll-fecha').focus();
-  document.getElementById('ll-ok').onclick = () => {
-    const err = t => { document.getElementById('ll-error').textContent = t; };
-    const fecha = document.getElementById('ll-fecha').value;
-    if (!fecha) return err('Falta la fecha de la llamada.');
-    if (fecha > hoyAR()) return err('La fecha de la llamada no puede ser futura.');
-    const links = parsearLinks(document.getElementById('ll-links').value);
-    if (links.invalidas.length) return err(`Estos links no son válidos (tienen que empezar con http:// o https://): ${links.invalidas.join(' · ')}`);
-    const datos = {
-      fecha, titulo: document.getElementById('ll-titulo').value,
-      accionables: parsearAccionables(document.getElementById('ll-acc').value), links: links.items
-    };
-    cerrarModal();
-    guardar(() => crearLlamada(ctx.p.id, ctx.c.id, datos), { ok: 'Llamada guardada.', luego: () => api.refrescar() });
-  };
-}
-
-function modalEditarLlamada(ll, api) {
-  abrirModal({
-    titulo: 'Editar llamada',
-    cuerpo: `
-      <div class="form-grid2">
-        <div class="form-row"><label for="ll-fecha">Fecha *</label>
-          <input type="date" id="ll-fecha" value="${esc(ll.fecha)}" max="${esc(hoyAR())}"></div>
-        <div class="form-row"><label for="ll-titulo">Título</label>
-          <input type="text" id="ll-titulo" maxlength="120" autocomplete="off" value="${esc(ll.titulo || '')}"></div>
-      </div>
-      <div id="ll-error" class="login-error"></div>`,
-    pie: `<button type="button" class="btn" id="ll-cancelar">Cancelar</button>
-          <button type="button" class="btn btn-accent" id="ll-ok">Guardar</button>`
-  });
-  document.getElementById('ll-cancelar').onclick = cerrarModal;
-  document.getElementById('ll-ok').onclick = () => {
-    const fecha = document.getElementById('ll-fecha').value;
-    if (!fecha || fecha > hoyAR()) {
-      document.getElementById('ll-error').textContent = 'La fecha es obligatoria y no puede ser futura.';
-      return;
-    }
-    const cambios = { fecha, titulo: document.getElementById('ll-titulo').value.trim() || null };
-    cerrarModal();
-    guardar(() => actualizarFila('cs_llamadas', ll.id, cambios), { luego: () => api.refrescar() });
-  };
-}
+/* "Nueva llamada" y "Editar llamada" viven en ficha-llamada-modales.js (106). */
 
 /* Editar el texto de un accionable, o escribir una subtarea nueva (a = el padre). */
 function modalTexto({ titulo, valor = '', placeholder = '', alGuardar }) {
@@ -250,12 +196,12 @@ export async function manejar(ev, ctx, api) {
   if (ev.type !== 'click') return false;
   const el = sel => ev.target.closest(sel);
 
-  if (el('[data-ll-nueva]')) { if (editar) modalNueva(ctx, api); return true; }
+  if (el('[data-ll-nueva]')) { if (editar) await modalNueva(ctx, api); return true; }
 
   const eLl = el('[data-ll-editar-llamada]');
   if (eLl) {
     const ll = llamada(eLl.dataset.llEditarLlamada);
-    if (ll && editar) modalEditarLlamada(ll, api);
+    if (ll && editar) await modalEditarLlamada(ll, ctx, api);
     return true;
   }
 

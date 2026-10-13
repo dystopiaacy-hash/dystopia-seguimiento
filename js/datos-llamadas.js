@@ -151,9 +151,24 @@ export async function agregarRecursos(programaId, clienteId, llamadaId, items) {
   })));
 }
 
-/* Una llamada con sus accionables y links. Si falla un paso después de crear la llamada,
-   la llamada queda (no hay transacción desde el navegador) y el error dice qué faltó. */
-export async function crearLlamada(programaId, clienteId, { fecha, titulo, accionables = [], links = [] }) {
+/* Una llamada con sus accionables y links.
+   atomica = true (106 corrida): va por cs_llamada_crear, que carga llamada, accionables, links,
+   transcripción y dudas en UNA transacción: si algo falla no queda nada. Devuelve el id.
+   Sin la 106 (atomica false): si falla un paso después de crear la llamada, la llamada queda
+   (no hay transacción desde el navegador) y el error dice qué faltó. */
+export async function crearLlamada(programaId, clienteId, {
+  fecha, titulo, accionables = [], links = [], atomica = false,
+  resumen = '', en_que_esta = '', proximos_pasos = '', transcripcion = '', dudas = []
+}) {
+  if (atomica) {
+    const { data, error } = await sb.rpc('cs_llamada_crear', {
+      p_cliente: clienteId, p_fecha: fecha, p_titulo: (titulo || '').trim() || null,
+      p_resumen: resumen, p_en_que_esta: en_que_esta, p_proximos_pasos: proximos_pasos,
+      p_accionables: accionables, p_links: links, p_transcripcion: transcripcion || null, p_dudas: dudas
+    });
+    if (error) throw error;
+    return data;
+  }
   const [ll] = await insertar('cs_llamadas',
     [{ programa_id: programaId, cliente_id: clienteId, fecha, titulo: (titulo || '').trim() || null }]);
   try {

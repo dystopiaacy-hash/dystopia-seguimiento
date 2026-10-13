@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="robots" content="noindex, nofollow">
+<!-- El token va en la URL: ningún link de salida tiene que recibirlo. -->
+<meta name="referrer" content="no-referrer">
+<title>¿Cómo vas?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/componentes.css">
+<link rel="stylesheet" href="/css/formularios.css">
+<link rel="stylesheet" href="/css/satisfaccion.css">
+</head>
+<body>
+<div class="public-wrap">
+  <div class="card public-card sat-card" id="sat-root">
+    <div class="empty-state"><div class="small">Cargando…</div></div>
+  </div>
+</div>
+
+<!-- Misma versión fijada que la app. La página solo llama cs_satisf_estado y cs_satisf_responder (migración 106). -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
+<script type="module" src="/js/satisfaccion-publica.js"></script>
+</body>
+</html>

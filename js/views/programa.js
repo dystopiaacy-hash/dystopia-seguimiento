@@ -18,6 +18,8 @@ import { vistaRevision } from './revision.js';
 import { vistaFormularios } from './formularios.js';
 import { vistaMetricas } from './metricas.js';
 import { vistaConfig } from './config.js';
+import { vistaSatisfaccion } from './satisfaccion.js';
+import { vistaDudas } from './dudas.js';
 
 export function vacio(big, small = '', extra = '') {
   return `<div class="card empty-state"><div class="big">${esc(big)}</div>${small ? `<div class="small">${esc(small)}</div>` : ''}${extra}</div>`;
@@ -84,6 +86,8 @@ export function vistaPrograma(el, { p, sub, clienteId, vigente }) {
   if (sub === 'calls') return vistaCalls(cont, p.id, vigente);
   if (sub === 'renovaciones') return vistaRenovaciones(cont, p.id, vigente);
   if (sub === 'revision') return vistaRevision(cont, p.id, vigente);
+  if (sub === 'satisfaccion') return vistaSatisfaccion(cont, p.id, vigente);
+  if (sub === 'dudas') return vistaDudas(cont, p.id, vigente);
   if (sub === 'formularios') return vistaFormularios(cont, p.id, vigente);
   if (sub === 'metricas') return vistaMetricas(cont, p.id, vigente);
   if (sub === 'config') return vistaConfig(cont, p.id, vigente);

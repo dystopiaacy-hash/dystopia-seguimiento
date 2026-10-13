@@ -12,6 +12,7 @@ import {
 import { abrirModalNuevoCliente } from './cliente-nuevo.js';
 import { crearSeleccion } from './seleccion-masiva.js';
 import { sumarUltimaLlamada, columnaUltimaLlamada } from './llamada-semaforo.js';
+import { sumarResumenAlumno, columnasEstado, pasaUpsell, OPCIONES_UPSELL } from './estado-columnas.js';
 
 const n = v => Number(v) || 0;
 const SEM_ORDEN = { rojo: 0, amarillo: 1, verde: 2, gris: 3 };
@@ -91,6 +92,7 @@ function filtrosIniciales() {
     responsable: q.get('responsable') || '',
     etapa: q.get('etapa') || '',
     onboarding: q.get('onboarding') || '',
+    upsell: q.get('upsell') || '',
     vencer: q.get('vencer') === '1',
     q: q.get('q') || ''
   };
@@ -105,6 +107,7 @@ function aplicar(clientes, f, p) {
     if (f.responsable && (c.responsable || '') !== f.responsable) return false;
     if (f.etapa && (c.etapa || '') !== f.etapa) return false;
     if (f.onboarding && (c.onboarding_estado || '') !== f.onboarding) return false;
+    if (f.upsell && !pasaUpsell(c, f.upsell)) return false;   // 106
     if (f.vencer) {
       const d = c.dias_restantes;
       if (!esVivo(c) || d == null || d > n(p.aviso_renovacion_dias)) return false;
@@ -142,7 +145,7 @@ function selectHtml(id, label, opciones, valor) {
     </span>`;
 }
 
-function barraFiltros(f, clientes, p, puedeCrear) {
+function barraFiltros(f, clientes, p, puedeCrear, conUpsell) {
   const etapas = Array.isArray(p.etapas) ? p.etapas.filter(Boolean).map(String) : [];
   const etapasOpt = Array.from(new Set(etapas.concat(opcionesUnicas(clientes, 'etapa'))));
   return `
@@ -158,6 +161,7 @@ function barraFiltros(f, clientes, p, puedeCrear) {
       ${selectHtml('f-responsable', 'Responsable', [['', 'Todos']].concat(opcionesUnicas(clientes, 'responsable').map(v => [v, v])), f.responsable)}
       ${selectHtml('f-etapa', 'Etapa', [['', 'Todas']].concat(etapasOpt.map(v => [v, v])), f.etapa)}
       ${selectHtml('f-onb', 'Onboarding', [['', 'Todos']].concat(Object.entries(ONBOARDING_LABEL)), f.onboarding)}
+      ${conUpsell ? selectHtml('f-upsell', 'Upsell', OPCIONES_UPSELL, f.upsell) : ''}
       <label class="check-row check-inline"><input type="checkbox" id="f-vencer"${f.vencer ? ' checked' : ''}> Por vencer</label>
       <button type="button" class="btn btn-ghost btn-sm" id="f-limpiar">Limpiar</button>
     </div>`;
@@ -194,6 +198,7 @@ export function vistaClientes(el, programaId, vigente) {
   const f = filtrosIniciales();
   const orden = { k: 'semaforo', desc: false };
   let p = null, clientes = [], cols = [];
+  let hayResumen = false;   // 106: existe cs_v_alumno_resumen (filtro y columna Upsell, En qué está, ...)
   let timerBusqueda = null;
   /* Selección y edición masiva (solo quien edita este programa). Se pierde al salir de la vista. */
   const sel = crearSeleccion({
@@ -202,7 +207,7 @@ export function vistaClientes(el, programaId, vigente) {
   });
 
   function hayFiltro() {
-    return !!(f.estado || f.semaforo || f.responsable || f.etapa || f.onboarding || f.vencer || f.q.trim());
+    return !!(f.estado || f.semaforo || f.responsable || f.etapa || f.onboarding || f.upsell || f.vencer || f.q.trim());
   }
 
   function pintarTabla() {
@@ -218,7 +223,7 @@ export function vistaClientes(el, programaId, vigente) {
   function pintarTodo() {
     const foco = document.activeElement && document.activeElement.id === 'f-q';
     const pos = foco ? document.getElementById('f-q').selectionStart : null;
-    el.innerHTML = barraFiltros(f, clientes, p, true) + sel.contenedorHtml() + '<div id="cli-tabla"></div>';
+    el.innerHTML = barraFiltros(f, clientes, p, true, hayResumen) + sel.contenedorHtml() + '<div id="cli-tabla"></div>';
     conectarFiltros();
     sel.pintarBarra();
     pintarTabla();
@@ -236,6 +241,7 @@ export function vistaClientes(el, programaId, vigente) {
     on('f-responsable', 'change', e => { f.responsable = e.target.value; sel.alCambiarFiltro(); pintarTabla(); });
     on('f-etapa', 'change', e => { f.etapa = e.target.value; sel.alCambiarFiltro(); pintarTabla(); });
     on('f-onb', 'change', e => { f.onboarding = e.target.value; sel.alCambiarFiltro(); pintarTabla(); });
+    on('f-upsell', 'change', e => { f.upsell = e.target.value; sel.alCambiarFiltro(); pintarTabla(); });
     on('f-vencer', 'change', e => { f.vencer = e.target.checked; sel.alCambiarFiltro(); pintarTabla(); });
     on('f-q', 'input', e => {
       f.q = e.target.value;
@@ -244,7 +250,7 @@ export function vistaClientes(el, programaId, vigente) {
       timerBusqueda = setTimeout(pintarTabla, 150);
     });
     on('f-limpiar', 'click', () => {
-      Object.assign(f, { estado: '', semaforo: '', responsable: '', etapa: '', onboarding: '', vencer: false, q: '' });
+      Object.assign(f, { estado: '', semaforo: '', responsable: '', etapa: '', onboarding: '', upsell: '', vencer: false, q: '' });
       sel.alCambiarFiltro();
       pintarTodo();
     });
@@ -265,12 +271,14 @@ export function vistaClientes(el, programaId, vigente) {
     if (!vigente()) return;
     if (!prog) { el.innerHTML = tarjetaError('Programa no encontrado', 'No existe o no tenés acceso.'); return; }
     const hayLlamadas = await sumarUltimaLlamada(programaId, filas);   // 102: sin la migración no hay columna
+    hayResumen = await sumarResumenAlumno(programaId, filas);   // 106; después de la llamada (la sugerencia la usa)
     if (!vigente()) return;
     p = prog;
     clientes = filas;
     sel.alRecargar(filas);
     cols = columnas(p);
     if (hayLlamadas) cols.push(columnaUltimaLlamada('col-chq'));
+    if (hayResumen) cols.push(...columnasEstado(''));
     pintarTodo();
   }
 

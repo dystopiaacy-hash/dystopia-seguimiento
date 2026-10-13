@@ -25,13 +25,14 @@ import { manejarClick, limpiarConfirmaciones } from './maestro-ciclo.js';
 import { armarColumnas } from './maestro-columnas.js';
 import { sumarAvanceOnboarding, columnaOnboarding } from './maestro-onboarding.js';
 import { sumarUltimaLlamada, columnaUltimaLlamada, celdaUltimaLlamadaMaestro } from './llamada-semaforo.js';
+import { sumarResumenAlumno, columnasEstado, pasaUpsell, OPCIONES_UPSELL } from './estado-columnas.js';
 import { manejarIr } from './maestro-acciones.js';
 import { abrirPanelColumnas } from './maestro-panel.js';
 import { crearSeleccion } from './seleccion-masiva.js';
 
 /* ---------- Filtros ---------- */
 
-const FILTROS_VACIOS = { resell: '', prioridad: '', responsable: '', estado: '', q: '' };
+const FILTROS_VACIOS = { resell: '', prioridad: '', responsable: '', estado: '', upsell: '', q: '' };
 const ESTADOS_FILTRO = ['onboarding', 'activo', 'en_renovacion', 'pausado', 'finalizado', 'baja'];
 
 function responsables(filas) {
@@ -52,6 +53,7 @@ function pasa(fila, f) {
   if (f.responsable === 'sin' && (fila.responsable || '').trim()) return false;
   if (f.responsable && f.responsable !== 'sin' && (fila.responsable || '').trim() !== f.responsable) return false;
   if (f.estado && fila.estado !== f.estado) return false;
+  if (f.upsell && !pasaUpsell(fila, f.upsell)) return false;   // 106
   const q = f.q.trim().toLowerCase();
   return !q || (fila.nombre || '').toLowerCase().includes(q);
 }
@@ -70,7 +72,7 @@ function ordenar(filas, cols, orden) {
 const opcionesLista = valores => valores.map(v => `<option value="${esc(v)}"></option>`).join('');
 const etapasDe = prog => (Array.isArray(prog && prog.etapas) ? prog.etapas : []).filter(Boolean).map(String);
 
-function barraFiltros(f, filas, conColumnas) {
+function barraFiltros(f, filas, conColumnas, conUpsell) {
   const resell = [['', 'Todos'], ['abierta', 'En pipeline (abiertos)'], ['sin', 'Sin pipeline']]
     .concat(REN_ABIERTOS.concat(['renovado', 'no_renovado']).map(e => [e, REN_LABEL[e]]));
   const prio = [['', 'Todas']].concat(Object.entries(PRIORIDAD_LABEL), [['sin', 'Sin prioridad']]);
@@ -86,6 +88,7 @@ function barraFiltros(f, filas, conColumnas) {
       ${filtroSelect('mx-f-prio', 'Prioridad', prio, f.prioridad)}
       ${filtroSelect('mx-f-resp', 'Responsable', resp, f.responsable)}
       ${filtroSelect('mx-f-estado', 'Estado', [['', 'Todos']].concat(ESTADOS_FILTRO.map(e => [e, ESTADO_LABEL[e] || e])), f.estado)}
+      ${conUpsell ? filtroSelect('mx-f-upsell', 'Upsell', OPCIONES_UPSELL, f.upsell) : ''}
       <button type="button" class="btn btn-ghost btn-sm" id="mx-limpiar">Limpiar</button>
     </div>
     <div class="m-leyenda"><span class="m-ley-edit">Blanco: se edita acá, se guarda solo</span>
@@ -140,6 +143,7 @@ export function vistaMaestro(el, programaId, vigente) {
   let panel = null, renombrando = '', timerOrden = null;
   let hayOnboarding = false;   // 093: algún alumno del programa tiene onboarding
   let hayLlamadas = false;     // 102: existe cs_v_ultima_llamada (columna "Última llamada")
+  let hayResumen = false;      // 106: existe cs_v_alumno_resumen (En qué está, Próximos pasos, Satisfacción, Upsell)
   limpiarConfirmaciones();
   /* Selección y edición masiva (solo quien edita este programa). Se pierde al salir de la vista. */
   const sel = crearSeleccion({
@@ -153,6 +157,7 @@ export function vistaMaestro(el, programaId, vigente) {
     const base = columnas(prog, productos);
     if (hayOnboarding) base.push(columnaOnboarding());
     if (hayLlamadas) base.push(columnaUltimaLlamada('m-calc', celdaUltimaLlamadaMaestro));
+    if (hayResumen) base.push(...columnasEstado('m-calc', true));
     armado = armarColumnas(base, config);
     cols = armado.visibles;
   }
@@ -164,7 +169,7 @@ export function vistaMaestro(el, programaId, vigente) {
     repintar: () => pintarTabla()
   };
 
-  const hayFiltro = () => !!(f.resell || f.prioridad || f.responsable || f.estado || f.q.trim());
+  const hayFiltro = () => !!(f.resell || f.prioridad || f.responsable || f.estado || f.upsell || f.q.trim());
 
   /* Repinta conservando: el campo con foco y su texto (realtime no pisa lo que se
      escribe), el scroll vertical de .main y el horizontal de la planilla. */
@@ -192,7 +197,7 @@ export function vistaMaestro(el, programaId, vigente) {
 
   function pintarTodo() {
     conservando(() => {
-      el.innerHTML = barraFiltros(f, filas, puedeConfigurar()) + sel.contenedorHtml()
+      el.innerHTML = barraFiltros(f, filas, puedeConfigurar(), hayResumen) + sel.contenedorHtml()
         + `<datalist id="mx-responsables">${opcionesLista(responsables(filas))}</datalist>
            <datalist id="mx-etapas">${opcionesLista(etapasDe(prog))}</datalist><div id="mx-tabla"></div>`;
     });
@@ -230,7 +235,7 @@ export function vistaMaestro(el, programaId, vigente) {
 
   /* ---------- Eventos (delegados: el HTML se repinta seguido) ---------- */
 
-  const FILTRO_POR_ID = { 'mx-f-resell': 'resell', 'mx-f-prio': 'prioridad', 'mx-f-resp': 'responsable', 'mx-f-estado': 'estado' };
+  const FILTRO_POR_ID = { 'mx-f-resell': 'resell', 'mx-f-prio': 'prioridad', 'mx-f-resp': 'responsable', 'mx-f-estado': 'estado', 'mx-f-upsell': 'upsell' };
 
   el.addEventListener('change', async ev => {
     if (ev.target.id === 'mx-th-ren') { await renombrar(ev.target.dataset.colRen, ev.target.value); return; }
@@ -319,6 +324,7 @@ export function vistaMaestro(el, programaId, vigente) {
     sel.alRecargar(filas);
     hayOnboarding = await sumarAvanceOnboarding(programaId, filas);
     hayLlamadas = await sumarUltimaLlamada(programaId, filas);
+    hayResumen = await sumarResumenAlumno(programaId, filas);   // después de la llamada: la sugerencia de upsell la usa
     if (!vigente()) return;
     productos = prods;
     config = conf;
