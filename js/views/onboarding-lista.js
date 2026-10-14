@@ -14,7 +14,7 @@ import { traerListaOnboarding, traerOnboardingCliente } from '../datos-onboardin
 import { abrirModalNuevoCliente } from './cliente-nuevo.js';
 import { generarYCopiar, mensajeOnboarding } from './onboarding-link.js';
 import { respuestasHtml } from './onboarding-respuestas.js';
-import { SIN_EMPEZAR, EN_CURSO, COMPLETOS, SIN_ONBOARDING, contarOnboarding } from '../onboarding-estados.js';
+import { SIN_EMPEZAR, EN_CURSO, COMPLETOS, SIN_ONBOARDING, contarOnboarding, soloVivos } from '../onboarding-estados.js';
 
 const ESTADO = {
   sin_link: ['Sin link', 'var(--text-faint)'],
@@ -99,18 +99,20 @@ function tablaHtml(filas, base, editable, total, hayFiltro) {
     <div class="table-foot">${hayFiltro ? `${filas.length} de ${plural(total, 'alumno')}` : plural(total, 'alumno')}</div>`;
 }
 
-function resumenHtml(alumnos) {
+function resumenHtml(alumnos, pausados = 0) {
   const c = contarOnboarding(alumnos);
   return `<div class="hint">${esc(plural(c.enCurso, 'alumno'))} en curso ·
     ${esc(plural(c.sinEmpezar, 'alumno'))} sin empezar ·
     ${esc(plural(c.completos, 'alumno'))} con el onboarding completo ·
-    ${esc(plural(c.sinOnboarding, 'alumno'))} sin onboarding (su producto no tiene)</div>`;
+    ${esc(plural(c.sinOnboarding, 'alumno'))} sin onboarding (su producto no tiene)${pausados
+      ? ` · no se listan ${esc(plural(pausados, 'alumno pausado', 'alumnos pausados'))}` : ''}</div>`;
 }
 
 export function vistaOnboarding(el, programaId, vigente) {
   el.innerHTML = '<div class="loading-inline">Cargando…</div>';
   const f = { filtro: 'todos', q: '' };
   let alumnos = [];
+  let pausados = 0;
   let timer = null;
   const base = '#/p/' + encodeURIComponent(programaId);
   const editable = !soloLectura();
@@ -145,7 +147,7 @@ export function vistaOnboarding(el, programaId, vigente) {
         <div class="section-title">Onboarding<span class="line"></span></div>
         ${editable ? '<button type="button" class="btn btn-accent btn-sm" id="onb-nuevo">Nuevo cliente</button>' : ''}
       </div>
-      ${resumenHtml(alumnos)}
+      ${resumenHtml(alumnos, pausados)}
       <div class="filter-row onb-filtros">
         <span class="onb-chips" role="group" aria-label="Filtrar por estado">
           ${FILTROS.map(d => `<button type="button" class="btn btn-sm${f.filtro === d[0] ? ' btn-accent' : ''}"
@@ -199,7 +201,10 @@ export function vistaOnboarding(el, programaId, vigente) {
         'La pestaña Onboarding necesita la migración 096 aplicada en la base.');
       return;
     }
-    alumnos = filas;
+    /* Solo vivos (onboarding, activo, en renovación), como "Clientes activos" del Dashboard:
+       la lista de la base trae también a los pausados. */
+    alumnos = soloVivos(filas);
+    pausados = filas.length - alumnos.length;
     pintarTodo();
   }
 

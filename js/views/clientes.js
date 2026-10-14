@@ -110,7 +110,8 @@ function aplicar(clientes, f, p) {
     if (f.upsell && !pasaUpsell(c, f.upsell)) return false;   // 106
     if (f.vencer) {
       const d = c.dias_restantes;
-      if (!esVivo(c) || d == null || d > n(p.aviso_renovacion_dias)) return false;
+      /* Por vencer = 0 a N días: los ya vencidos no entran (igual que el KPI del Dashboard). */
+      if (!esVivo(c) || d == null || d < 0 || d > n(p.aviso_renovacion_dias)) return false;
     }
     if (texto) {
       const en = `${c.nombre || ''} ${c.email || ''}`.toLowerCase();

@@ -30,10 +30,11 @@ const COL_NO_RENOVADOS = 'var(--sem-rojo)';
 
 /* ---------- Grilla de meses ---------- */
 
-const fmtMes = new Intl.DateTimeFormat('es-AR', { timeZone: 'UTC', month: 'short', year: '2-digit' });
+/* Siempre 3 letras ("sep 26"): Intl en es-AR devuelve "sept" para septiembre. */
+const MESES_3 = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 function etiquetaMes(y, m) {
-  return fmtMes.format(new Date(Date.UTC(y, m - 1, 1))).replace(/\./g, '');
+  return `${MESES_3[m - 1]} ${String(y).slice(-2)}`;
 }
 
 const dosDig = n => String(n).padStart(2, '0');

@@ -71,7 +71,7 @@ function tabla(filas, programaId, mapaClientes, total) {
   if (!filas.length) {
     return `<div class="card empty-state">
         <div class="big">${total ? 'Ninguna call coincide con los filtros' : 'Todavía no hay calls en este programa'}</div>
-        <div class="small">${total ? 'Probá con "Limpiar".' : 'La call de onboarding se crea sola al dar de alta un cliente.'}</div>
+        <div class="small">${total ? 'Probá con "Limpiar".' : 'La call de onboarding se crea sola al dar de alta un cliente en estado Onboarding. Los alumnos cargados como Activos (importación) no la tienen; el avance del onboarding está en la pestaña Onboarding.'}</div>
       </div>`;
   }
   return `

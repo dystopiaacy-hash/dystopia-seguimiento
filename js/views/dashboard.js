@@ -9,7 +9,7 @@ import {
   atrasoPorCliente, mensajeError, etiquetaUsuario, esVivo, ALERTA_LABEL, nivelAlerta
 } from '../datos.js';
 import { traerListaOnboarding } from '../datos-onboarding.js';
-import { contarOnboarding } from '../onboarding-estados.js';
+import { contarOnboarding, soloVivos } from '../onboarding-estados.js';
 
 const n = v => Number(v) || 0;
 const nn = v => (v == null || v === '' ? null : Number(v));
@@ -46,7 +46,8 @@ function tarjetaOnboarding(k, lista, base) {
       href: base + '/onboarding'
     });
   }
-  const c = contarOnboarding(lista);
+  /* Solo alumnos vivos, igual que "Clientes activos": la lista trae también a los pausados. */
+  const c = contarOnboarding(soloVivos(lista));
   return kpi({
     valor: fmtNum(c.pendientes), label: 'Onboarding pendientes',
     subs: [[`${fmtNum(c.sinEmpezar)} sin empezar · ${fmtNum(c.enCurso)} en curso`]],
@@ -71,7 +72,11 @@ function filaKpis(k, p, lista) {
       ${tarjetaOnboarding(k, lista, base)}
       ${kpi({
         valor: fmtNum(n(k.acc_bpf_pendientes)), label: 'Accionables BPF pendientes',
-        subs: [accVenc ? [`${plural(accVenc, 'vencido')}`, 'txt-rojo'] : ['Ninguno vencido']],
+        /* Criterio: accionables del equipo sin completar de alumnos vivos, con o sin fecha de
+           vencimiento. Vencido = fecha anterior a hoy. Hoy (con ventana y offboarding) y las
+           alertas (todos los tipos) cuentan otra cosa: cada una lo aclara. */
+        subs: [accVenc ? [`${plural(accVenc, 'vencido')}`, 'txt-rojo'] : ['Ninguno vencido'],
+          ['Alumnos vivos, con o sin fecha', 'txt-gris']],
         alerta: accVenc > 0,
         href: base + '/accionables?responsable=bpf'
       })}
@@ -178,7 +183,7 @@ function bloqueAlertas(alertas) {
     : '<div class="muted-empty">No hay alertas sin resolver.</div>';
   return `
     <div class="section-title">Alertas
-      ${alertas.length ? `<span class="aten-cuenta">${plural(alertas.length, 'sin resolver', 'sin resolver')}</span>` : ''}
+      ${alertas.length ? `<span class="aten-cuenta">${plural(alertas.length, 'sin resolver', 'sin resolver')} · de todos los tipos, una por accionable vencido</span>` : ''}
       <span class="line"></span>
     </div>
     <div class="card card-list">${cuerpo}</div>`;

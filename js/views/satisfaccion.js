@@ -8,7 +8,7 @@
    configuran en Configuración. Sin la 106 la pestaña avisa que falta la migración. */
 import { esc, fmtFecha, hoyAR, abrirModal, cerrarModal, plural } from '../ui.js';
 import { puedeEditarPrograma } from '../sesion.js';
-import { traerClientes, mensajeError } from '../datos.js';
+import { traerClientes, traerFormularios, mensajeError } from '../datos.js';
 import {
   traerMomentos, guardarMomento, traerRespuestasSatisfaccion, textoMomento, MOMENTO_TIPOS
 } from '../datos-satisfaccion.js';
@@ -70,6 +70,18 @@ function modalMomento(programaId, m, alGuardar) {
   };
 }
 
+/* Los formularios de satisfacción de la pestaña Formularios (004) son otro mecanismo: un link
+   por formulario que alimenta Métricas y la alerta de satisfacción baja. Los momentos son envíos
+   por alumno y etapa. Acá solo se avisa que existe, para que no parezca una inconsistencia. */
+function htmlFormsSatisfaccion(forms, programaId) {
+  const activos = forms.filter(f => f.tipo === 'satisfaccion' && f.activo);
+  if (!activos.length) return '';
+  const lista = activos.map(f => `"${esc(f.nombre)}"`).join(', ');
+  return `<div class="hint">En <a href="#/p/${encodeURIComponent(programaId)}/formularios">Formularios</a> hay
+    ${activos.length === 1 ? 'un formulario de satisfacción activo' : `${activos.length} formularios de satisfacción activos`}
+    (${lista}): ese es el link general y alimenta Métricas. Los momentos de acá son aparte: piden el formulario a cada alumno según su etapa.</div>`;
+}
+
 function htmlMomentos(momentos, editar) {
   if (!momentos.length) {
     return `<div class="muted-empty">Todavía no hay momentos definidos en este programa.
@@ -106,7 +118,7 @@ function htmlRespuestas(resp, nombres, programaId) {
 
 export function vistaSatisfaccion(el, programaId, vigente) {
   el.innerHTML = '<div class="loading-inline">Cargando…</div>';
-  let momentos = [], respuestas = [], nombres = new Map();
+  let momentos = [], respuestas = [], nombres = new Map(), formularios = [];
   const editar = () => puedeEditarPrograma(programaId);
   let enviar = null;
 
@@ -115,6 +127,7 @@ export function vistaSatisfaccion(el, programaId, vigente) {
       <div class="section-title">Momentos<span class="line"></span>
         ${editar() ? '<button type="button" class="btn btn-sm btn-accent" data-mo-nuevo>Nuevo momento</button>' : ''}</div>
       <div class="card sat-momentos">${htmlMomentos(momentos, editar())}</div>
+      ${htmlFormsSatisfaccion(formularios, programaId)}
       <div id="sat-enviar"></div>
       <div class="section-title">Respuestas<span class="line"></span></div>
       ${htmlRespuestas(respuestas, nombres, programaId)}`;
@@ -122,10 +135,12 @@ export function vistaSatisfaccion(el, programaId, vigente) {
   }
 
   async function cargar() {
-    const [mom, resp, cli] = await Promise.all([
-      traerMomentos(programaId), traerRespuestasSatisfaccion(programaId), traerClientes(programaId)
+    const [mom, resp, cli, forms] = await Promise.all([
+      traerMomentos(programaId), traerRespuestasSatisfaccion(programaId), traerClientes(programaId),
+      traerFormularios(programaId).catch(() => [])   // solo informativo: si falla no frena la pestaña
     ]);
     if (!vigente()) return;
+    formularios = forms || [];
     if (mom === undefined || resp === undefined) {
       el.innerHTML = tarjetaError('Falta correr la migración 106', 'Esta pestaña se activa cuando la migración 106 está corrida.');
       return;

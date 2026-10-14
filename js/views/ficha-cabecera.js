@@ -74,7 +74,7 @@ function avisoRenovacion(c, p, renovaciones) {
   }
   if (['finalizado', 'baja', 'pausado'].includes(c.estado) || d == null || d > num(p.aviso_renovacion_dias)) return '';
   const txt = d < 0
-    ? `El programa venció hace ${plural(-d, 'día')} y no hay renovación iniciada.`
+    ? `El programa venció hace ${plural(-d, 'día')} y no hay una renovación en proceso.`
     : `Quedan ${plural(d, 'día')} de programa (el aviso del programa es a ${plural(num(p.aviso_renovacion_dias), 'día')}).`;
   return `
     <div class="banner banner-rojo">
@@ -103,7 +103,7 @@ function bloqueTiempo(ctx) {
         <div class="tiempo-barra">
           <div class="field-label">Avance del programa</div>
           <span class="prog-track"><span class="prog-fill prog-${esc(nivel)}" style="width:${pct}%"></span></span>
-          <div class="hint">${pct}% · ${esc(plural(num(c.dias_transcurridos), 'día'))} desde el inicio${c.renovaciones_count ? ' · ' + esc(plural(num(c.renovaciones_count), 'renovación', 'renovaciones')) : ''}</div>
+          <div class="hint">${pct}% · ${esc(plural(num(c.dias_transcurridos), 'día'))} desde el inicio${c.renovaciones_count ? ' · ' + esc(plural(num(c.renovaciones_count), 'renovación cerrada', 'renovaciones cerradas')) : ''}</div>
         </div>
         <div class="tiempo-dias">
           <div class="stat-num sem-txt-${esc(nivel)}">${d == null ? '—' : esc(String(Math.abs(d)))}</div>

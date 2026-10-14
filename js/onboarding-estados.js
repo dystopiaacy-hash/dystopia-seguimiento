@@ -7,6 +7,12 @@ export const EN_CURSO = ['en_curso'];
 export const COMPLETOS = ['completado'];
 export const SIN_ONBOARDING = ['sin_plantilla'];
 
+/* cs_onboarding_lista trae todos menos finalizados y bajas, o sea también los pausados.
+   La tarjeta "Clientes activos" del Dashboard cuenta solo onboarding, activo y en renovación
+   (ESTADOS_VIVOS): las dos pantallas de onboarding cuentan sobre los mismos alumnos. */
+const VIVOS = ['onboarding', 'activo', 'en_renovacion'];
+export const soloVivos = alumnos => alumnos.filter(a => VIVOS.includes(a.estado_cliente));
+
 /* Cuenta alumnos de la lista por grupo de estados. */
 export function contarOnboarding(alumnos) {
   const n = estados => alumnos.filter(a => estados.includes(a.onboarding)).length;

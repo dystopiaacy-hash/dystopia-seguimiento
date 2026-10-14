@@ -64,8 +64,11 @@ function cabecera(todas, filtro, nAltas) {
   const n = c => todas.filter(t => t.cuando === c).length;
   const porTipo = new Map();
   for (const t of todas) porTipo.set(t.tipo, (porTipo.get(t.tipo) || 0) + 1);
+  /* Los números de Hoy son de la cola (con fecha, hasta la ventana de Hoy, más el offboarding):
+     no son los del Dashboard, que cuenta todos los accionables abiertos de alumnos vivos. */
+  const AYUDA = { accionable: 'Accionables del equipo con fecha de vencimiento, hasta la ventana de Hoy, más los de offboarding. El Dashboard cuenta todos los abiertos de alumnos vivos, con o sin fecha.' };
   const chip = (v, label, cant) =>
-    `<button type="button" class="hoy-chip${filtro === v ? ' on' : ''}" data-tipo="${esc(v)}" aria-pressed="${filtro === v}">${esc(label)} <span class="hoy-chip-n">${cant}</span></button>`;
+    `<button type="button" class="hoy-chip${filtro === v ? ' on' : ''}" data-tipo="${esc(v)}" aria-pressed="${filtro === v}"${AYUDA[v] ? ` title="${esc(AYUDA[v])}"` : ''}>${esc(label)} <span class="hoy-chip-n">${cant}</span></button>`;
   const tipos = Object.keys(TIPO_LABEL).filter(tp => porTipo.has(tp));
   return `
     <div class="hoy-head">

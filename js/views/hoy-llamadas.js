@@ -27,12 +27,17 @@ export function montarSinLlamada(box, programaId, vigente, alCambiar) {
 
   function pintar() {
     if (!atrasados.length && !nunca.length) { box.innerHTML = ''; return; }
+    /* El contador suma a los que nunca tuvieron llamada: un alumno sin ninguna llamada
+       también está "sin llamada hace N días o más" (en el semáforo es gris, no verde). */
     const titulo = `Sin llamada hace ${plural(LLAMADA_ROJO_DESDE, 'día')} o más`;
+    const total = atrasados.length + nunca.length;
     box.innerHTML = `<section class="hoy-grupo">
-      <div class="section-title">${esc(titulo)} <span class="hoy-grupo-n hoy-n-atrasado">${atrasados.length}</span><span class="line"></span></div>
+      <div class="section-title">${esc(titulo)} <span class="hoy-grupo-n hoy-n-atrasado">${total}</span><span class="line"></span></div>
       ${atrasados.length ? atrasados.map(c => fila(c, programaId)).join('')
-        : '<div class="muted-empty">Ningún alumno activo pasó ese plazo.</div>'}
-      ${nunca.length ? `<details class="ll-nunca"><summary>${esc(plural(nunca.length, 'alumno activo sin ninguna llamada registrada', 'alumnos activos sin ninguna llamada registrada'))}</summary>
+        : `<div class="muted-empty">${nunca.length
+          ? 'Ningún alumno con llamadas registradas pasó ese plazo.'
+          : 'Ningún alumno activo pasó ese plazo.'}</div>`}
+      ${nunca.length ? `<details class="ll-nunca"><summary>${esc(plural(nunca.length, 'alumno activo sin ninguna llamada registrada (cuenta como sin llamada)', 'alumnos activos sin ninguna llamada registrada (cuentan como sin llamada)'))}</summary>
         ${nunca.map(c => fila(c, programaId)).join('')}</details>` : ''}
     </section>`;
   }

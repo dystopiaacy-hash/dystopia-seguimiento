@@ -20,13 +20,27 @@ const DIAS_TRIMESTRE = 90;
 
 /* ---------- Selección de cada bloque ---------- */
 
-/* Mismo criterio que el semáforo de cs_v_clientes (r_ren): está en la ventana
-   de aviso y nadie inició la renovación ni la cerró como no renovada. */
+/* Candidatos a renovación: ni cerrados ni pausados, sin renovación abierta ni cerrada como
+   no renovada (criterio de r_ren del semáforo de cs_v_clientes). */
+function candidatos(clientes) {
+  return clientes.filter(c => !['finalizado', 'baja', 'pausado'].includes(c.estado)
+    && c.dias_restantes != null
+    && !renAbierta(c.renovacion_estado) && c.renovacion_estado !== 'no_renovado');
+}
+
+/* "Por vencer" = dentro de la ventana de aviso y todavía sin vencer (0 a N días): el mismo
+   número de la tarjeta "Por vencer" del Dashboard (cs_v_kpis_programa.por_vencer). */
 function porIniciar(clientes, avisoDias) {
-  return clientes
-    .filter(c => !['finalizado', 'baja', 'pausado'].includes(c.estado)
-      && c.dias_restantes != null && c.dias_restantes <= num(avisoDias)
-      && !renAbierta(c.renovacion_estado) && c.renovacion_estado !== 'no_renovado')
+  return candidatos(clientes)
+    .filter(c => num(c.dias_restantes) >= 0 && num(c.dias_restantes) <= num(avisoDias))
+    .sort((a, b) => num(a.dias_restantes) - num(b.dias_restantes));
+}
+
+/* Vencidos: la fecha de fin ya pasó y siguen sin estado cerrado ni renovación. Van aparte
+   para que no se mezclen con los que todavía están a tiempo. Los más viejos primero. */
+function vencidos(clientes) {
+  return candidatos(clientes)
+    .filter(c => num(c.dias_restantes) < 0)
     .sort((a, b) => num(a.dias_restantes) - num(b.dias_restantes));
 }
 
@@ -246,6 +260,7 @@ export function vistaRenovaciones(el, programaId, vigente) {
 
   function pintar() {
     const aIniciar = porIniciar(clientes, prog.aviso_renovacion_dias);
+    const aVencidos = vencidos(clientes);
     const abiertas = enProceso(renovaciones);
     const hechas = cerradas(renovaciones);
     const historica = kpis && kpis.tasa_renovacion != null
@@ -260,10 +275,15 @@ export function vistaRenovaciones(el, programaId, vigente) {
         ${tarjetaTasa(`Último trimestre (${DIAS_TRIMESTRE} días)`, trimestre, 'Ninguna cerrada en el trimestre')}
       </div>
       ${bloque('Iniciar renovación',
-        aIniciar.length ? plural(aIniciar.length, 'cliente por vencer') : 'Ninguno por vencer',
+        aIniciar.length ? plural(aIniciar.length, 'cliente por vencer', 'clientes por vencer') : 'Ninguno por vencer',
         `Ningún cliente entra en la ventana de aviso (${plural(num(prog.aviso_renovacion_dias), 'día')} antes del fin).`,
         aIniciar.map(c => filaPorIniciar(programaId, c)),
         aIniciar.length ? ' txt-rojo' : '')}
+      ${bloque('Vencidos sin renovación',
+        aVencidos.length ? plural(aVencidos.length, 'cliente vencido', 'clientes vencidos') : 'Ninguno vencido',
+        'No hay clientes con la fecha de fin vencida y sin renovación. (Un vencido sigue "Activo" hasta que el cierre diario lo pasa a Finalizado; si ya pasó mucho tiempo, revisá su fecha de fin y sus renovaciones en la ficha.)',
+        aVencidos.map(c => filaPorIniciar(programaId, c)),
+        aVencidos.length ? ' txt-amarillo' : '')}
       ${bloque('En proceso',
         abiertas.length ? plural(abiertas.length, 'abierta') : 'Ninguna abierta',
         'No hay renovaciones en proceso.',
