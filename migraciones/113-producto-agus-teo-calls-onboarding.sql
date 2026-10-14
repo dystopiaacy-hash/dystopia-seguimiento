@@ -34,6 +34,8 @@
 --
 -- No toca: cs_clientes, accionables, vistas, funciones, cron, cs_accesos, cs_onboarding_*.
 -- Se puede correr dos veces (on conflict / not exists / update condicionado).
+-- [corregida 14/10, banco pglite-113]: respaldos cerrados a anon/authenticated (revoke + RLS), registro de lo creado en
+-- cs_bak_113_creados y vuelta atrás que borra solo lo creado por la 113 y no usado. Lo demás, igual al original.
 -- =====================================================================
 
 begin;
@@ -75,14 +77,33 @@ create table if not exists public.cs_bak_113_programas as
   select now() as respaldado_at, p.*
   from public.cs_programas p
   where p.id in ('agus', 'teo');
+-- [corregida] Los respaldos no quedan expuestos por la API (los default privileges de Supabase dan ALL a anon y
+-- authenticated sobre tablas nuevas de public): igual que cs_bak_106_funciones + RLS sin políticas.
+revoke all on table public.cs_bak_113_programas from public, anon, authenticated;
+alter table public.cs_bak_113_programas enable row level security;
+
+-- [corregida] Lo que crea ESTA migración (para que la vuelta atrás borre solo eso).
+create table if not exists public.cs_bak_113_creados (
+  tabla     text not null,
+  id        text not null,
+  creado_at timestamptz not null default now(),
+  primary key (tabla, id)
+);
+revoke all on table public.cs_bak_113_creados from public, anon, authenticated;
+alter table public.cs_bak_113_creados enable row level security;
 
 -- Fila del programa (por si faltara en esta base). El nombre sale de crm_clients si existe.
-insert into public.cs_programas (id, nombre, activo)
-select v.id,
-       coalesce((select c.nombre from public.crm_clients c where c.id = v.id), v.nombre),
-       true
-from (values ('agus', 'Agus'), ('teo', 'Teo')) as v(id, nombre)
-on conflict (id) do nothing;
+with ins as (
+  insert into public.cs_programas (id, nombre, activo)
+  select v.id,
+         coalesce((select c.nombre from public.crm_clients c where c.id = v.id), v.nombre),
+         true
+  from (values ('agus', 'Agus'), ('teo', 'Teo')) as v(id, nombre)
+  on conflict (id) do nothing
+  returning id
+)
+insert into public.cs_bak_113_creados (tabla, id) select 'cs_programas', id from ins
+on conflict do nothing;
 
 -- Activar. Solo cambia el punto del menú y que el cron los incluya (digest de Discord solo si
 -- tienen webhook activo en cs_integraciones: sin eso no se manda nada).
@@ -102,8 +123,10 @@ update public.cs_programas set aviso_2_dias = 7  where id = 'agus' and aviso_1_d
 -- Productos (FASE0-PRODUCTO.md 4.1, de las planillas de cada cliente). Los nombres son los de las
 -- planillas: se pueden renombrar desde Configuración (fundador). on conflict: no pisa nada.
 -- FALTA "Skool" de agus (sin vencimiento): cs_productos.duracion_dias exige > 0 (decisión D6).
-insert into public.cs_productos (programa_id, nombre, duracion_dias, orden)
-select p.id, x.nombre, x.dias, x.orden
+with ins as (
+insert into public.cs_productos (programa_id, nombre, duracion_dias, orden, activo)
+-- 1 mes, 3 meses y 45 días de agus: ya no se venden (Nacho), se crean INACTIVOS (decisión de Joaquín 14/10).
+select p.id, x.nombre, x.dias, x.orden, x.nombre not in ('1 mes', '3 meses', '45 días')
 from public.cs_programas p
 join (values
   ('teo',  'Grupal',    120, 1),
@@ -114,7 +137,11 @@ join (values
   ('agus', '3 meses',    90, 4),
   ('agus', '45 días',    45, 5)
 ) as x(programa, nombre, dias, orden) on x.programa = p.id
-on conflict (programa_id, nombre) do nothing;
+on conflict (programa_id, nombre) do nothing
+returning id
+)
+insert into public.cs_bak_113_creados (tabla, id) select 'cs_productos', id::text from ins
+on conflict do nothing;
 
 
 -- =====================================================================
@@ -136,12 +163,17 @@ on conflict (programa_id, nombre) do nothing;
 -- =====================================================================
 -- C. CALLS DE ONBOARDING de los clientes que están en onboarding
 -- =====================================================================
+with ins as (
 insert into public.cs_calls (programa_id, cliente_id, tipo, estado, notas, created_by)
 select c.programa_id, c.id, 'onboarding', 'pendiente_agendar', 'Creada por la migración 113', c.created_by
 from public.cs_clientes c
 where c.estado = 'onboarding'
   and not exists (select 1 from public.cs_calls k
-                   where k.cliente_id = c.id and k.tipo = 'onboarding');
+                   where k.cliente_id = c.id and k.tipo = 'onboarding')
+returning id
+)
+insert into public.cs_bak_113_creados (tabla, id) select 'cs_calls', id::text from ins
+on conflict do nothing;
 
 commit;
 
@@ -198,16 +230,31 @@ commit;
 -- VUELTA ATRÁS (comentada; correr solo si hace falta)
 -- =====================================================================
 -- begin;
--- -- calls creadas por esta migración (solo las que nadie tocó)
--- delete from public.cs_calls where notas = 'Creada por la migración 113' and estado = 'pendiente_agendar';
--- -- productos nuevos: solo los que no tienen clientes
--- delete from public.cs_productos p
---  where p.programa_id in ('agus', 'teo')
---    and not exists (select 1 from public.cs_clientes c where c.producto_id = p.id);
+-- -- [corregida] calls creadas por esta migración que nadie tocó (siguen sin agendar y sin fecha)
+-- delete from public.cs_calls k
+--  using public.cs_bak_113_creados b
+--  where b.tabla = 'cs_calls' and b.id = k.id::text
+--    and k.estado = 'pendiente_agendar' and k.fecha is null;
+-- -- [corregida] productos: SOLO los que creó la 113 y que nadie usa (alumnos, renovaciones, plantilla de onboarding)
+-- do $$
+-- declare r record;
+-- begin
+--   for r in select p.id, p.programa_id, p.nombre from public.cs_productos p
+--              join public.cs_bak_113_creados b on b.tabla = 'cs_productos' and b.id = p.id::text loop
+--     if exists (select 1 from public.cs_clientes c where c.producto_id = r.id)
+--        or exists (select 1 from public.cs_renovaciones x where x.producto_id = r.id)
+--        or (to_regclass('public.cs_onboarding_plantilla_productos') is not null
+--            and exists (select 1 from public.cs_onboarding_plantilla_productos o where o.producto_id = r.id)) then
+--       raise notice 'cs 113 vuelta atrás: queda el producto % / % (está en uso)', r.programa_id, r.nombre;
+--     else
+--       delete from public.cs_productos where id = r.id;
+--     end if;
+--   end loop;
+-- end $$;
 -- -- programas: valores de antes
 -- update public.cs_programas p
 --    set activo = b.activo, duracion_default_dias = b.duracion_default_dias,
 --        aviso_1_dias = b.aviso_1_dias, aviso_2_dias = b.aviso_2_dias
 --   from public.cs_bak_113_programas b where b.id = p.id;
 -- commit;
--- (La tabla cs_bak_113_programas se puede borrar a mano cuando ya no haga falta.)
+-- (Las tablas cs_bak_113_programas y cs_bak_113_creados se pueden borrar a mano cuando ya no hagan falta.)
