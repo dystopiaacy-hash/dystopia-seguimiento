@@ -261,6 +261,12 @@ export function vistaRenovaciones(el, programaId, vigente) {
   function pintar() {
     const aIniciar = porIniciar(clientes, prog.aviso_renovacion_dias);
     const aVencidos = vencidos(clientes);
+    /* Mismo criterio que el KPI "Por vencer" del Dashboard: vivos a 0 a N días, con o sin
+       renovación abierta. Esta lista muestra solo los que nadie tocó todavía. */
+    const totalVencer = clientes.filter(c => ['onboarding', 'activo', 'en_renovacion'].includes(c.estado)
+      && c.dias_restantes != null && num(c.dias_restantes) >= 0
+      && num(c.dias_restantes) <= num(prog.aviso_renovacion_dias)).length;
+    const yaEnRen = Math.max(0, totalVencer - aIniciar.length);
     const abiertas = enProceso(renovaciones);
     const hechas = cerradas(renovaciones);
     const historica = kpis && kpis.tasa_renovacion != null
@@ -275,7 +281,8 @@ export function vistaRenovaciones(el, programaId, vigente) {
         ${tarjetaTasa(`Último trimestre (${DIAS_TRIMESTRE} días)`, trimestre, 'Ninguna cerrada en el trimestre')}
       </div>
       ${bloque('Iniciar renovación',
-        aIniciar.length ? plural(aIniciar.length, 'cliente por vencer', 'clientes por vencer') : 'Ninguno por vencer',
+        (aIniciar.length ? plural(aIniciar.length, 'cliente por vencer', 'clientes por vencer') : 'Ninguno por vencer')
+          + (yaEnRen ? ` · ${yaEnRen} más ya en renovación (el Dashboard cuenta ${totalVencer} por vencer)` : ''),
         `Ningún cliente entra en la ventana de aviso (${plural(num(prog.aviso_renovacion_dias), 'día')} antes del fin).`,
         aIniciar.map(c => filaPorIniciar(programaId, c)),
         aIniciar.length ? ' txt-rojo' : '')}

@@ -82,3 +82,12 @@
   .hoy-alta-form{justify-content:flex-start;}
   .hoy-panel{width:100vw;border-left:none;}
 }
+
+/* ---------- Aviso de ventas esperando alta (Dashboard, Clientes, Panel) ---------- */
+.aviso-altas { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 16px;
+  padding: 12px 14px; border: 1px solid var(--sem-amarillo); border-left-width: 4px; border-radius: 8px;
+  background: var(--surface); color: var(--text); text-decoration: none; }
+.aviso-altas strong { color: var(--sem-amarillo-text); }
+.aviso-altas span { font-size: 13px; }
+.aviso-altas-ir { margin-left: auto; font-weight: 600; color: var(--accent); }
+.aviso-altas:hover { border-color: var(--accent); }

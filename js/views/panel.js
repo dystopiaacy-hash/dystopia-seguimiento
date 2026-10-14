@@ -6,6 +6,7 @@ import { sb } from '../supabase.js';
 import { esc, fmtNum, fmtPct, badge } from '../ui.js';
 import { setHeader } from '../layout.js';
 import { yo, programa } from '../sesion.js';
+import { contarAltasPendientes, avisoAltasHtml } from './altas-aviso.js';
 
 const n = v => Number(v) || 0;
 
@@ -91,7 +92,7 @@ function tarjeta(k) {
     </a>`;
 }
 
-function html(filas, renovaciones) {
+function html(filas, renovaciones, altas) {
   const orden = new Map(yo.programas.map((p, i) => [p.id, i]));
   filas.sort((a, b) => (orden.get(a.programa_id) ?? 99) - (orden.get(b.programa_id) ?? 99));
   const activos = filas.filter(k => k.activo);
@@ -102,7 +103,7 @@ function html(filas, renovaciones) {
       ${statCard(fmtNum(t.clientes), 'Clientes activos')}
       ${statCard(fmtNum(t.rojo), 'Clientes en rojo', { alerta: t.rojo > 0 })}
       ${statCard(fmtNum(t.devPend), 'Devoluciones pendientes')}
-      ${statCard(fmtNum(t.porVencer), 'Por vencer', { sub: 'Dentro del aviso de renovación' })}
+      ${statCard(fmtNum(t.porVencer), 'Por vencer', { sub: 'Dentro del aviso, incluye los ya en renovación' })}
       ${statCard(fmtPct(t.tasaRen), 'Tasa de renovación', { sub: t.cerradas ? `${t.cerradas} renovaciones cerradas` : 'Sin renovaciones cerradas' })}
       ${statCard(fmtSat(t.sat), 'Satisfacción (0–10)', { sub: t.resp ? `${t.resp} respuestas, últimos 90 días` : 'Sin respuestas en 90 días' })}
     </div>`;
@@ -111,7 +112,9 @@ function html(filas, renovaciones) {
     ? `<div class="ops-grid prog-grid">${filas.map(tarjeta).join('')}</div>`
     : '<div class="card empty-state"><div class="big">No hay programas</div></div>';
 
+  const avisos = activos.map(k => avisoAltasHtml(k.programa_id, altas.get(k.programa_id), k.nombre)).join('');
   return `
+    ${avisos}
     ${activos.length ? kpiHtml : ''}
     <div class="section-title">Programas<span class="line"></span></div>
     ${tarjetas}`;
@@ -127,13 +130,17 @@ export function vistaPanel(el, vigente) {
       sb.from('cs_v_kpis_programa').select('*'),
       sb.from('cs_renovaciones').select('programa_id,estado').in('estado', ['renovado', 'no_renovado'])
     ]);
+    /* Ventas esperando alta por programa activo (070); si falla una, ese programa no avisa. */
+    const altas = new Map();
+    await Promise.all((k.data || []).filter(f => f.activo).map(async f =>
+      altas.set(f.programa_id, (await contarAltasPendientes(f.programa_id)) || 0)));
     if (!vigente()) return;
     const error = k.error || r.error;
     if (error) {
       el.innerHTML = `<div class="card empty-state"><div class="big">No se pudo cargar el panel</div><div class="small">${esc(error.message)}</div></div>`;
       return;
     }
-    el.innerHTML = html(k.data || [], r.data || []);
+    el.innerHTML = html(k.data || [], r.data || [], altas);
   }
 
   cargar().catch(e => {

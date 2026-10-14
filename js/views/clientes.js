@@ -10,6 +10,7 @@ import {
   ESTADO_LABEL, ESTADO_COLOR, ONBOARDING_LABEL
 } from '../datos.js';
 import { abrirModalNuevoCliente } from './cliente-nuevo.js';
+import { contarAltasPendientes, avisoAltasHtml } from './altas-aviso.js';
 import { crearSeleccion } from './seleccion-masiva.js';
 import { sumarUltimaLlamada, columnaUltimaLlamada } from './llamada-semaforo.js';
 import { sumarResumenAlumno, columnasEstado, pasaUpsell, OPCIONES_UPSELL } from './estado-columnas.js';
@@ -199,6 +200,7 @@ export function vistaClientes(el, programaId, vigente) {
   const f = filtrosIniciales();
   const orden = { k: 'semaforo', desc: false };
   let p = null, clientes = [], cols = [];
+  let altas = 0;            // ventas esperando alta (070): aviso arriba de la lista
   let hayResumen = false;   // 106: existe cs_v_alumno_resumen (filtro y columna Upsell, En qué está, ...)
   let timerBusqueda = null;
   /* Selección y edición masiva (solo quien edita este programa). Se pierde al salir de la vista. */
@@ -224,7 +226,7 @@ export function vistaClientes(el, programaId, vigente) {
   function pintarTodo() {
     const foco = document.activeElement && document.activeElement.id === 'f-q';
     const pos = foco ? document.getElementById('f-q').selectionStart : null;
-    el.innerHTML = barraFiltros(f, clientes, p, true, hayResumen) + sel.contenedorHtml() + '<div id="cli-tabla"></div>';
+    el.innerHTML = avisoAltasHtml(programaId, altas) + barraFiltros(f, clientes, p, true, hayResumen) + sel.contenedorHtml() + '<div id="cli-tabla"></div>';
     conectarFiltros();
     sel.pintarBarra();
     pintarTabla();
@@ -268,8 +270,10 @@ export function vistaClientes(el, programaId, vigente) {
   });
 
   async function cargar() {
-    const [prog, filas] = await Promise.all([traerPrograma(programaId), traerClientes(programaId)]);
+    const [prog, filas, nAltas] = await Promise.all([traerPrograma(programaId), traerClientes(programaId),
+      contarAltasPendientes(programaId)]);
     if (!vigente()) return;
+    altas = nAltas || 0;
     if (!prog) { el.innerHTML = tarjetaError('Programa no encontrado', 'No existe o no tenés acceso.'); return; }
     const hayLlamadas = await sumarUltimaLlamada(programaId, filas);   // 102: sin la migración no hay columna
     hayResumen = await sumarResumenAlumno(programaId, filas);   // 106; después de la llamada (la sugerencia la usa)

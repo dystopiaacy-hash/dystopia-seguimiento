@@ -6,10 +6,11 @@ import { esc, fmtNum, fmtPct, fmtFecha, fmtHoras, plural, toast } from '../ui.js
 import { tarjetaError } from './programa.js';
 import {
   traerPrograma, traerKpis, traerClientes, traerAlertas, traerDevolucionesAbiertas, resolverAlerta,
-  atrasoPorCliente, mensajeError, etiquetaUsuario, esVivo, ALERTA_LABEL, nivelAlerta
+  atrasoPorCliente, mensajeError, etiquetaUsuario, esVivo, renAbierta, ALERTA_LABEL, nivelAlerta
 } from '../datos.js';
 import { traerListaOnboarding } from '../datos-onboarding.js';
 import { contarOnboarding, soloVivos } from '../onboarding-estados.js';
+import { contarAltasPendientes, avisoAltasHtml } from './altas-aviso.js';
 
 const n = v => Number(v) || 0;
 const nn = v => (v == null || v === '' ? null : Number(v));
@@ -55,7 +56,16 @@ function tarjetaOnboarding(k, lista, base) {
   });
 }
 
-function filaKpis(k, p, lista) {
+/* "Por vencer" del KPI = vivos con 0 a N días, tengan o no una renovación abierta.
+   Renovaciones lista solo a los que nadie tocó: la diferencia se dice acá. */
+function subPorVencer(clientes, p) {
+  const aviso = n(p.aviso_renovacion_dias);
+  const enRen = clientes.filter(c => esVivo(c) && c.dias_restantes != null
+    && n(c.dias_restantes) >= 0 && n(c.dias_restantes) <= aviso && renAbierta(c.renovacion_estado)).length;
+  return enRen ? [`${enRen} ya en renovación`] : null;
+}
+
+function filaKpis(k, p, lista, clientes) {
   const base = '#/p/' + encodeURIComponent(p.id);
   const devPend = n(k.dev_pendientes);
   const accVenc = n(k.acc_bpf_vencidos);
@@ -93,7 +103,7 @@ function filaKpis(k, p, lista) {
       })}
       ${kpi({
         valor: fmtNum(n(k.por_vencer)), label: 'Por vencer',
-        subs: [[`Vencen dentro de ${plural(n(p.aviso_renovacion_dias), 'día')}`]],
+        subs: [[`Vencen dentro de ${plural(n(p.aviso_renovacion_dias), 'día')}`], subPorVencer(clientes, p)],
         href: base + '/clientes?vencer=1'
       })}
       ${kpi({
@@ -139,7 +149,7 @@ function filaAtencion(c, p, atrasos) {
     </a>`;
 }
 
-function bloqueAtencion(clientes, p, atrasos) {
+function bloqueAtencion(clientes, p, atrasos, altas) {
   const orden = { rojo: 0, amarillo: 1 };
   const filas = clientes
     .filter(c => esVivo(c) && (c.semaforo === 'rojo' || c.semaforo === 'amarillo'))
@@ -151,7 +161,9 @@ function bloqueAtencion(clientes, p, atrasos) {
   const rojos = filas.filter(c => c.semaforo === 'rojo').length;
   const cuerpo = filas.length
     ? `<div class="aten-list">${filas.map(c => filaAtencion(c, p, atrasos)).join('')}</div>`
-    : '<div class="muted-empty">Ningún cliente en rojo ni en amarillo. Todo al día.</div>';
+    : `<div class="muted-empty">Ningún cliente en rojo ni en amarillo.${altas
+      ? ` Ojo: hay ${plural(altas, 'venta esperando', 'ventas esperando')} alta y todavía no figuran como clientes.`
+      : ' Todo al día.'}</div>`;
 
   return `
     <div class="section-title">Requiere atención
@@ -191,11 +203,11 @@ function bloqueAlertas(alertas) {
 
 /* ---------- Vista ---------- */
 
-function html(p, k, clientes, alertas, atrasos, lista) {
+function html(p, k, clientes, alertas, atrasos, lista, altas) {
   const kpis = k
-    ? filaKpis(k, p, lista)
+    ? filaKpis(k, p, lista, clientes)
     : '<div class="card empty-state"><div class="big">Sin KPIs todavía</div><div class="small">Este programa no devolvió datos de seguimiento.</div></div>';
-  return kpis + bloqueAtencion(clientes, p, atrasos) + bloqueAlertas(alertas);
+  return avisoAltasHtml(p.id, altas) + kpis + bloqueAtencion(clientes, p, atrasos, altas) + bloqueAlertas(alertas);
 }
 
 export function vistaDashboard(el, programaId, vigente) {
@@ -203,14 +215,15 @@ export function vistaDashboard(el, programaId, vigente) {
 
   async function cargar() {
     /* La lista de onboarding es un único pedido liviano; si falla, la tarjeta cae al número de la vista. */
-    const [p, k, clientes, alertas, devs, lista] = await Promise.all([
+    const [p, k, clientes, alertas, devs, lista, altas] = await Promise.all([
       traerPrograma(programaId), traerKpis(programaId),
       traerClientes(programaId), traerAlertas(programaId), traerDevolucionesAbiertas(programaId),
-      traerListaOnboarding(programaId).catch(() => undefined)
+      traerListaOnboarding(programaId).catch(() => undefined),
+      contarAltasPendientes(programaId)
     ]);
     if (!vigente()) return;
     if (!p) { el.innerHTML = tarjetaError('Programa no encontrado', 'No existe o no tenés acceso.'); return; }
-    el.innerHTML = html(p, k, clientes, alertas, atrasoPorCliente(devs, p.sla_devolucion_horas), lista);
+    el.innerHTML = html(p, k, clientes, alertas, atrasoPorCliente(devs, p.sla_devolucion_horas), lista, altas || 0);
   }
 
   el.onclick = async ev => {
