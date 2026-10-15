@@ -33,3 +33,6 @@ export const SATISF_VERDE_DESDE = 9;
    que no esté en rojo. La sugerencia no marca sola: el CSM confirma. */
 export const UPSELL_WINS_DIAS = 30;
 export const UPSELL_PUNTAJE_MIN = 9;
+
+/* Pantalla "Vincular alumnos" de Finanzas (ruta #/vincular, verificada en dystopia-finanzas/js/app.js). */
+export const FINANZAS_VINCULAR_URL = 'https://finanzas.dystopia.com.ar/#/vincular';

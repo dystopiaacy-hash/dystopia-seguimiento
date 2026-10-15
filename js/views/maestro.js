@@ -26,6 +26,8 @@ import { armarColumnas } from './maestro-columnas.js';
 import { sumarAvanceOnboarding, columnaOnboarding } from './maestro-onboarding.js';
 import { sumarUltimaLlamada, columnaUltimaLlamada, celdaUltimaLlamadaMaestro } from './llamada-semaforo.js';
 import { sumarResumenAlumno, columnasEstado, pasaUpsell, OPCIONES_UPSELL } from './estado-columnas.js';
+import { sumarEstadoPagos } from '../datos-pagos.js';
+import { columnaPagos } from './pagos-columna.js';
 import { manejarIr } from './maestro-acciones.js';
 import { abrirPanelColumnas } from './maestro-panel.js';
 import { crearSeleccion } from './seleccion-masiva.js';
@@ -143,6 +145,7 @@ export function vistaMaestro(el, programaId, vigente) {
   let panel = null, renombrando = '', timerOrden = null;
   let hayOnboarding = false;   // 093: algún alumno del programa tiene onboarding
   let hayLlamadas = false;     // 102: existe cs_v_ultima_llamada (columna "Última llamada")
+  let hayPagos = false;        // 133: existe cs_estado_pagos_alumno (columna "Pagos", sin montos)
   let hayResumen = false;      // 106: existe cs_v_alumno_resumen (En qué está, Próximos pasos, Satisfacción, Upsell)
   limpiarConfirmaciones();
   /* Selección y edición masiva (solo quien edita este programa). Se pierde al salir de la vista. */
@@ -158,6 +161,7 @@ export function vistaMaestro(el, programaId, vigente) {
     if (hayOnboarding) base.push(columnaOnboarding());
     if (hayLlamadas) base.push(columnaUltimaLlamada('m-calc', celdaUltimaLlamadaMaestro));
     if (hayResumen) base.push(...columnasEstado('m-calc', true));
+    if (hayPagos) base.push(columnaPagos('m-calc', true));
     armado = armarColumnas(base, config);
     cols = armado.visibles;
   }
@@ -325,6 +329,7 @@ export function vistaMaestro(el, programaId, vigente) {
     hayOnboarding = await sumarAvanceOnboarding(programaId, filas);
     hayLlamadas = await sumarUltimaLlamada(programaId, filas);
     hayResumen = await sumarResumenAlumno(programaId, filas);   // después de la llamada: la sugerencia de upsell la usa
+    hayPagos = await sumarEstadoPagos(filas);   // 133: en lote, sin montos
     if (!vigente()) return;
     productos = prods;
     config = conf;

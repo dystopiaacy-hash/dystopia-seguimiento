@@ -17,6 +17,11 @@
 .est-sugerido{color:var(--sem-amarillo-text);border-color:var(--sem-amarillo);}
 .est-resell{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft);}
 
+/* ---------- Pagos (133): ficha y columna ---------- */
+.pg-atrasado{color:var(--sem-rojo);border-color:var(--sem-rojo);}
+.pg-grid{grid-template-columns:repeat(4,1fr);}
+@media (max-width:720px){.pg-grid{grid-template-columns:1fr 1fr;}}
+
 /* ---------- Satisfacción (ficha y pestaña) ---------- */
 .sat-card-ficha,.sat-momentos{display:flex;flex-direction:column;}
 .sat-fila{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-3);flex-wrap:wrap;

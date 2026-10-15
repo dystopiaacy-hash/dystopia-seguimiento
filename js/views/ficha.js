@@ -21,10 +21,12 @@ import { traerResumenCliente, traerUltimaLlamadaCliente } from '../datos-estado.
 import { cargarUmbrales } from '../datos-servicio.js';   // 123: umbral sin llamada por programa
 import { traerEnviosCliente, traerMomentos } from '../datos-satisfaccion.js';
 import { traerWinsCliente } from '../datos-wins.js';
+import { traerEstadoPagos } from '../datos-pagos.js';   // 133 (usa la 129 y la 132 de Finanzas)
 import * as cabecera from './ficha-cabecera.js';
 import * as estado from './ficha-estado.js';
 import * as satisfaccion from './ficha-satisfaccion.js';
 import * as wins from './ficha-wins.js';
+import * as pagos from './ficha-pagos.js';
 import * as ciclo from './ficha-ciclo.js';
 import * as onboarding from './ficha-onboarding.js';
 import * as seguimientos from './ficha-seguimientos.js';
@@ -39,6 +41,7 @@ import * as historial from './ficha-historial.js';
 const BLOQUES = [
   ['cabecera', cabecera],
   ['estado', estado],
+  ['pagos', pagos],
   ['ciclo', ciclo],
   ['onboarding', onboarding],
   ['seguimientos', seguimientos],
@@ -64,7 +67,7 @@ async function cargarDatos(programaCorto, clienteId) {
   /* Lo de la 106 (estado, satisfacción, wins) nunca frena la ficha: sin la migración o con error
      queda undefined y sus bloques no se muestran. */
   const opcional = (fn, que) => fn().catch(e => { console.error(que, e); return undefined; });
-  const [acc, devs, cls, rens, resp, segs, forms, productos, cicloCli, onb, llam, resumen, ultima, momentos, envios, winsCli] = await Promise.all([
+  const [acc, devs, cls, rens, resp, segs, forms, productos, cicloCli, onb, llam, resumen, ultima, momentos, envios, winsCli, pagosCli] = await Promise.all([
     traerAccionablesCliente(c.id),
     traerDevolucionesCliente(c.id),
     traerCallsCliente(c.id),
@@ -82,7 +85,9 @@ async function cargarDatos(programaCorto, clienteId) {
     opcional(() => cargarUmbrales(p.id).then(() => traerUltimaLlamadaCliente(c.id)), 'ultima llamada'),
     opcional(() => traerMomentos(p.id), 'momentos'),
     opcional(() => traerEnviosCliente(c.id), 'satisfacción'),
-    opcional(() => traerWinsCliente(c.id), 'wins')
+    opcional(() => traerWinsCliente(c.id), 'wins'),
+    /* 133: sin la 132 (o con error) el bloque dice "sin datos todavía"; nunca frena la ficha. */
+    opcional(() => traerEstadoPagos([c.id]), 'pagos')
   ]);
   /* 106 corrida = la vista del resumen respondió (con fila o null). */
   const con106 = resumen !== undefined;
@@ -98,7 +103,8 @@ async function cargarDatos(programaCorto, clienteId) {
     onboarding: onb, llamadas: llam,
     estado: con106 ? { resumen: resumen || {}, ultima: ultima || null } : undefined,
     satisfaccion: con106 && momentos !== undefined && envios !== undefined ? { momentos, envios } : undefined,
-    wins: con106 ? winsCli : undefined
+    wins: con106 ? winsCli : undefined,
+    pagos: pagosCli ? { estado: pagosCli.get(c.id) || null } : { sinDatos: true }
   };
 }
 

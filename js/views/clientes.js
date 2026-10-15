@@ -14,6 +14,8 @@ import { contarAltasPendientes, avisoAltasHtml } from './altas-aviso.js';
 import { crearSeleccion } from './seleccion-masiva.js';
 import { sumarUltimaLlamada, columnaUltimaLlamada } from './llamada-semaforo.js';
 import { sumarResumenAlumno, columnasEstado, pasaUpsell, OPCIONES_UPSELL } from './estado-columnas.js';
+import { sumarEstadoPagos } from '../datos-pagos.js';
+import { columnaPagos } from './pagos-columna.js';
 
 const n = v => Number(v) || 0;
 const SEM_ORDEN = { rojo: 0, amarillo: 1, verde: 2, gris: 3 };
@@ -277,6 +279,7 @@ export function vistaClientes(el, programaId, vigente) {
     if (!prog) { el.innerHTML = tarjetaError('Programa no encontrado', 'No existe o no tenés acceso.'); return; }
     const hayLlamadas = await sumarUltimaLlamada(programaId, filas);   // 102: sin la migración no hay columna
     hayResumen = await sumarResumenAlumno(programaId, filas);   // 106; después de la llamada (la sugerencia la usa)
+    const hayPagos = await sumarEstadoPagos(filas);   // 133: una llamada por lote de 500; sin la 132 no hay columna
     if (!vigente()) return;
     p = prog;
     clientes = filas;
@@ -284,6 +287,7 @@ export function vistaClientes(el, programaId, vigente) {
     cols = columnas(p);
     if (hayLlamadas) cols.push(columnaUltimaLlamada('col-chq'));
     if (hayResumen) cols.push(...columnasEstado(''));
+    if (hayPagos) cols.push(columnaPagos('col-chq'));
     pintarTodo();
   }
 
