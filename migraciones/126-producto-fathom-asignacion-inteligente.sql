@@ -874,8 +874,8 @@ commit;
 --   -- 1. sin alumno: queda pendiente con invitados
 --   v_r := public.cs_fathom_aplicar(jsonb_build_object('externo_id','fathom:humo-126a','inicio_at', now(),
 --     'consultor','teo','origen','sync',
---     'invitados','["zz-humo-a@x.com","ZZ-humo-b@x.com"]','transcripcion','texto',
---     'action_items','[{"descripcion":"Mandar el plan","responsable":"Joaco"}]'));
+--     'invitados','["zz-humo-a@x.com","ZZ-humo-b@x.com"]'::jsonb,'transcripcion','texto',
+--     'action_items','[{"descripcion":"Mandar el plan","responsable":"Joaco"}]'::jsonb));
 --   if v_r->>'resultado' <> 'sin_asignar' then raise exception 'esperaba sin_asignar, vino %', v_r; end if;
 --   select id into v_sa from public.cs_fathom_sin_asignar where externo_id = 'fathom:humo-126a';
 --   v_n := v_n + 1;
@@ -894,7 +894,7 @@ commit;
 --   update public.cs_clientes set email = 'zz-humo-dueno@x.com' where id = v_b;
 --   v_r := public.cs_fathom_aplicar(jsonb_build_object('externo_id','fathom:humo-126b','inicio_at', now(),
 --     'consultor','teo','origen','manual','cliente_id', v_a,
---     'invitados','["zz-humo-dueno@x.com","zz-humo-c@x.com"]'));
+--     'invitados','["zz-humo-dueno@x.com","zz-humo-c@x.com"]'::jsonb));
 --   select count(*) into v_cnt from public.cs_clientes_mails where cliente_id = v_a and email = 'zz-humo-dueno@x.com';
 --   if v_cnt <> 0 then raise exception 'aprendio el mail de otro alumno'; end if;
 --   select count(*) into v_cnt from public.cs_clientes_mails where cliente_id = v_a and email = 'zz-humo-c@x.com';
@@ -923,7 +923,7 @@ commit;
 --   -- 6. por nombre desde la sync, y confirmar la pasa a manual y aprende
 --   v_r := public.cs_fathom_aplicar(jsonb_build_object('externo_id','fathom:humo-126c','cliente_id', v_a,
 --     'inicio_at', now(), 'consultor','teo','origen','sync','asignada_por','nombre',
---     'invitados','["zz-humo-d@x.com"]'));
+--     'invitados','["zz-humo-d@x.com"]'::jsonb));
 --   v_ll := (v_r->>'llamada_id')::uuid;
 --   select asignada_por into v_txt from public.cs_llamadas where id = v_ll;
 --   if v_txt <> 'nombre' then raise exception 'esperaba nombre, hay %', v_txt; end if;
