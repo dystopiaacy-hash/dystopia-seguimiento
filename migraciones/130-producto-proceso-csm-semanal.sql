@@ -539,7 +539,7 @@ as $fn$
       and a.estado <> 'completado'
       and a.vence is not null
       and a.vence <= prm.hasta
-      and not (a.plantilla_key like 'csm:%' and a.vence between prm.hoy - 7 and prm.hoy)
+      and not (coalesce(a.plantilla_key, '') like 'csm:%' and a.vence between prm.hoy - 7 and prm.hoy)
 
     union all
     -- 130: proceso CSM de hoy = referidos y resell que vencen hoy o vencieron hace hasta 7 días
@@ -763,7 +763,7 @@ begin
       and a.estado <> 'completado'
       and a.vence < v_hoy
       and c.estado = any (v_vivos)
-      and not (a.plantilla_key like 'csm:%' and a.vence >= v_hoy - 7 and a.responsable = 'bpf')
+      and not (coalesce(a.plantilla_key, '') like 'csm:%' and a.vence >= v_hoy - 7 and a.responsable = 'bpf')
     order by a.vence, c.nombre
   loop
     n_acc := n_acc + 1;
