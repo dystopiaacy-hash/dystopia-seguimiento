@@ -7,7 +7,8 @@
    Permisos: fundador y quien edita el programa crean, editan y marcan; solo lectura
    (cliente@) ve; borrar es solo del fundador (la base lo exige igual). Sin la 102 el
    bloque no se muestra. */
-import { esc, fmtFecha, plural, abrirModal, cerrarModal, confirmar } from '../ui.js';
+import { esc, fmtFecha, plural, abrirModal, cerrarModal, confirmar, urlSegura } from '../ui.js';
+import { traerTranscripcion } from '../datos-fathom.js';
 import { esFundador, puedeEditarPrograma } from '../sesion.js';
 import { actualizarFila, borrarFila } from '../datos.js';
 import { guardar } from './comunes.js';
@@ -51,12 +52,23 @@ function cabeceraLlamada(ll, items, editar, fundador) {
 }
 
 /* Resumen, "En qué está" y "Próximos pasos" de la llamada (106). Vacío si no hay nada cargado. */
-function infoLlamada(ll) {
+function infoLlamada(ll, editar) {
   const partes = [['Resumen', ll.resumen], ['En qué está', ll.en_que_esta], ['Próximos pasos', ll.proximos_pasos]]
     .filter(([, v]) => v && String(v).trim());
-  if (!partes.length) return '';
+  /* Llamada de Fathom (122): link a la grabación y transcripción plegada (se pide al abrirla;
+     solo la ve quien edita el programa: la base lo exige). */
+  const fathom = ll.fuente === 'fathom' || ll.externo_id;
+  const url = urlSegura(ll.grabacion_share_url || ll.grabacion_url || '');
+  const barra = fathom ? `<div class="ll-fathom">
+      <span class="ll-fathom-tag">Fathom${ll.vinculada_manual ? ' · vinculada a la carga manual' : ''}</span>
+      ${ll.duracion_min ? `<span>${esc(ll.duracion_min)} min</span>` : ''}
+      ${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Ver grabación</a>` : ''}
+      ${editar ? `<button type="button" class="btn-icono" data-ll-transc="${esc(ll.id)}" aria-expanded="false">Transcripción</button>` : ''}
+    </div>
+    <pre class="ll-transc" data-ll-transc-box="${esc(ll.id)}" hidden></pre>` : '';
+  if (!partes.length && !barra) return '';
   return `<div class="ll-info">${partes.map(([t, v]) =>
-    `<div><span class="ll-info-lab">${esc(t)}</span> ${esc(v)}</div>`).join('')}</div>`;
+    `<div><span class="ll-info-lab">${esc(t)}</span> ${esc(v)}</div>`).join('')}${barra}</div>`;
 }
 
 function grupoPendientes(ll, items, editar, fundador) {
@@ -76,7 +88,7 @@ function grupoPendientes(ll, items, editar, fundador) {
     </form>` : '';
   return `<div class="ll-grupo">
       ${cabeceraLlamada(ll, items, editar, fundador)}
-      ${infoLlamada(ll)}
+      ${infoLlamada(ll, editar)}
       ${filas.length ? `<div class="acc-lista">${filas.join('')}</div>`
         : '<div class="muted-empty ll-vacio">No hay accionables pendientes de esta llamada.</div>'}
       ${alta}
@@ -197,6 +209,27 @@ export async function manejar(ev, ctx, api) {
   const el = sel => ev.target.closest(sel);
 
   if (el('[data-ll-nueva]')) { if (editar) await modalNueva(ctx, api); return true; }
+
+  /* Transcripción plegada de una llamada de Fathom: se trae al abrirla, una sola vez. */
+  const bTr = el('[data-ll-transc]');
+  if (bTr) {
+    const caja = bTr.parentElement.parentElement.querySelector('[data-ll-transc-box]');
+    if (!caja || !editar) return true;
+    const abrir = caja.hidden;
+    caja.hidden = !abrir;
+    bTr.setAttribute('aria-expanded', String(abrir));
+    if (abrir && !caja.dataset.cargada) {
+      caja.textContent = 'Cargando…';
+      try {
+        const t = await traerTranscripcion(bTr.dataset.llTransc);
+        caja.textContent = t || 'Esta llamada no tiene transcripción cargada.';
+        caja.dataset.cargada = '1';
+      } catch (e) {
+        caja.textContent = 'No se pudo cargar la transcripción.';
+      }
+    }
+    return true;
+  }
 
   const eLl = el('[data-ll-editar-llamada]');
   if (eLl) {

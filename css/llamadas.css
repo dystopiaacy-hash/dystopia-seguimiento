@@ -62,6 +62,16 @@
 .rec-alta input[name=url]{flex:2;min-width:180px;}
 .rec-alta input:focus,.rec-alta select:focus{background:var(--surface);border-color:var(--accent-line);outline:none;}
 
+/* ---------- Llamadas de Fathom (122) ---------- */
+.ll-fathom{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-2);
+  font-size:var(--fs-meta);color:var(--text-dim);}
+.ll-fathom-tag{font-size:var(--fs-micro);font-weight:800;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--accent);}
+.ll-transc{margin:var(--sp-2) 0 0;max-height:320px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;
+  background:var(--surface-2);border-radius:var(--radius-sm);padding:var(--sp-3);font:inherit;font-size:var(--fs-meta);
+  color:var(--text);}
+.cf-fathom-detalle{white-space:pre-wrap;overflow-wrap:anywhere;margin:var(--sp-2) 0 0;}
+
 @media (max-width:720px){
   .ll-sub{margin-left:var(--sp-3);}
 }

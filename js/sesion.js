@@ -57,6 +57,12 @@ export function puedeEditarPrograma(id) {
   return yo.rol === 'fundador' || yo.niveles[id] === 'edicion';
 }
 
+/* Llamadas de Fathom sin asignar (122): fundador o CSM (edición en algún programa).
+   La base lo impone igual con cs_fathom_gestor(). */
+export function puedeGestionarFathom() {
+  return yo.rol === 'fundador' || Object.values(yo.niveles).includes('edicion');
+}
+
 export function programa(id) {
   return yo.programas.find(p => p.id === id) || null;
 }

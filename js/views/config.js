@@ -11,6 +11,7 @@ import {
 import { esFundador } from '../sesion.js';
 import { guardar, num } from './comunes.js';
 import { htmlCanales, montarCanales } from './config-canales.js';
+import { htmlFathom, montarFathom } from './config-fathom.js';
 import {
   htmlEtapas, leerEtapas, htmlPlantilla, leerPlantilla,
   completarKeys, validarPlantilla
@@ -96,6 +97,8 @@ export function vistaConfig(el, programaId, vigente) {
 
       ${htmlCanales()}
 
+      ${htmlFathom()}
+
       ${seccion('Chequeo diario', `
         <div class="hint">Aplica las plantillas que ya vencieron, finaliza los programas vencidos
           y recalcula las alertas. Es lo mismo que corre el cron: se puede correr las veces que
@@ -104,6 +107,8 @@ export function vistaConfig(el, programaId, vigente) {
         <div class="chequeo-res" id="cf-chequeo-res"></div>`)}`;
     montarCanales(el.querySelector('#cf-canales'), programaId, vigente)
       .catch(e => console.error('canales', e));   // 106: no frena el resto de la pantalla
+    montarFathom(el.querySelector('#cf-fathom'), vigente)
+      .catch(e => console.error('fathom', e));    // 122: idem
   }
 
   function repintarEtapas() {

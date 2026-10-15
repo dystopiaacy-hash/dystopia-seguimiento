@@ -3,7 +3,8 @@
    construyeron muestran su lugar. */
 import { esc } from '../ui.js';
 import { setHeader, SECCIONES } from '../layout.js';
-import { esFundador } from '../sesion.js';
+import { esFundador, puedeGestionarFathom } from '../sesion.js';
+import { vistaFathom } from './fathom-sin-asignar.js';
 import { vistaHoy } from './hoy.js';
 import { vistaDashboard } from './dashboard.js';
 import { vistaClientes } from './clientes.js';
@@ -34,8 +35,8 @@ export function tarjetaError(titulo, e) {
 export function tabsPrograma(programaId, sub) {
   const id = encodeURIComponent(programaId);
   let html = '<nav class="tabs tabs-prog" aria-label="Secciones del programa">';
-  for (const [s, label, soloFundador] of SECCIONES) {
-    if (soloFundador && !esFundador()) continue;
+  for (const [s, label, soloFundador, soloGestor] of SECCIONES) {
+    if ((soloFundador && !esFundador()) || (soloGestor && !puedeGestionarFathom())) continue;
     const href = '#/p/' + id + (s ? '/' + s : '');
     html += `<a class="tab-btn${sub === s ? ' active' : ''}" href="${href}">${esc(label)}</a>`;
   }
@@ -57,11 +58,15 @@ export function vistaPrograma(el, { p, sub, clienteId, vigente }) {
     el.innerHTML = vacio('No existe esta sección.');
     return null;
   }
-  const [, label, soloFundador] = seccion;
+  const [, label, soloFundador, soloGestor] = seccion;
   setHeader(p.nombre, clienteId ? 'Ficha de cliente' : `${p.marca ? p.marca + ' · ' : ''}${label}`);
 
   if (soloFundador && !esFundador()) {
     el.innerHTML = vacio('Solo el fundador puede ver esta sección.');
+    return null;
+  }
+  if (soloGestor && !puedeGestionarFathom()) {
+    el.innerHTML = vacio('Solo el fundador o la CSM pueden ver esta sección.');
     return null;
   }
 
@@ -88,6 +93,7 @@ export function vistaPrograma(el, { p, sub, clienteId, vigente }) {
   if (sub === 'revision') return vistaRevision(cont, p.id, vigente);
   if (sub === 'satisfaccion') return vistaSatisfaccion(cont, p.id, vigente);
   if (sub === 'dudas') return vistaDudas(cont, p.id, vigente);
+  if (sub === 'fathom') return vistaFathom(cont, p.id, vigente);
   if (sub === 'formularios') return vistaFormularios(cont, p.id, vigente);
   if (sub === 'metricas') return vistaMetricas(cont, p.id, vigente);
   if (sub === 'config') return vistaConfig(cont, p.id, vigente);

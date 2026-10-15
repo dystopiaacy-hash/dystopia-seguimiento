@@ -1,9 +1,10 @@
 /* Layout de la app interna (replica Dystopia): sidebar con marca, navegación
    y pie (email + Salir); header con título de la vista, "En vivo" y rol. */
 import { esc } from './ui.js';
-import { yo, esFundador, etiquetaRol } from './sesion.js';
+import { yo, esFundador, etiquetaRol, puedeGestionarFathom } from './sesion.js';
 
-/* Secciones de un programa: [sub-ruta, etiqueta, soloFundador] */
+/* Secciones de un programa: [sub-ruta, etiqueta, soloFundador, soloGestor]
+   soloGestor (122): fundador o CSM, no cliente@ de solo lectura. */
 export const SECCIONES = [
   ['hoy', 'Hoy', false],
   ['', 'Dashboard', false],
@@ -17,6 +18,7 @@ export const SECCIONES = [
   ['revision', 'Revisión', false],
   ['satisfaccion', 'Satisfacción', false],
   ['dudas', 'Dudas frecuentes', false],
+  ['fathom', 'Llamadas sin asignar', false, true],
   ['formularios', 'Formularios', false],
   ['metricas', 'Métricas', false],
   ['config', 'Configuración', true]
@@ -98,8 +100,8 @@ export function renderNav(activo = {}) {
       </a>`;
     if (esEste) {
       html += '<div class="nav-subs">';
-      for (const [sub, label, soloFundador] of SECCIONES) {
-        if (!sub || (soloFundador && !esFundador())) continue;
+      for (const [sub, label, soloFundador, soloGestor] of SECCIONES) {
+        if (!sub || (soloFundador && !esFundador()) || (soloGestor && !puedeGestionarFathom())) continue;
         html += `<a class="nav-sub${activo.sub === sub ? ' active' : ''}" href="${href('p/' + id + '/' + sub)}">${esc(label)}</a>`;
       }
       html += '</div>';
