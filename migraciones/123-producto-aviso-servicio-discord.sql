@@ -357,7 +357,7 @@ begin
   -- ---------- sin llamada (solo alumnos vivos; cualquier llamada asignada al alumno) ----------
   for r in
     select c.id, c.nombre,
-           greatest(0, v_hoy - u.ultima_llamada) as dias
+           case when u.ultima_llamada is null then null else greatest(0, v_hoy - u.ultima_llamada) end as dias
     from public.cs_clientes c
     left join public.cs_v_ultima_llamada u on u.cliente_id = c.id
     where c.programa_id = p_programa
