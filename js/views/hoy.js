@@ -2,6 +2,7 @@
    Tres grupos (Atrasado, Hoy, Próximos) con una tarjeta por tarea y su acción:
      aviso_1 / aviso_2        Hecho (registrarAviso)
      accionable               Hecho, +3 días, +7 días
+     proceso_csm (130)        igual que accionable, en el bloque "Proceso CSM de hoy" (arriba de la cola)
      contacto / renovacion    Registrar contacto (hoy-contacto.js)
      onboarding / devolucion  Abrir ficha
    Al resolver, la tarjeta sale al instante y la cola se vuelve a pedir.
@@ -20,11 +21,13 @@ import { montarWinsHoy } from './hoy-wins.js';
 
 const GRUPOS = [['atrasado', 'Atrasado'], ['hoy', 'Hoy'], ['proximo', 'Próximos']];
 const TIPO_LABEL = {
-  aviso_1: 'Aviso 1', aviso_2: 'Aviso 2', accionable: 'Accionable', contacto: 'Contacto',
+  aviso_1: 'Aviso 1', aviso_2: 'Aviso 2', proceso_csm: 'Proceso CSM', accionable: 'Accionable', contacto: 'Contacto',
   renovacion: 'Renovación', onboarding: 'Onboarding', devolucion: 'Devolución'
 };
 const ES_AVISO = { aviso_1: 1, aviso_2: 2 };
 const CON_CONTACTO = ['contacto', 'renovacion'];
+/* proceso_csm (130) es un accionable de la plantilla del proceso: mismas acciones que 'accionable'. */
+const ES_ACCIONABLE = ['accionable', 'proceso_csm'];
 
 const clave = t => `${t.tipo}:${t.ref_id || t.cliente_id}`;
 const hrefFicha = (programaId, t) => `#/p/${encodeURIComponent(programaId)}/c/${encodeURIComponent(t.cliente_id)}`;
@@ -34,7 +37,7 @@ function botones(t, programaId, ocupada) {
   const b = (accion, label, clase = '') =>
     `<button type="button" class="btn btn-sm ${clase}" data-accion="${accion}"${dis}>${esc(label)}</button>`;
   if (ES_AVISO[t.tipo]) return b('hecho', 'Hecho', 'btn-accent');
-  if (t.tipo === 'accionable') return b('hecho', 'Hecho', 'btn-accent') + b('mas3', '+3 días') + b('mas7', '+7 días');
+  if (ES_ACCIONABLE.includes(t.tipo)) return b('hecho', 'Hecho', 'btn-accent') + b('mas3', '+3 días') + b('mas7', '+7 días');
   if (CON_CONTACTO.includes(t.tipo)) return b('contacto', 'Registrar contacto', 'btn-accent');
   return `<a class="btn btn-sm" href="${hrefFicha(programaId, t)}">Abrir ficha</a>`;
 }
@@ -113,8 +116,16 @@ export function vistaHoy(el, programaId, vigente) {
     if (!lista.some(t => clave(t) === sel)) sel = lista.length ? clave(lista[0]) : null;
     const main = document.querySelector('.main');
     const y = main ? main.scrollTop : 0;
-    cuerpo.innerHTML = cabecera(todas, filtro, altas.cantidad()) + GRUPOS.map(([c, label]) => {
-      const g = lista.filter(t => t.cuando === c);
+    /* "Proceso CSM de hoy" (130): referidos y resell que vencen hoy o hace hasta 7 días, en su
+       propio bloque arriba; el resto de la cola sigue en Atrasado / Hoy / Próximos. */
+    const csm = lista.filter(t => t.tipo === 'proceso_csm');
+    const resto = lista.filter(t => t.tipo !== 'proceso_csm');
+    const bloqueCsm = csm.length ? `<section class="hoy-grupo">
+        <div class="section-title">Proceso CSM de hoy <span class="hoy-grupo-n hoy-n-hoy">${csm.length}</span><span class="line"></span></div>
+        ${csm.map(t => tarjeta(t, programaId, sel, ocupadas.has(clave(t)))).join('')}
+      </section>` : '';
+    cuerpo.innerHTML = cabecera(todas, filtro, altas.cantidad()) + bloqueCsm + GRUPOS.map(([c, label]) => {
+      const g = resto.filter(t => t.cuando === c);
       if (!g.length) return '';
       return `<section class="hoy-grupo">
         <div class="section-title">${esc(label)} <span class="hoy-grupo-n hoy-n-${c}">${g.length}</span><span class="line"></span></div>
@@ -172,7 +183,7 @@ export function vistaHoy(el, programaId, vigente) {
   function hecho(t) {
     const n = ES_AVISO[t.tipo];
     if (n) return resolver(t, () => registrarAviso(t.cliente_id, n), `Aviso ${n} registrado.`);
-    if (t.tipo === 'accionable') {
+    if (ES_ACCIONABLE.includes(t.tipo)) {
       return resolver(t, () => actualizarFila('cs_accionables', t.ref_id, { estado: 'completado' }), 'Accionable completado.');
     }
     return null;

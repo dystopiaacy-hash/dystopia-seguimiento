@@ -13,6 +13,7 @@ import { esFundador } from '../sesion.js';
 import { guardar, num } from './comunes.js';
 import { htmlCanales, montarCanales } from './config-canales.js';
 import { htmlServicio, montarServicio } from './config-servicio.js';
+import { htmlProcesoCsm, montarProcesoCsm } from './config-proceso-csm.js';
 import {
   htmlEtapas, leerEtapas, htmlPlantilla, leerPlantilla,
   completarKeys, validarPlantilla
@@ -114,6 +115,8 @@ export function vistaConfig(el, programaId, vigente) {
 
       ${htmlServicio()}
 
+      ${htmlProcesoCsm()}
+
       ${seccion('Chequeo diario', `
         <div class="hint">Aplica las plantillas que ya vencieron, finaliza los programas vencidos
           y recalcula las alertas. Es lo mismo que corre el cron: se puede correr las veces que
@@ -124,6 +127,8 @@ export function vistaConfig(el, programaId, vigente) {
       .catch(e => console.error('canales', e));   // 106: no frena el resto de la pantalla
     montarServicio(el.querySelector('#cf-servicio'), programaId, vigente)
       .catch(e => console.error('servicio', e));  // 123: idem
+    montarProcesoCsm(el.querySelector('#cf-proceso-csm'), programaId, vigente)
+      .catch(e => console.error('proceso csm', e));  // 130: idem
     /* Fathom (122, 124, 127) pasó a la Configuración general (Panel general): js/views/config-general.js */
   }
 
