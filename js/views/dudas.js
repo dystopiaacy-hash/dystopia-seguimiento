@@ -4,8 +4,9 @@
    preguntaron; con "Nueva esta semana" y racha ("3 semanas seguidas").
    Alta rápida de mención: arriba (elige una duda existente con buscador o crea una nueva) y por
    fila. Unir dos dudas duplicadas y borrar: solo fundador (la base lo exige).
-   No se lee Discord ni Fathom automáticamente: las menciones las carga una persona, o el
-   jefe en tanda con cs_duda_registrar. Sin la 106 avisa que falta la migración. */
+   Las menciones las carga una persona, el jefe en tanda con cs_duda_registrar, o salen de las
+   "Preguntas detectadas en llamadas" de arriba (134: reglas sobre las transcripciones de Fathom,
+   sin IA; dudas-candidatas.js). Sin la 106 avisa que falta la migración; sin la 134 no hay bloque. */
 import { esc, fmtFecha, hoyAR, plural, abrirModal, cerrarModal, confirmar, toast, urlSegura } from '../ui.js';
 import { esFundador, puedeEditarPrograma } from '../sesion.js';
 import { traerClientes, mensajeError, borrarFila } from '../datos.js';
@@ -18,6 +19,7 @@ import { guardar, opcionesHtml } from './comunes.js';
 import { tarjetaError } from './programa.js';
 import { montarSelectorAlumno } from './alumno-selector.js';
 import { montarSelectorDudas } from './duda-selector.js';
+import { montarCandidatas } from './dudas-candidatas.js';
 
 const ORIGENES = Object.entries(ORIGEN_DUDA_LABEL);
 
@@ -62,6 +64,7 @@ export function vistaDudas(el, programaId, vigente) {
   let dudas = [], menciones = [], clientes = [], nombres = new Map();
   const filtro = { q: '', nuevas: false };
   let alta = null;   // selectores del formulario de arriba
+  const filtrosCand = { estado: 'pendiente', desde: '', hasta: '', consultor: '' };   // persisten entre repintados
   const editar = () => puedeEditarPrograma(programaId);
 
   function visibles() {
@@ -83,6 +86,7 @@ export function vistaDudas(el, programaId, vigente) {
 
   function pintar() {
     el.innerHTML = `
+      <div id="du-cand"></div>
       ${editar() ? `<div class="section-title">Registrar una mención<span class="line"></span></div>
       <div class="card duda-alta">
         <div class="form-row"><label for="du-duda">Duda</label><div id="du-duda-box"></div></div>
@@ -109,6 +113,9 @@ export function vistaDudas(el, programaId, vigente) {
       };
     }
     pintarLista();
+    montarCandidatas(el.querySelector('#du-cand'), {
+      programaId, filtros: filtrosCand, dudas: () => dudas, clientes: () => clientes, recargar: cargar
+    }).catch(e => console.error('dudas candidatas', e));
   }
 
   async function cargar() {
