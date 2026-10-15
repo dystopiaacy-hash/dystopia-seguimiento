@@ -14,6 +14,8 @@ export const TIPO_LLAMADA_LABEL = {
 export const ESTADO_FATHOM_LABEL = {
   alumno: 'Alumno', pendiente: 'Pendiente', no_alumno: 'No es alumno'
 };
+/* Cómo se asignó una llamada de alumno (126): mail y nombre las hace la sincronización. */
+export const ASIGNADA_POR_LABEL = { mail: 'Por mail', nombre: 'Por nombre', manual: 'A mano' };
 export const MOTIVO_LABEL = {
   sin_alumno: 'Ningún invitado coincide con un alumno habilitado',
   varios_alumnos: 'Coincide con más de un alumno'
@@ -56,6 +58,47 @@ export async function asignarLlamada(id, clienteId) {
   const { data, error } = await sb.rpc('cs_fathom_asignar', { p_id: id, p_cliente: clienteId });
   if (error) throw error;
   return data;
+}
+
+/* Alumnos de los programas habilitados que el usuario puede usar para asignar o corregir (126):
+   solo id, programa, nombre y estado. [] si falta la 126 o no corresponde. */
+export async function traerAlumnosAsignables() {
+  const { data, error } = await sb.rpc('cs_fathom_alumnos');
+  if (error) {
+    if (faltaObjeto(error)) return [];
+    throw error;
+  }
+  return data || [];
+}
+
+/* Una llamada asignada por nombre que alguien revisó y dejó: pasa a "a mano" y aprende los mails. */
+export async function confirmarLlamada(llamadaId) {
+  const { error } = await sb.rpc('cs_fathom_confirmar', { p_llamada: llamadaId });
+  if (error) throw error;
+}
+
+/* Pasa una llamada ya asignada a otro alumno, o la devuelve a pendiente (clienteId null). */
+export async function corregirLlamada(llamadaId, clienteId) {
+  const { data, error } = await sb.rpc('cs_fathom_corregir', { p_llamada: llamadaId, p_cliente: clienteId || null });
+  if (error) throw error;
+  return data;
+}
+
+/* Usuario de cada consultor (solo fundador): [{ consultor, email_login, usuario_existe }]. undefined = falta la 126. */
+export async function traerLogins() {
+  const { data, error } = await sb.rpc('cs_fathom_logins');
+  if (error) {
+    if (faltaObjeto(error)) return undefined;
+    throw error;
+  }
+  return data || [];
+}
+
+/* Guarda el mail de login del consultor (null lo quita). Devuelve si ya existe un usuario con ese mail. */
+export async function guardarLogin(consultor, email) {
+  const { data, error } = await sb.rpc('cs_fathom_login_guardar', { p_consultor: consultor, p_email: email || null });
+  if (error) throw error;
+  return data === true;
 }
 
 export async function marcarNoAlumno(id) {

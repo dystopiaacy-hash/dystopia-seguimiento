@@ -83,6 +83,7 @@
 .fa-alumno{color:var(--accent);}
 .fa-pendiente{color:var(--text-dim);}
 .fa-no_alumno{color:var(--text-faint);}
+.fa-por-nombre{border-bottom:1px dashed currentColor;}
 .fa-det{margin-top:var(--sp-2);font-size:var(--fs-meta);}
 .fa-det summary{cursor:pointer;color:var(--text-dim);}
 .fa-texto{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:var(--sp-1);color:var(--text);}

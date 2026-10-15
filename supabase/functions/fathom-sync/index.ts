@@ -14,7 +14,9 @@
 // Que hace, por cada reunion que devuelve Fathom (GET /meetings, ver abajo):
 //   - Sin invitados externos: se ignora (es interna).
 //   - Busca al alumno por el mail de un invitado externo (minusculas) entre TODOS los alumnos
-//     de los programas habilitados en cs_fathom_config.programas.
+//     de los programas habilitados en cs_fathom_config.programas: mail principal + mails extra
+//     (cs_clientes_mails, 126). Si el mail no resuelve, respaldo por nombre (ver coincidenPorNombre):
+//     un solo alumno = asignada por nombre (cs_llamadas.asignada_por = 'nombre', a confirmar).
 //       un solo alumno  -> cs_llamadas (upsert por id de Fathom) + accionables + transcripcion
 //       ninguno o varios -> cs_fathom_sin_asignar (se asigna a mano desde la app)
 //   - Toda la escritura va por la RPC cs_fathom_registrar (migracion 122): una transaccion
@@ -148,10 +150,10 @@ function resolverCuentas(consultores: Consultor[]): Cuenta[] {
 
 type Conteo = {
   estado: string; traidas: number; creadas: number; actualizadas: number; vinculadas: number;
-  sin_asignar: number; ignoradas: number; errores: number;
+  sin_asignar: number; ignoradas: number; errores: number; por_nombre: number;
 };
 const conteoVacio = (estado = 'ok'): Conteo => ({
-  estado, traidas: 0, creadas: 0, actualizadas: 0, vinculadas: 0, sin_asignar: 0, ignoradas: 0, errores: 0,
+  estado, traidas: 0, creadas: 0, actualizadas: 0, vinculadas: 0, sin_asignar: 0, ignoradas: 0, errores: 0, por_nombre: 0,
 });
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -223,26 +225,57 @@ function textoTranscripcion(items: any[]): string {
 }
 
 // ---------------------------------------------------------------------------
-// Alumnos de los programas habilitados, indexados por mail
+// Alumnos de los programas habilitados: indexados por mail (principal + extras, migracion 126)
+// y en lista con el nombre normalizado (match por nombre, respaldo del mail)
 // ---------------------------------------------------------------------------
 type Alumno = { id: string; programa_id: string; vivo: boolean };
-async function cargarAlumnos(sb: SupabaseClient, programas: string[]): Promise<Map<string, Alumno[]>> {
-  const mapa = new Map<string, Alumno[]>();
+type AlumnoN = Alumno & { nom: string; toks: string[] };
+type Alumnos = { porMail: Map<string, Alumno[]>; lista: AlumnoN[] };
+
+// Minusculas, sin acentos, sin simbolos, sin espacios dobles (mismo criterio que cs_norm_nombre).
+const normNombre = (s: unknown): string =>
+  String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+async function cargarAlumnos(sb: SupabaseClient, programas: string[]): Promise<Alumnos> {
+  const porMail = new Map<string, Alumno[]>();
+  const lista: AlumnoN[] = [];
+  const porId = new Map<string, Alumno>();
   const PAG = 1000;
+  const sumar = (e: unknown, a: Alumno) => {
+    const m = String(e ?? '').toLowerCase().trim();
+    if (!m) return;
+    const v = porMail.get(m) ?? [];
+    if (!v.some((x) => x.id === a.id)) v.push(a);
+    porMail.set(m, v);
+  };
   for (let desde = 0; ; desde += PAG) {
-    const { data, error } = await sb.from('cs_clientes').select('id,programa_id,email,estado')
-      .in('programa_id', programas).not('email', 'is', null).order('id').range(desde, desde + PAG - 1);
+    const { data, error } = await sb.from('cs_clientes').select('id,programa_id,nombre,email,estado')
+      .in('programa_id', programas).order('id').range(desde, desde + PAG - 1);
     if (error) throw new Error(`no se pudieron leer los alumnos: ${error.message}`);
     for (const c of data ?? []) {
-      const e = String(c.email).toLowerCase().trim();
-      if (!e) continue;
-      const v = mapa.get(e) ?? [];
-      v.push({ id: c.id, programa_id: c.programa_id, vivo: !['finalizado', 'baja'].includes(c.estado) });
-      mapa.set(e, v);
+      const a: Alumno = { id: c.id, programa_id: c.programa_id, vivo: !['finalizado', 'baja'].includes(c.estado) };
+      porId.set(a.id, a);
+      const nom = normNombre(c.nombre);
+      if (nom) lista.push({ ...a, nom, toks: nom.split(' ') });
+      sumar(c.email, a);
     }
     if (!data || data.length < PAG) break;
   }
-  return mapa;
+  // Mails extra (126). Si la tabla todavia no existe, se sigue solo con el principal.
+  for (let desde = 0; ; desde += PAG) {
+    const { data, error } = await sb.from('cs_clientes_mails').select('cliente_id,email')
+      .in('programa_id', programas).order('id').range(desde, desde + PAG - 1);
+    if (error) {
+      console.warn(`[alumnos] sin mails extra (migracion 126 corrida?): ${error.message}`);
+      break;
+    }
+    for (const m of data ?? []) {
+      const a = porId.get(m.cliente_id);
+      if (a) sumar(m.email, a);
+    }
+    if (!data || data.length < PAG) break;
+  }
+  return { porMail, lista };
 }
 
 // Un alumno unico, o los candidatos si hay varios. Entre homonimos de mail prefiere el vivo.
@@ -258,9 +291,61 @@ function resolverAlumno(emails: string[], alumnos: Map<string, Alumno[]>): { alu
 }
 
 // ---------------------------------------------------------------------------
+// Match por nombre (respaldo cuando el mail no resuelve). Reglas, en orden:
+//   1. Nombres del invitado externo (sin quien grabo) que tengan 2 palabras o mas. Si no queda ninguno,
+//      los nombres que salen del titulo de la reunion (ver nombresDeTitulo).
+//   2. Un nombre coincide con un alumno si es IGUAL normalizado; si no hay iguales, si el nombre del
+//      invitado tiene 2 palabras o mas, la misma primera y la misma ultima palabra, y las palabras del
+//      mas corto estan dentro del mas largo (segundo nombre de mas o de menos).
+//   3. Un solo alumno distinto = asignada por nombre. Mas de uno = pendiente con candidatos. Ninguno = pendiente.
+//   Si el mail dejo candidatos, el nombre solo desempata entre ellos.
+// ---------------------------------------------------------------------------
+const RUIDO_TITULO = new RegExp(
+  '\\b(reunion|llamada|call|meeting|videollamada|sesion|seguimiento|onboarding|follow ?up|check ?in|consultoria|' +
+  'mentoria|one ?on ?one|north ecom|bpf|dystopia|grupal|1 a 1|1 ?x ?1|1 ?on ?1|de|del|la|el)\\b', 'g');
+
+// Nombres normalizados que salen de un titulo tipo "Federico Rolon and Joaco Fernandez": se parte por
+// and / y / con / with / & / + / x / <> / guion / barra / coma, se sacan palabras de ruido y se descarta
+// la parte que es del consultor (su nombre de la cuenta o el de quien grabo).
+function nombresDeTitulo(titulo: string, propios: string[]): string[] {
+  const t = titulo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\([^)]*\)|\[[^\]]*\]/g, ' ');
+  const partes = t.split(/\s+(?:and|y|e|con|with|&|x|\+|<>)\s+|\s[-–—]\s|[\/|,;:]/);
+  const mios = new Set(propios.flatMap((p) => normNombre(p).split(' ')).filter(Boolean));
+  const out: string[] = [];
+  for (const p of partes) {
+    const n = normNombre(p.replace(RUIDO_TITULO, ' ').replace(/\d+/g, ' '));
+    if (!n) continue;
+    const toks = n.split(' ');
+    if (toks.every((x) => mios.has(x))) continue;   // es el consultor
+    if (toks.length >= 2) out.push(n);
+  }
+  return [...new Set(out)];
+}
+
+function coincidenPorNombre(nombres: string[], lista: AlumnoN[], solo?: Set<string>): string[] {
+  const exactos = new Set<string>();
+  const parecidos = new Set<string>();
+  for (const n of nombres) {
+    const t = n.split(' ');
+    for (const a of lista) {
+      if (solo && !solo.has(a.id)) continue;
+      if (a.nom === n) { exactos.add(a.id); continue; }
+      if (t.length >= 2 && a.toks.length >= 2 && t[0] === a.toks[0] && t[t.length - 1] === a.toks[a.toks.length - 1]) {
+        const [c, l] = t.length <= a.toks.length ? [t, a.toks] : [a.toks, t];
+        if (c.every((x) => l.includes(x))) parecidos.add(a.id);
+      }
+    }
+  }
+  return [...(exactos.size ? exactos : parecidos)];
+}
+
+// ---------------------------------------------------------------------------
 // Una reunion -> payload de cs_fathom_registrar
 // ---------------------------------------------------------------------------
-function armarPayload(m: any, consultor: string, alumno: Alumno | undefined, candidatos: string[], externos: string[]) {
+function armarPayload(
+  m: any, consultor: string, alumno: Alumno | undefined, candidatos: string[], externos: string[],
+  asignadaPor: 'mail' | 'nombre' = 'mail',
+) {
   const titulo = String(m.meeting_title || m.title || '').trim();
   const resumen = String(m.default_summary?.markdown_formatted ?? '').trim();
   const ini = m.recording_start_time || m.scheduled_start_time || m.created_at;
@@ -275,6 +360,7 @@ function armarPayload(m: any, consultor: string, alumno: Alumno | undefined, can
     consultor,
     origen: 'sync',
     cliente_id: alumno?.id ?? null,
+    asignada_por: alumno ? asignadaPor : null,
     motivo: alumno ? null : (candidatos.length ? 'varios_alumnos' : 'sin_alumno'),
     candidatos,
     inicio_at: ini,
@@ -410,15 +496,36 @@ Deno.serve(async (req) => {
               .filter((i) => i?.is_external && i?.email)
               .map((i) => String(i.email).toLowerCase().trim())
               .filter((e) => e && e !== grabador))];
-            const { alumno, candidatos } = resolverAlumno(externos, alumnos);
+            // 1. por mail (principal o extra). 2. respaldo: por nombre, ver coincidenPorNombre.
+            let { alumno, candidatos } = resolverAlumno(externos, alumnos.porMail);
+            let asignadaPor: 'mail' | 'nombre' = 'mail';
+            if (!alumno) {
+              const propios = [cuenta.nombre, String(m.recorded_by?.name ?? '')];
+              const grabadorMail = grabador;
+              let nombres = invitados
+                .filter((i) => i?.is_external && String(i.email ?? '').toLowerCase().trim() !== grabadorMail)
+                .map((i) => normNombre(i.name ?? i.matched_speaker_display_name))
+                .filter((n) => n.split(' ').filter(Boolean).length >= 2);
+              if (!nombres.length) nombres = nombresDeTitulo(String(m.meeting_title || m.title || ''), propios);
+              const solo = candidatos.length ? new Set(candidatos) : undefined;
+              const ids = nombres.length ? coincidenPorNombre(nombres, alumnos.lista, solo) : [];
+              if (ids.length === 1) {
+                alumno = alumnos.lista.find((a) => a.id === ids[0]);
+                asignadaPor = 'nombre';
+                candidatos = [];
+              } else if (ids.length > 1) {
+                candidatos = ids.slice(0, 10);   // dudas: queda pendiente con los candidatos
+              }
+            }
             const { data, error } = await sb.rpc('cs_fathom_registrar',
-              { p: armarPayload(m, cuenta.id, alumno, candidatos, externos) });
+              { p: armarPayload(m, cuenta.id, alumno, candidatos, externos, asignadaPor) });
             if (error) { falla(c, cuenta.id, m.recording_id, error.message); continue; }
             const r = String(data?.resultado ?? '');
             if (r === 'creada') c.creadas++;
             else if (r === 'actualizada') c.actualizadas++;
             else if (r === 'vinculada') c.vinculadas++;
             else c.sin_asignar++;
+            if (asignadaPor === 'nombre' && (r === 'creada' || r === 'vinculada')) c.por_nombre++;
           } catch (e) {
             falla(c, cuenta.id, m?.recording_id, (e as Error).message);
           }
@@ -441,6 +548,7 @@ Deno.serve(async (req) => {
   for (const c of Object.values(porConsultor)) {
     tot.traidas += c.traidas; tot.creadas += c.creadas; tot.actualizadas += c.actualizadas;
     tot.vinculadas += c.vinculadas; tot.sin_asignar += c.sin_asignar; tot.ignoradas += c.ignoradas;
+    tot.por_nombre += c.por_nombre;
   }
   const asignadas = tot.creadas + tot.actualizadas + tot.vinculadas;
   const estado = fatal ? 'error' : parcial ? 'parcial' : totalErrores ? 'con_errores' : 'ok';
@@ -481,6 +589,7 @@ Deno.serve(async (req) => {
     programas_habilitados: programas, consultores: desglose,
     traidas: tot.traidas, asignadas, creadas: tot.creadas, actualizadas: tot.actualizadas,
     vinculadas: tot.vinculadas, sin_asignar: tot.sin_asignar, ignoradas_internas: tot.ignoradas,
+    asignadas_por_nombre: tot.por_nombre,
     errores: totalErrores, parcial, segundos: Math.round((Date.now() - inicio) / 100) / 10,
     detalle_errores: fatal ? [{ recording_id: null, motivo: fatal }, ...errores] : errores,
   }, fatal ? 500 : 200);

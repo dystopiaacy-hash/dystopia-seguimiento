@@ -7,30 +7,30 @@
    (cs_fathom_asignar / cs_fathom_marcar_no_alumno). Sin la 124 avisa que falta la migración. */
 import { esc, fmtFecha, plural, abrirModal, cerrarModal, confirmar, urlSegura } from '../ui.js';
 import { yo, esFundador } from '../sesion.js';
-import { traerClientes, mensajeError } from '../datos.js';
+import { mensajeError } from '../datos.js';
 import {
-  traerLlamadasFathom, traerConsultores, traerProgramasHabilitados, asignarLlamada, marcarNoAlumno,
-  reabrirLlamada, TIPO_LLAMADA_LABEL, ESTADO_FATHOM_LABEL, MOTIVO_LABEL
+  traerLlamadasFathom, traerConsultores, traerAlumnosAsignables, asignarLlamada, marcarNoAlumno,
+  reabrirLlamada, confirmarLlamada, corregirLlamada, TIPO_LLAMADA_LABEL, ESTADO_FATHOM_LABEL, MOTIVO_LABEL
 } from '../datos-fathom.js';
 import { guardar } from './comunes.js';
 import { tarjetaError } from './programa.js';
 import { montarSelectorAlumno } from './alumno-selector.js';
 
-/* Alumnos de los programas habilitados que el usuario ve (la RLS recorta los que no). */
+/* Alumnos de los programas habilitados a los que el usuario puede asignar (cs_fathom_alumnos, 126:
+   solo id, nombre, programa y estado; sirve también al consultor, que no ve las fichas). */
 async function alumnosAsignables() {
-  let hab = [];
-  try { hab = await traerProgramasHabilitados(); } catch { /* sin la función: ninguno */ }
-  const progs = yo.programas.filter(p => hab.includes(p.id));
-  const listas = await Promise.all(progs.map(p => traerClientes(p.id)));
-  return listas.flatMap((l, i) => l.map(c => ({
-    id: c.id, nombre: `${c.nombre} · ${progs[i].nombre}`, estado: c.estado, programa_id: c.programa_id
-  })));
+  let lista = [];
+  try { lista = await traerAlumnosAsignables(); } catch { /* sin la función: ninguno */ }
+  const prog = id => { const p = yo.programas.find(x => x.id === id); return p ? p.nombre : id; };
+  return lista.map(c => ({
+    id: c.id, nombre: `${c.nombre} · ${prog(c.programa_id)}`, estado: c.estado, programa_id: c.programa_id
+  }));
 }
 
 const bloque = (titulo, texto) => texto
   ? `<details class="fa-det"><summary>${esc(titulo)}</summary><div class="fa-texto">${esc(texto)}</div></details>` : '';
 
-function conQuien(l) {
+function conQuien(l, alumnos) {
   if (l.estado === 'alumno') {
     const href = `#/p/${encodeURIComponent(l.programa_id)}/c/${encodeURIComponent(l.cliente_id)}`;
     return `<a href="${esc(href)}">${esc(l.alumno_nombre || 'Alumno')}</a>`;
@@ -38,21 +38,42 @@ function conQuien(l) {
   const inv = Array.isArray(l.invitados) ? l.invitados : [];
   const motivo = l.estado === 'pendiente' && l.motivo && l.motivo !== 'sin_alumno'
     ? `<div class="hint">${esc(MOTIVO_LABEL[l.motivo] || l.motivo)}</div>` : '';
-  return (inv.length ? inv.map(esc).join('<br>') : '—') + motivo;
+  /* Candidatos: alumnos que coinciden por mail o por nombre y no se pudo decidir cuál. */
+  const cand = (Array.isArray(l.candidatos) ? l.candidatos : [])
+    .map(id => alumnos.find(a => a.id === id)).filter(Boolean);
+  const posibles = cand.length
+    ? `<div class="hint">Posibles: ${cand.map(a => esc(a.nombre)).join(' · ')}</div>` : '';
+  return (inv.length ? inv.map(esc).join('<br>') : '—') + motivo + posibles;
 }
 
-function filaLlamada(l, puedeAsignar) {
+function filaLlamada(l, puedeAsignar, alumnos) {
   const url = urlSegura(l.grabacion_share_url || l.grabacion_url || '');
   const meta = [TIPO_LLAMADA_LABEL[l.tipo], l.duracion_min ? `${l.duracion_min} min` : ''].filter(Boolean).join(' · ');
-  const acciones = !puedeAsignar || l.estado === 'alumno' ? '' : `<span class="ll-item-acc">
+  const porNombre = l.estado === 'alumno' && l.asignada_por === 'nombre';
+  let acciones = '';
+  if (l.estado === 'alumno') {
+    /* La base valida el permiso de cada acción; el botón aparece si hay alumnos a quién corregir. */
+    if (alumnos.length) {
+      acciones = `<span class="ll-item-acc">
+        ${porNombre ? `<button type="button" class="btn btn-sm btn-accent" data-fa-confirmar="${esc(l.id)}">Confirmar</button>` : ''}
+        <button type="button" class="btn btn-sm" data-fa-corregir="${esc(l.id)}">Corregir</button>
+      </span>`;
+    }
+  } else if (puedeAsignar) {
+    acciones = `<span class="ll-item-acc">
       <button type="button" class="btn btn-sm btn-accent" data-fa-asignar="${esc(l.id)}">Asignar a alumno</button>
       ${l.estado === 'pendiente'
         ? `<button type="button" class="btn btn-sm" data-fa-noalumno="${esc(l.id)}">No es alumno</button>`
         : `<button type="button" class="btn btn-sm" data-fa-reabrir="${esc(l.id)}">Volver a pendiente</button>`}
     </span>`;
+  }
+  const estadoTxt = porNombre
+    ? `<span class="fa-estado fa-alumno fa-por-nombre">Alumno · por nombre</span>
+       <div class="hint">Asignada por coincidencia de nombre: confirmala o corregila.</div>`
+    : `<span class="fa-estado fa-${esc(l.estado)}">${esc(ESTADO_FATHOM_LABEL[l.estado] || l.estado)}</span>`;
   return `<tr>
       <td data-label="Fecha">${esc(fmtFecha(l.fecha))}</td>
-      <td data-label="Con quién">${conQuien(l)}</td>
+      <td data-label="Con quién">${conQuien(l, alumnos)}</td>
       <td data-label="Llamada">
         <div class="duda-texto">${esc(l.titulo || 'Sin título')}</div>
         ${meta ? `<div class="hint">${esc(meta)}</div>` : ''}
@@ -60,7 +81,7 @@ function filaLlamada(l, puedeAsignar) {
         ${bloque('Próximos pasos', l.proximos_pasos)}
         ${url ? `<div class="duda-resp"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Ver grabación en Fathom</a></div>` : ''}
       </td>
-      <td data-label="Estado"><span class="fa-estado fa-${esc(l.estado)}">${esc(ESTADO_FATHOM_LABEL[l.estado] || l.estado)}</span></td>
+      <td data-label="Estado">${estadoTxt}</td>
       <td data-label="" class="acciones">${acciones}</td>
     </tr>`;
 }
@@ -74,7 +95,8 @@ export function vistaLlamadas(el, programaId, vigente) {
 
   const delTab = () => llamadas.filter(l => (l.consultor || '') === tab);
   const visibles = () => delTab().filter(l =>
-    (!filtro.estado || l.estado === filtro.estado)
+    (!filtro.estado || (filtro.estado === 'por_nombre'
+      ? l.estado === 'alumno' && l.asignada_por === 'nombre' : l.estado === filtro.estado))
     && (!filtro.desde || l.fecha >= filtro.desde)
     && (!filtro.hasta || l.fecha <= filtro.hasta));
 
@@ -90,12 +112,16 @@ export function vistaLlamadas(el, programaId, vigente) {
       <div class="section-title">Llamadas<span class="line"></span></div>
       <div class="hint">Reuniones grabadas en Fathom, separadas por consultor. «Alumno» son las que ya están en la
         ficha de un alumno; «Pendiente» tienen invitados externos pero no coinciden con ningún alumno;
-        «No es alumno» las marcó una persona (prospecto, socio, etc.). Las reuniones sin invitados externos no se traen.</div>
+        «No es alumno» las marcó una persona (prospecto, socio, etc.). Las reuniones sin invitados externos no se traen.
+        Se asignan solas por el mail del invitado (principal o extra); si no coincide, por nombre (queda marcada
+        «por nombre» para que la confirmes o corrijas). Al asignar o confirmar a mano, los mails de la llamada
+        quedan como del alumno y la próxima se asigna sola.</div>
       ${consultores.length ? `<nav class="tabs tabs-inline" aria-label="Consultores">${tabs}</nav>` : ''}
       <div class="fa-filtros">
         <label>Estado <select id="fa-f-estado">
           <option value="">Todos</option>
-          ${Object.entries(ESTADO_FATHOM_LABEL).map(([k, v]) => `<option value="${k}"${filtro.estado === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}
+          ${Object.entries({ ...ESTADO_FATHOM_LABEL, por_nombre: 'Alumno asignado por nombre' })
+            .map(([k, v]) => `<option value="${k}"${filtro.estado === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}
         </select></label>
         <label>Desde <input type="date" id="fa-f-desde" value="${esc(filtro.desde)}"></label>
         <label>Hasta <input type="date" id="fa-f-hasta" value="${esc(filtro.hasta)}"></label>
@@ -103,7 +129,7 @@ export function vistaLlamadas(el, programaId, vigente) {
       </div>
       <div class="card">${lista.length ? `<div class="table-wrap"><table class="tabla tabla-cards">
           <thead><tr><th>Fecha</th><th>Con quién</th><th>Llamada</th><th>Estado</th><th></th></tr></thead>
-          <tbody>${lista.map(l => filaLlamada(l, puedeAsignar)).join('')}</tbody></table></div>
+          <tbody>${lista.map(l => filaLlamada(l, puedeAsignar, alumnos)).join('')}</tbody></table></div>
           <div class="hint">${esc(plural(lista.length, 'llamada'))}${total !== lista.length ? ` de ${total}` : ''}.</div>`
         : `<div class="muted-empty">${total
             ? 'Ninguna llamada coincide con los filtros.'
@@ -128,6 +154,33 @@ export function vistaLlamadas(el, programaId, vigente) {
       if (!a) { document.getElementById('fa-error').textContent = 'Elegí un alumno de la lista.'; return; }
       cerrarModal();
       guardar(() => asignarLlamada(l.id, a.id), { ok: 'Llamada asignada.', luego: cargar });
+    };
+  }
+
+  /* Corregir: pasar la llamada a otro alumno o devolverla a pendiente. Los mails de la llamada se
+     mueven con ella (los aprendidos del alumno anterior se deshacen). La base frena si ya tiene
+     accionables hechos o cargados a mano. */
+  function modalCorregir(l) {
+    abrirModal({
+      titulo: 'Corregir alumno de la llamada',
+      cuerpo: `<p class="hint">${esc(fmtFecha(l.fecha))} · ${esc(l.titulo || 'Sin título')}<br>
+          Hoy figura de: <strong>${esc(l.alumno_nombre || 'Alumno')}</strong></p>
+        <div class="form-row"><label for="fc-alumno">Pasar a *</label><div id="fc-alumno-box"></div></div>
+        <label class="check-row"><input type="checkbox" id="fc-pendiente"> No es de ningún alumno: volver a pendiente
+          (la sincronización no la vuelve a asignar sola)</label>
+        <div id="fc-error" class="login-error"></div>`,
+      pie: `<button type="button" class="btn" id="fc-cancelar">Cancelar</button>
+            <button type="button" class="btn btn-accent" id="fc-ok">Corregir</button>`
+    });
+    const sel = montarSelectorAlumno(document.getElementById('fc-alumno-box'), alumnos, { id: 'fc-alumno' });
+    sel.foco();
+    document.getElementById('fc-cancelar').onclick = cerrarModal;
+    document.getElementById('fc-ok').onclick = () => {
+      const aPendiente = document.getElementById('fc-pendiente').checked;
+      const a = sel.cliente();
+      if (!aPendiente && !a) { document.getElementById('fc-error').textContent = 'Elegí un alumno o marcá "volver a pendiente".'; return; }
+      cerrarModal();
+      guardar(() => corregirLlamada(l.id, aPendiente ? null : a.id), { ok: 'Llamada corregida.', luego: cargar });
     };
   }
 
@@ -167,6 +220,18 @@ export function vistaLlamadas(el, programaId, vigente) {
     if (bA) {
       const l = llamadas.find(x => x.id === bA.dataset.faAsignar);
       if (l) modalAsignar(l);
+      return;
+    }
+    const bC = ev.target.closest('[data-fa-corregir]');
+    if (bC) {
+      const l = llamadas.find(x => x.id === bC.dataset.faCorregir);
+      if (l) modalCorregir(l);
+      return;
+    }
+    const bOk = ev.target.closest('[data-fa-confirmar]');
+    if (bOk) {
+      await guardar(() => confirmarLlamada(bOk.dataset.faConfirmar),
+        { ok: 'Confirmada: los mails de la llamada quedan como del alumno.', luego: cargar, control: bOk });
       return;
     }
     const bR = ev.target.closest('[data-fa-reabrir]');

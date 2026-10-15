@@ -9,7 +9,7 @@ import { yo, esFundador } from '../sesion.js';
 import { mensajeError } from '../datos.js';
 import {
   traerConfigFathom, guardarConfigFathom, traerUltimaCorrida, sincronizarFathom,
-  traerConsultores, guardarConsultor, crearConsultor
+  traerConsultores, guardarConsultor, crearConsultor, traerLogins, guardarLogin
 } from '../datos-fathom.js';
 
 const ESTADO_TXT = {
@@ -60,11 +60,12 @@ export async function montarFathom(box, vigente) {
   if (!esFundador()) { box.innerHTML = '<div class="hint">Solo el fundador configura Fathom.</div>'; return; }
 
   async function pintar() {
-    let cfg, corrida, consultores;
+    let cfg, corrida, consultores, logins;
     try {
       cfg = await traerConfigFathom();
       consultores = cfg ? await traerConsultores() : undefined;
       corrida = cfg ? await traerUltimaCorrida() : null;
+      logins = cfg ? await traerLogins() : undefined;   // undefined = falta la 126
     } catch (e) {
       if (vigente() && box.isConnected) box.innerHTML = `<div class="hint">${esc(mensajeError(e))}</div>`;
       return;
@@ -90,6 +91,17 @@ export async function montarFathom(box, vigente) {
             <strong>${esc(c.nombre)}</strong></label>
           <span class="cf-consultor-n">Secreto <code>${esc(c.secreto)}</code><br>
             <span class="hint">${esc(resultadoConsultor(c))}</span></span>
+          ${logins === undefined ? '' : (() => {
+            const lg = logins.find(x => x.consultor === c.id) || {};
+            return `<span class="cf-consultor-n">Usuario (mail de login)
+              <input type="email" data-fx-login="${esc(c.id)}" value="${esc(lg.email_login || '')}"
+                placeholder="mail con el que entra a la app" maxlength="200">
+              <button type="button" class="btn btn-sm" data-fx-login-ok="${esc(c.id)}">Guardar usuario</button><br>
+              <span class="hint">${lg.email_login
+                ? (lg.usuario_existe ? 'Usuario encontrado: ve y asigna sus llamadas.'
+                  : 'Todavía no existe ese usuario: queda guardado y se activa cuando se cree.')
+                : 'Sin usuario: no tiene permisos propios sobre sus llamadas.'}</span></span>`;
+          })()}
         </div>`).join('') || '<div class="hint">No hay cuentas cargadas.</div>'}
         <div class="cf-consultor">
           <input type="text" id="fx-nuevo-nombre" placeholder="Nombre del consultor" maxlength="60">
@@ -122,6 +134,24 @@ export async function montarFathom(box, vigente) {
           chk.checked = !chk.checked;
         }
         chk.disabled = false;
+      };
+    });
+
+    box.querySelectorAll('[data-fx-login-ok]').forEach(btn => {
+      btn.onclick = async () => {
+        const id = btn.dataset.fxLoginOk;
+        const inp = box.querySelector(`[data-fx-login="${id}"]`);
+        btn.disabled = true;
+        try {
+          const existe = await guardarLogin(id, inp.value.trim());
+          toast(inp.value.trim()
+            ? (existe ? 'Usuario guardado.' : 'Guardado. Todavía no existe un usuario con ese mail.')
+            : 'Usuario quitado.');
+          await pintar();
+        } catch (e) {
+          toast(mensajeError(e), 'error');
+          btn.disabled = false;
+        }
       };
     });
 
