@@ -1,9 +1,10 @@
-/* Configuración — Fathom (122, 124): cuentas de Fathom por consultor (nombre, nombre del secreto,
-   activo, última corrida y resultado de cada una), programas a los que se asignan las llamadas,
+/* Configuración general — Fathom (122, 124, 127): cuentas de Fathom por consultor (nombre, nombre del
+   secreto, activo, última corrida, historial completo), programas a los que se asignan las llamadas,
    interruptor de la sincronización automática (2 veces por día) y botón "Sincronizar Fathom ahora".
-   Solo fundador; la base lo exige igual. La API key de Fathom NO se carga acá: es un secreto de la
-   Edge Function fathom-sync; acá solo se ve y se elige el NOMBRE del secreto. Sin la 122/124 el
-   bloque avisa que falta la migración. */
+   Vive en la Configuración general (Panel general, solo fundador), no en la de cada programa; la
+   base lo exige igual. La API key de Fathom NO se carga acá: es un secreto de la Edge Function
+   fathom-sync; acá solo se ve y se elige el NOMBRE del secreto. Sin la 122/124 el bloque avisa que
+   falta la migración. */
 import { esc, fmtFechaHora, plural, toast } from '../ui.js';
 import { yo, esFundador } from '../sesion.js';
 import { mensajeError } from '../datos.js';
@@ -30,7 +31,8 @@ function resumenCorrida(c) {
   const det = [
     c.traidas != null ? `${plural(c.traidas, 'reunión traída', 'reuniones traídas')}` : '',
     `${c.asignadas || 0} asignadas a un alumno (${c.creadas || 0} nuevas, ${c.actualizadas || 0} ya estaban, ${c.vinculadas || 0} vinculadas a una carga manual)`,
-    `${c.sin_asignar || 0} pendientes`, `${c.ignoradas || 0} internas ignoradas`,
+    `${c.sin_asignar || 0} pendientes`,
+    c.internas != null ? `${c.internas} internas` : `${c.ignoradas || 0} ignoradas`,
     c.errores ? `${plural(c.errores, 'error', 'errores')}` : ''
   ].filter(Boolean).join(' · ');
   return `<div class="hint"><strong>Última corrida:</strong> ${esc(fmtFechaHora(c.inicio))}
@@ -50,6 +52,25 @@ function resultadoConsultor(c) {
     r.errores ? plural(r.errores, 'error', 'errores') : ''
   ].filter(Boolean).join(' · ');
   return `${ESTADO_TXT[c.ultimo_estado] || c.ultimo_estado || '—'} · ${fmtFechaHora(c.ultimo_at)}${n ? ' · ' + n : ''}`;
+}
+
+/* Historial completo (127): estado y botón por consultor. hist_estado undefined = falta la 127. */
+function bloqueHistorial(c) {
+  if (c.hist_estado === undefined) return '';
+  const n = c.hist_traidas || 0;
+  if (c.hist_estado === 'en_curso') {
+    return `<div class="cf-hist"><span class="hint">Historial en curso: ${plural(n, 'reunión traída', 'reuniones traídas')}
+      hasta ahora${c.hist_inicio_at ? ' (empezó el ' + esc(fmtFechaHora(c.hist_inicio_at)) + ')' : ''}.
+      Cada sincronización sigue desde donde quedó.</span>
+      <button type="button" class="btn btn-sm" data-fx-hist="${esc(c.id)}">Continuar historial ahora</button></div>`;
+  }
+  if (c.hist_estado === 'completo') {
+    return `<div class="cf-hist"><span class="hint">Historial completo${c.hist_fin_at ? ' (' + esc(fmtFechaHora(c.hist_fin_at)) + ')' : ''}:
+      ${plural(n, 'reunión traída', 'reuniones traídas')}.</span>
+      <button type="button" class="btn btn-sm" data-fx-hist="${esc(c.id)}" data-fx-reiniciar="1">Volver a traer el historial</button></div>`;
+  }
+  return `<div class="cf-hist"><span class="hint">Trae todas las reuniones de esta cuenta, de cualquier fecha.</span>
+    <button type="button" class="btn btn-sm" data-fx-hist="${esc(c.id)}">Traer historial completo</button></div>`;
 }
 
 const idDe = nombre => nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -84,13 +105,15 @@ export async function montarFathom(box, vigente) {
       <div class="hint">Cada consultor conecta SU cuenta de Fathom: la key va como secreto de la función
         <code>fathom-sync</code> (Supabase &gt; Edge Functions &gt; Secrets) con el nombre que figura abajo. Mientras el
         secreto no exista, esa cuenta se saltea sin error. Las llamadas se asignan al alumno por el mail de un invitado
-        externo, solo entre los programas marcados; las que no coinciden quedan «Pendientes» en la pantalla Llamadas.</div>
+        externo (o por nombre), solo entre los programas marcados. Entran todas las reuniones: las que no coinciden
+        quedan «Pendientes» (o «Internas» si no hay nadie de afuera) en la pantalla Llamadas de cada programa.</div>
       <div id="fx-consultores">${consultores.map(c => `
         <div class="cf-consultor">
           <label class="check-row"><input type="checkbox" data-fx-activo="${esc(c.id)}"${c.activo ? ' checked' : ''}>
             <strong>${esc(c.nombre)}</strong></label>
           <span class="cf-consultor-n">Secreto <code>${esc(c.secreto)}</code><br>
-            <span class="hint">${esc(resultadoConsultor(c))}</span></span>
+            <span class="hint">${esc(resultadoConsultor(c))}</span>
+            ${bloqueHistorial(c)}</span>
           ${logins === undefined ? '' : (() => {
             const lg = logins.find(x => x.consultor === c.id) || {};
             return `<span class="cf-consultor-n">Usuario (mail de login)
@@ -114,8 +137,8 @@ export async function montarFathom(box, vigente) {
           <label class="check-row"><input type="checkbox" data-fx-prog="${esc(p.id)}"${activos.has(p.id) ? ' checked' : ''}>
             ${esc(p.nombre)}</label>`).join('')}</div></div>
       <label class="check-row"><input type="checkbox" id="fx-cron"${cfg.cron_activo ? ' checked' : ''}>
-        Sincronización automática (2 veces por día: 10:07 y 19:07). Necesita los secretos <code>fathom_sync_url</code> e
-        <code>ig_sync_service_key</code> en Vault.</label>
+        Sincronización automática (2 veces por día: 10:07 y 19:07). Necesita los secretos <code>fathom_sync_url</code> y
+        <code>fin_sync_service_key</code> en Vault. También completa sola un historial en curso.</label>
       <div>
         <button type="button" class="btn btn-accent btn-sm" id="fx-guardar">Guardar</button>
         <button type="button" class="btn btn-sm" id="fx-ahora">Sincronizar Fathom ahora</button>
@@ -191,22 +214,30 @@ export async function montarFathom(box, vigente) {
       }
     };
 
-    box.querySelector('#fx-ahora').onclick = async ev => {
-      const btn = ev.currentTarget;
+    /* Una corrida: "Sincronizar ahora" (opciones vacías) o una tanda del historial de una cuenta. */
+    async function correr(btn, opciones) {
       const estado = box.querySelector('#fx-estado');
-      btn.disabled = true;
+      box.querySelectorAll('button').forEach(b => { b.disabled = true; });
       estado.textContent = 'Sincronizando… puede tardar un par de minutos.';
       try {
-        const r = await sincronizarFathom();
+        const r = await sincronizarFathom(opciones);
         const por = Object.values(r.consultores || {})
           .map(c => `${c.nombre}: ${ESTADO_TXT[c.estado] || c.estado}`).join(' · ');
-        toast(`Fathom: ${r.asignadas} de alumnos, ${r.sin_asignar} pendientes, ${r.errores} errores. ${por}`,
+        toast(`Fathom: ${r.asignadas} de alumnos, ${r.sin_asignar} pendientes, ${r.internas || 0} internas, ` +
+          `${r.errores} errores. ${por}${r.historial_pendiente ? ' · Historial en curso: se sigue en la próxima corrida.' : ''}`,
           r.errores ? 'error' : '');
       } catch (e) {
         toast(mensajeError(e), 'error');
       }
       if (box.isConnected) await pintar();
-    };
+    }
+
+    box.querySelector('#fx-ahora').onclick = ev => correr(ev.currentTarget, undefined);
+    box.querySelectorAll('[data-fx-hist]').forEach(b => {
+      b.onclick = () => correr(b, {
+        historial: true, consultor: b.dataset.fxHist, ...(b.dataset.fxReiniciar ? { reiniciar: true } : {})
+      });
+    });
   }
 
   await pintar();

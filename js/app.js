@@ -9,6 +9,7 @@ import { yo, cargarSesion, cargarProgramas, esFundador, programa, rutaInicio } f
 import { activarSoloLectura } from './solo-lectura.js';
 import { renderLayout, renderNav, setHeader, setLive } from './layout.js';
 import { vistaPanel } from './views/panel.js';
+import { vistaConfigGeneral } from './views/config-general.js';
 import { vistaPrograma } from './views/programa.js';
 
 const app = document.getElementById('app');
@@ -168,6 +169,14 @@ function registrarRutas() {
     renderNav({ panel: true });
     asegurarRealtime(null);
     montar((el, vigente) => vistaPanel(el, vigente));
+  });
+
+  /* Configuración general (127): ajustes de toda la agencia, solo fundador. */
+  ruta('config-general', () => {
+    if (!esFundador()) return reemplazar(rutaInicio());
+    renderNav({ configGeneral: true });
+    asegurarRealtime(null);
+    montar((el, vigente) => vistaConfigGeneral(el, vigente));
   });
 
   const irPrograma = (params, sub = '') => {

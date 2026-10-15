@@ -31,6 +31,7 @@ import * as seguimientos from './ficha-seguimientos.js';
 import * as accionables from './ficha-accionables.js';
 import * as llamadas from './ficha-llamadas.js';
 import * as recursos from './ficha-recursos.js';
+import * as alias from './ficha-alias.js';
 import * as devoluciones from './ficha-devoluciones.js';
 import * as calls from './ficha-calls.js';
 import * as historial from './ficha-historial.js';
@@ -44,6 +45,7 @@ const BLOQUES = [
   ['accionables', accionables],
   ['llamadas', llamadas],
   ['recursos', recursos],
+  ['alias', alias],
   ['satisfaccion', satisfaccion],
   ['wins', wins],
   ['devoluciones', devoluciones],

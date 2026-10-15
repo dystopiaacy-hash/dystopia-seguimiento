@@ -12,7 +12,7 @@ export const TIPO_LLAMADA_LABEL = {
   onboarding: 'Onboarding', seguimiento: 'Seguimiento', resell: 'Resell', otra: 'Otra'
 };
 export const ESTADO_FATHOM_LABEL = {
-  alumno: 'Alumno', pendiente: 'Pendiente', no_alumno: 'No es alumno'
+  alumno: 'Alumno', pendiente: 'Pendiente', interna: 'Interna', no_alumno: 'No es alumno'
 };
 /* Cómo se asignó una llamada de alumno (126): mail y nombre las hace la sincronización. */
 export const ASIGNADA_POR_LABEL = { mail: 'Por mail', nombre: 'Por nombre', manual: 'A mano' };
@@ -34,14 +34,19 @@ export async function traerLlamadasFathom() {
 
 /* Cuentas de Fathom por consultor (activas e inactivas). undefined = falta la 124. */
 export async function traerConsultores() {
-  const { data, error } = await sb.from('cs_fathom_consultores')
-    .select('id,nombre,secreto,activo,orden,ultimo_at,ultimo_estado,ultimo_resumen,ultima_sync_ok_at')
+  const base = 'id,nombre,secreto,activo,orden,ultimo_at,ultimo_estado,ultimo_resumen,ultima_sync_ok_at';
+  /* 127: estado del historial reanudable. Sin la 127 esas columnas no existen: se vuelve a pedir sin ellas. */
+  let r = await sb.from('cs_fathom_consultores')
+    .select(`${base},hist_estado,hist_desde,hist_traidas,hist_inicio_at,hist_fin_at`)
     .order('orden').order('id');
-  if (error) {
-    if (faltaObjeto(error)) return undefined;
-    throw error;
+  if (r.error) {
+    r = await sb.from('cs_fathom_consultores').select(base).order('orden').order('id');
   }
-  return data || [];
+  if (r.error) {
+    if (faltaObjeto(r.error)) return undefined;
+    throw r.error;
+  }
+  return r.data || [];
 }
 
 /* Programas habilitados para asignar (los ve quien ve las llamadas privadas). [] si no corresponde. */
@@ -71,10 +76,46 @@ export async function traerAlumnosAsignables() {
   return data || [];
 }
 
-/* Una llamada asignada por nombre que alguien revisó y dejó: pasa a "a mano" y aprende los mails. */
+/* Una llamada asignada por nombre que alguien revisó y dejó: pasa a "a mano" y aprende mails y alias.
+   Devuelve { mails, alias_guardados, alias_conflictos: [{ alias, con }] } (127). */
 export async function confirmarLlamada(llamadaId) {
-  const { error } = await sb.rpc('cs_fathom_confirmar', { p_llamada: llamadaId });
+  const { data, error } = await sb.rpc('cs_fathom_confirmar', { p_llamada: llamadaId });
   if (error) throw error;
+  return data && typeof data === 'object' ? data : {};
+}
+
+/* ---- Alias de nombre del alumno (127) ---- */
+
+/* Alias de un alumno (solo fundador y cliente del programa los ven: la RLS lo exige).
+   undefined = falta la 127. */
+export async function traerAliasCliente(clienteId) {
+  const { data, error } = await sb.from('cs_clientes_alias')
+    .select('id,alias,origen,created_at').eq('cliente_id', clienteId).order('alias');
+  if (error) {
+    if (faltaObjeto(error)) return undefined;
+    throw error;
+  }
+  return data || [];
+}
+
+export async function quitarAlias(id) {
+  const { error } = await sb.rpc('cs_fathom_alias_quitar', { p_id: id });
+  if (error) throw error;
+}
+
+export async function agregarAlias(clienteId, alias) {
+  const { error } = await sb.rpc('cs_fathom_alias_agregar', { p_cliente: clienteId, p_alias: alias });
+  if (error) throw error;
+}
+
+/* Texto para el toast después de asignar, confirmar o corregir: qué se aprendió y qué alias chocó. */
+export function resumenAprendido(r) {
+  if (!r || typeof r !== 'object') return '';
+  const partes = [];
+  if (r.alias_guardados) partes.push(`${r.alias_guardados === 1 ? 'Alias guardado' : r.alias_guardados + ' alias guardados'}`);
+  const conf = Array.isArray(r.alias_conflictos) ? r.alias_conflictos : [];
+  for (const c of conf) partes.push(`No se guardó el alias «${c.alias}»: ya es de ${c.con}.`);
+  return partes.join(' ');
 }
 
 /* Pasa una llamada ya asignada a otro alumno, o la devuelve a pendiente (clienteId null). */
@@ -151,23 +192,29 @@ export async function crearConsultor({ id, nombre, secreto, orden }) {
 
 /* Última corrida (o null). */
 export async function traerUltimaCorrida() {
-  const { data, error } = await sb.from('cs_fathom_corridas')
-    .select('inicio,fin,origen,estado,traidas,asignadas,creadas,actualizadas,vinculadas,sin_asignar,ignoradas,errores,parcial,detalle,por_consultor')
+  const base = 'inicio,fin,origen,estado,traidas,asignadas,creadas,actualizadas,vinculadas,sin_asignar,ignoradas,errores,parcial,detalle,por_consultor';
+  let r = await sb.from('cs_fathom_corridas').select(`${base},internas`)
     .order('inicio', { ascending: false }).limit(1).maybeSingle();
-  if (error) throw error;
-  return data || null;
+  if (r.error) {   // sin la 127 no existe `internas`
+    r = await sb.from('cs_fathom_corridas').select(base).order('inicio', { ascending: false }).limit(1).maybeSingle();
+  }
+  if (r.error) throw r.error;
+  return r.data || null;
 }
 
 /* "Sincronizar ahora": llama a la Edge Function con la sesión del fundador. Devuelve el resumen
-   JSON (totales y `consultores` con el desglose). Puede tardar hasta ~2 minutos. */
-export async function sincronizarFathom(desde) {
+   JSON (totales y `consultores` con el desglose). Puede tardar hasta ~2 minutos.
+   opciones: un string 'YYYY-MM-DD' (desde) o { desde, historial: true, consultor, reiniciar } (127):
+   con historial arranca o continúa el historial completo de esa cuenta (una tanda por corrida). */
+export async function sincronizarFathom(opciones) {
+  const cuerpo = typeof opciones === 'string' ? { desde: opciones } : { ...(opciones || {}) };
   const { data: ses } = await sb.auth.getSession();
   const token = ses && ses.session && ses.session.access_token;
   if (!token) throw new Error('La sesión venció: volvé a entrar.');
   const r = await fetch(`${SUPABASE_URL}/functions/v1/fathom-sync`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, apikey: SUPABASE_KEY },
-    body: JSON.stringify(desde ? { desde } : {})
+    body: JSON.stringify(cuerpo)
   });
   let cuerpo = null;
   try { cuerpo = await r.json(); } catch { /* sin cuerpo */ }

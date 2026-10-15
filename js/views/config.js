@@ -1,5 +1,6 @@
 /* Configuración del programa (#/p/:programa/config). Solo fundador: la ruta ya lo
    filtra (SECCIONES) y la RLS de cs_programas/cs_integraciones lo vuelve a exigir.
+   Fathom (cuentas por consultor, historial) ya no está acá: vive en la Configuración general.
    Cada bloque guarda por separado: un error en la plantilla no se lleva puestos
    los SLAs. Los límites de acá son los mismos CHECK de 001. */
 import { esc, plural, toast, confirmar } from '../ui.js';
@@ -11,7 +12,6 @@ import {
 import { esFundador } from '../sesion.js';
 import { guardar, num } from './comunes.js';
 import { htmlCanales, montarCanales } from './config-canales.js';
-import { htmlFathom, montarFathom } from './config-fathom.js';
 import { htmlServicio, montarServicio } from './config-servicio.js';
 import {
   htmlEtapas, leerEtapas, htmlPlantilla, leerPlantilla,
@@ -80,7 +80,10 @@ export function vistaConfig(el, programaId, vigente) {
       ${seccion('Plantilla de accionables', `<div id="cf-plantilla">${htmlPlantilla(estado.plantilla)}</div>`,
         '<button type="button" class="btn btn-accent btn-sm" id="cf-guardar-plantilla">Guardar plantilla</button>')}
 
-      ${seccion('Discord', `
+      <details class="conf-viejo">
+        <summary class="hint">Aviso viejo (apagado): digest diario con webhook único en cs_integraciones. Lo apagó la
+          migración 123; los avisos por tipo van en «Avisos por tipo» y «Aviso de servicio».</summary>
+      ${seccion('Discord (aviso viejo, apagado)', `
         <div class="form-row"><label for="cf-webhook">Webhook</label>
           <input type="password" id="cf-webhook" autocomplete="off" maxlength="300"
             value="${esc((integ && integ.discord_webhook_url) || '')}"
@@ -95,12 +98,11 @@ export function vistaConfig(el, programaId, vigente) {
         ${esFundador() ? `<button type="button" class="btn btn-sm" id="cf-probar-discord">Probar</button>
         <span class="hint">Manda un mensaje de prueba al canal. Si hay cambios sin guardar, los guarda antes.</span>` : ''}`,
         '<button type="button" class="btn btn-accent btn-sm" id="cf-guardar-discord">Guardar Discord</button>')}
+      </details>
 
       ${htmlCanales()}
 
       ${htmlServicio()}
-
-      ${htmlFathom()}
 
       ${seccion('Chequeo diario', `
         <div class="hint">Aplica las plantillas que ya vencieron, finaliza los programas vencidos
@@ -112,8 +114,7 @@ export function vistaConfig(el, programaId, vigente) {
       .catch(e => console.error('canales', e));   // 106: no frena el resto de la pantalla
     montarServicio(el.querySelector('#cf-servicio'), programaId, vigente)
       .catch(e => console.error('servicio', e));  // 123: idem
-    montarFathom(el.querySelector('#cf-fathom'), vigente)
-      .catch(e => console.error('fathom', e));    // 122: idem
+    /* Fathom (122, 124, 127) pasó a la Configuración general (Panel general): js/views/config-general.js */
   }
 
   function repintarEtapas() {

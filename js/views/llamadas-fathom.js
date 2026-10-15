@@ -5,12 +5,13 @@
    qué: muestra lo que la RLS devuelve. Llamadas de alumno: quien tiene acceso al programa;
    pendientes y "no es alumno": solo fundador y cliente. Asignar y marcar: la base lo exige igual
    (cs_fathom_asignar / cs_fathom_marcar_no_alumno). Sin la 124 avisa que falta la migración. */
-import { esc, fmtFecha, plural, abrirModal, cerrarModal, confirmar, urlSegura } from '../ui.js';
+import { esc, fmtFecha, plural, abrirModal, cerrarModal, confirmar, urlSegura, toast } from '../ui.js';
 import { yo, esFundador } from '../sesion.js';
 import { mensajeError } from '../datos.js';
 import {
   traerLlamadasFathom, traerConsultores, traerAlumnosAsignables, asignarLlamada, marcarNoAlumno,
-  reabrirLlamada, confirmarLlamada, corregirLlamada, TIPO_LLAMADA_LABEL, ESTADO_FATHOM_LABEL, MOTIVO_LABEL
+  reabrirLlamada, confirmarLlamada, corregirLlamada, resumenAprendido,
+  TIPO_LLAMADA_LABEL, ESTADO_FATHOM_LABEL, MOTIVO_LABEL
 } from '../datos-fathom.js';
 import { guardar } from './comunes.js';
 import { tarjetaError } from './programa.js';
@@ -25,6 +26,15 @@ async function alumnosAsignables() {
   return lista.map(c => ({
     id: c.id, nombre: `${c.nombre} · ${prog(c.programa_id)}`, estado: c.estado, programa_id: c.programa_id
   }));
+}
+
+/* Avisa el resultado de asignar / confirmar / corregir y, aparte, un alias que no se pudo guardar
+   (choca con otro alumno): ese aviso es de error y se queda visible. */
+function avisarResultado(base, r) {
+  toast(base);
+  const conf = r && Array.isArray(r.alias_conflictos) ? r.alias_conflictos : [];
+  if (r && r.alias_guardados) toast(resumenAprendido({ alias_guardados: r.alias_guardados }));
+  if (conf.length) toast(resumenAprendido({ alias_conflictos: conf }), 'error');
 }
 
 const bloque = (titulo, texto) => texto
@@ -62,7 +72,7 @@ function filaLlamada(l, puedeAsignar, alumnos) {
   } else if (puedeAsignar) {
     acciones = `<span class="ll-item-acc">
       <button type="button" class="btn btn-sm btn-accent" data-fa-asignar="${esc(l.id)}">Asignar a alumno</button>
-      ${l.estado === 'pendiente'
+      ${l.estado === 'pendiente' || l.estado === 'interna'
         ? `<button type="button" class="btn btn-sm" data-fa-noalumno="${esc(l.id)}">No es alumno</button>`
         : `<button type="button" class="btn btn-sm" data-fa-reabrir="${esc(l.id)}">Volver a pendiente</button>`}
     </span>`;
@@ -94,33 +104,37 @@ export function vistaLlamadas(el, programaId, vigente) {
   const filtro = { estado: '', desde: '', hasta: '' };
 
   const delTab = () => llamadas.filter(l => (l.consultor || '') === tab);
+  /* Las internas (127) quedan ocultas salvo que el filtro de estado sea "Internas". */
   const visibles = () => delTab().filter(l =>
-    (!filtro.estado || (filtro.estado === 'por_nombre'
-      ? l.estado === 'alumno' && l.asignada_por === 'nombre' : l.estado === filtro.estado))
+    (filtro.estado
+      ? (filtro.estado === 'por_nombre' ? l.estado === 'alumno' && l.asignada_por === 'nombre' : l.estado === filtro.estado)
+      : l.estado !== 'interna')
     && (!filtro.desde || l.fecha >= filtro.desde)
     && (!filtro.hasta || l.fecha <= filtro.hasta));
 
   function pintar() {
     const puedeAsignar = esFundador() || llamadas.some(l => l.estado !== 'alumno');
-    const cuenta = id => llamadas.filter(l => (l.consultor || '') === id).length;
+    const cuenta = id => llamadas.filter(l => (l.consultor || '') === id && l.estado !== 'interna').length;
+    const nInternas = delTab().filter(l => l.estado === 'interna').length;
     const tabs = consultores.map(c => `<button type="button" class="tab-btn${c.id === tab ? ' active' : ''}" data-fa-tab="${esc(c.id)}">
         ${esc(c.nombre)}${c.activo ? '' : ' (inactivo)'} <span class="fa-n">${cuenta(c.id)}</span></button>`).join('');
     const lista = visibles();
-    const total = delTab().length;
+    const total = delTab().filter(l => filtro.estado || l.estado !== 'interna').length;
     const act = consultores.find(c => c.id === tab);
     el.innerHTML = `
       <div class="section-title">Llamadas<span class="line"></span></div>
-      <div class="hint">Reuniones grabadas en Fathom, separadas por consultor. «Alumno» son las que ya están en la
-        ficha de un alumno; «Pendiente» tienen invitados externos pero no coinciden con ningún alumno;
-        «No es alumno» las marcó una persona (prospecto, socio, etc.). Las reuniones sin invitados externos no se traen.
-        Se asignan solas por el mail del invitado (principal o extra); si no coincide, por nombre (queda marcada
-        «por nombre» para que la confirmes o corrijas). Al asignar o confirmar a mano, los mails de la llamada
-        quedan como del alumno y la próxima se asigna sola.</div>
+      <div class="hint">Todas las reuniones grabadas en Fathom, separadas por consultor. «Alumno» son las que ya están
+        en la ficha de un alumno; «Pendiente» tienen a alguien o un nombre en el título pero no coinciden con ningún
+        alumno; «Interna» no tiene a nadie de afuera (solo vos o el equipo; ocultas, se ven con el filtro «Internas»);
+        «No es alumno» las marcó una persona (prospecto, socio, etc.).
+        Se asignan solas por el mail del invitado (principal o extra); si no coincide, por nombre o alias (queda marcada
+        «por nombre» para que la confirmes o corrijas). Al asignar o confirmar a mano, los mails de la llamada y los
+        nombres (invitado o título) quedan como del alumno y la próxima se asigna sola.</div>
       ${consultores.length ? `<nav class="tabs tabs-inline" aria-label="Consultores">${tabs}</nav>` : ''}
       <div class="fa-filtros">
         <label>Estado <select id="fa-f-estado">
-          <option value="">Todos</option>
-          ${Object.entries({ ...ESTADO_FATHOM_LABEL, por_nombre: 'Alumno asignado por nombre' })
+          <option value="">Todos (sin internas)</option>
+          ${Object.entries({ ...ESTADO_FATHOM_LABEL, interna: 'Internas', por_nombre: 'Alumno asignado por nombre' })
             .map(([k, v]) => `<option value="${k}"${filtro.estado === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}
         </select></label>
         <label>Desde <input type="date" id="fa-f-desde" value="${esc(filtro.desde)}"></label>
@@ -130,7 +144,8 @@ export function vistaLlamadas(el, programaId, vigente) {
       <div class="card">${lista.length ? `<div class="table-wrap"><table class="tabla tabla-cards">
           <thead><tr><th>Fecha</th><th>Con quién</th><th>Llamada</th><th>Estado</th><th></th></tr></thead>
           <tbody>${lista.map(l => filaLlamada(l, puedeAsignar, alumnos)).join('')}</tbody></table></div>
-          <div class="hint">${esc(plural(lista.length, 'llamada'))}${total !== lista.length ? ` de ${total}` : ''}.</div>`
+          <div class="hint">${esc(plural(lista.length, 'llamada'))}${total !== lista.length ? ` de ${total}` : ''}.
+            ${!filtro.estado && nInternas ? `${esc(plural(nInternas, 'interna oculta', 'internas ocultas'))}: filtrá por «Internas» para verlas.` : ''}</div>`
         : `<div class="muted-empty">${total
             ? 'Ninguna llamada coincide con los filtros.'
             : `Todavía no hay llamadas${act ? ' de ' + esc(act.nombre) : ''} para mostrar.`}</div>`}</div>`;
@@ -153,7 +168,8 @@ export function vistaLlamadas(el, programaId, vigente) {
       const a = sel.cliente();
       if (!a) { document.getElementById('fa-error').textContent = 'Elegí un alumno de la lista.'; return; }
       cerrarModal();
-      guardar(() => asignarLlamada(l.id, a.id), { ok: 'Llamada asignada.', luego: cargar });
+      guardar(async () => avisarResultado('Llamada asignada.', await asignarLlamada(l.id, a.id)),
+        { ok: '', luego: cargar });
     };
   }
 
@@ -180,7 +196,8 @@ export function vistaLlamadas(el, programaId, vigente) {
       const a = sel.cliente();
       if (!aPendiente && !a) { document.getElementById('fc-error').textContent = 'Elegí un alumno o marcá "volver a pendiente".'; return; }
       cerrarModal();
-      guardar(() => corregirLlamada(l.id, aPendiente ? null : a.id), { ok: 'Llamada corregida.', luego: cargar });
+      guardar(async () => avisarResultado('Llamada corregida.', await corregirLlamada(l.id, aPendiente ? null : a.id)),
+        { ok: '', luego: cargar });
     };
   }
 
@@ -230,8 +247,8 @@ export function vistaLlamadas(el, programaId, vigente) {
     }
     const bOk = ev.target.closest('[data-fa-confirmar]');
     if (bOk) {
-      await guardar(() => confirmarLlamada(bOk.dataset.faConfirmar),
-        { ok: 'Confirmada: los mails de la llamada quedan como del alumno.', luego: cargar, control: bOk });
+      await guardar(async () => avisarResultado('Confirmada: los mails y nombres de la llamada quedan como del alumno.',
+        await confirmarLlamada(bOk.dataset.faConfirmar)), { ok: '', luego: cargar, control: bOk });
       return;
     }
     const bR = ev.target.closest('[data-fa-reabrir]');

@@ -83,6 +83,14 @@
 .fa-alumno{color:var(--accent);}
 .fa-pendiente{color:var(--text-dim);}
 .fa-no_alumno{color:var(--text-faint);}
+.fa-interna{color:var(--text-faint);font-style:italic;}
+.cf-hist{display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap;margin-top:var(--sp-1);}
+.al-lista{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin:var(--sp-2) 0;}
+.al-chip{display:inline-flex;align-items:center;gap:var(--sp-2);background:var(--surface-2);
+  border-radius:var(--radius-sm);padding:var(--sp-1) var(--sp-3);font-size:var(--fs-meta);}
+.al-alta{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;margin-top:var(--sp-2);}
+.al-alta input{background:var(--surface-2);border:1px solid transparent;border-radius:var(--radius-sm);
+  min-height:var(--control-h);padding:0 var(--sp-3);color:var(--ink);font-size:var(--fs-meta);min-width:220px;}
 .fa-por-nombre{border-bottom:1px dashed currentColor;}
 .fa-det{margin-top:var(--sp-2);font-size:var(--fs-meta);}
 .fa-det summary{cursor:pointer;color:var(--text-dim);}

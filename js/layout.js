@@ -78,7 +78,7 @@ function href(path) {
   return '#/' + path;
 }
 
-/* activo = { panel: true } | { programaId, sub } */
+/* activo = { panel: true } | { configGeneral: true } | { programaId, sub } */
 export function renderNav(activo = {}) {
   const nav = document.getElementById('nav');
   if (!nav) return;
@@ -88,7 +88,10 @@ export function renderNav(activo = {}) {
       <a class="nav-item${activo.panel ? ' active' : ''}" href="${href('panel')}">
         <span class="nav-icon">◆</span>
         <span class="nav-text"><div class="nav-name">Panel general</div><div class="nav-niche">Todos los programas</div></span>
-      </a>`;
+      </a>
+      <div class="nav-subs">
+        <a class="nav-sub${activo.configGeneral ? ' active' : ''}" href="${href('config-general')}">Configuración general</a>
+      </div>`;
   }
   html += `<div class="nav-eyebrow">${yo.programas.length === 1 ? 'Programa' : 'Programas'}</div>`;
   for (const p of yo.programas) {
