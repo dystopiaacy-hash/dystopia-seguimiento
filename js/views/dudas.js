@@ -64,7 +64,7 @@ export function vistaDudas(el, programaId, vigente) {
   let dudas = [], menciones = [], clientes = [], nombres = new Map();
   const filtro = { q: '', nuevas: false };
   let alta = null;   // selectores del formulario de arriba
-  const filtrosCand = { estado: 'pendiente', desde: '', hasta: '', consultor: '' };   // persisten entre repintados
+  const filtrosCand = { estado: 'pendiente', desde: '', hasta: '', consultor: '', soloAlta: true };   // persisten entre repintados
   const editar = () => puedeEditarPrograma(programaId);
 
   function visibles() {

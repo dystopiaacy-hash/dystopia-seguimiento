@@ -15,8 +15,13 @@ import {
 import { parecidas } from '../dudas-similitud.js';
 import { montarSelectorDudas } from './duda-selector.js';
 import { opcionesHtml } from './comunes.js';
+import { montarReglasDudas } from './dudas-candidatas-reglas.js';
 
 const MAX_FILAS = 100;
+const MOTIVOS = {
+  nombre: 'alumno identificado por nombre', varias_voces: 'hay varias voces ajenas al alumno',
+  unico_otro: 'alumno deducido por descarte', palabra: 'sin «?»', regla_134: 'regla anterior'
+};
 const ESTADOS = [['pendiente', 'Pendientes'], ['agregada', 'Agregadas'], ['descartada', 'Descartadas'], ['', 'Todas']];
 
 /* ctx: { programaId, filtros, dudas(), clientes(), recargar() } — filtros persiste entre repintados. */
@@ -57,12 +62,15 @@ export async function montarCandidatas(cont, ctx) {
     } else if (f.estado === 'agregada') {
       acciones = `<span class="hint">Agregada${f.duda_id ? ` a «${esc(textoDuda(f.duda_id) || 'una duda')}»` : ''}</span>`;
     }
+    const conf = f.confianza
+      ? `<div class="hint">Regla ${esc(f.regla)} · confianza ${esc(f.confianza)}${f.motivo ? ` (${esc(MOTIVOS[f.motivo] || f.motivo)})` : ''}</div>`
+      : `<div class="hint">Regla ${esc(f.regla)}</div>`;
     return `<tr>
       ${gestionar ? `<td data-label=""><input type="checkbox" data-cd-sel="${esc(f.id)}" aria-label="Elegir"${sel.has(f.id) ? ' checked' : ''}${f.estado === 'pendiente' ? '' : ' disabled'}></td>` : ''}
       <td data-label="Fecha">${esc(fmtFecha(f.fecha))}</td>
       <td data-label="Alumno">${alumno}</td>
       <td data-label="Consultor">${esc(nombreConsultor(f.consultor))}</td>
-      <td data-label="Pregunta"><div class="duda-texto">${esc(f.texto)}</div>
+      <td data-label="Pregunta"><div class="duda-texto">${esc(f.texto)}</div>${conf}
         ${sug ? `<div class="duda-resp">Parecida a: «${esc(sug.duda.texto)}»
           ${gestionar ? `<button type="button" class="btn-icono" data-cd-igual="${esc(f.id)}|${esc(sug.duda.id)}">Agregar a esa</button>` : ''}</div>` : ''}</td>
       <td data-label="Acciones"><span class="ll-item-acc">${acciones}</span></td>
@@ -94,12 +102,18 @@ export async function montarCandidatas(cont, ctx) {
       ? `${plural(info.pendientes, 'pendiente')} · ${plural(info.agregadas, 'agregada')} · ${plural(info.descartadas, 'descartada')}
          · ${plural(info.llamadas, 'llamada leída', 'llamadas leídas')}${info.sin_procesar ? ` (${info.sin_procesar} sin procesar)` : ''}`
       : '';
+    const con135 = !!(info && 'pendientes_alta' in info);
+    const ocultas = con135 && filtros.soloAlta && filtros.estado === 'pendiente' && info.pendientes_baja
+      ? ` · ${plural(info.pendientes_baja, 'pendiente oculta', 'pendientes ocultas')} por baja confianza` : '';
+    const ambiguas = con135 && info.sin_hablante ? ` · ${plural(info.sin_hablante, 'llamada')} sin alumno identificado con seguridad (sin candidatas)` : '';
     cont.innerHTML = `
       <div class="section-title">Preguntas detectadas en llamadas<span class="line"></span></div>
-      <p class="hint">Oraciones del alumno que terminan en «?» o empiezan con una palabra de pregunta (cómo, qué, cuándo, dónde, por qué, cuánto, se puede…),
-        sacadas de las transcripciones de Fathom. Sin IA: revisalas y agregalas a una duda, creá una nueva o descartalas. ${esc(resumen)}</p>
+      <p class="hint">Preguntas del alumno (terminan en «?», 6 palabras o más, sin logística ni preguntas del consultor) sacadas de las transcripciones de Fathom.
+        Sin IA: revisalas y agregalas a una duda, creá una nueva o descartalas. ${esc(resumen + ocultas + ambiguas)}</p>
+      <div id="cd-reglas"></div>
       <div class="filter-row">
         <select id="cd-estado" aria-label="Estado">${opcionesHtml(ESTADOS, filtros.estado)}</select>
+        ${con135 ? `<label><input type="checkbox" id="cd-alta"${filtros.soloAlta ? ' checked' : ''}> Solo alta confianza</label>` : ''}
         <span class="flabel">Desde</span><input type="date" id="cd-desde" value="${esc(filtros.desde)}">
         <span class="flabel">Hasta</span><input type="date" id="cd-hasta" value="${esc(filtros.hasta)}">
         <select id="cd-consultor" aria-label="Consultor">${opcionesHtml(opcionesConsultor(), filtros.consultor)}</select>
@@ -108,6 +122,7 @@ export async function montarCandidatas(cont, ctx) {
       </div>
       <div id="cd-lista"></div>`;
     pintarLista();
+    if (esFundador() && info && 'pendientes_alta' in info) montarReglasDudas(cont.querySelector('#cd-reglas'), programaId);
   }
 
   async function refrescar() {
@@ -198,6 +213,7 @@ export async function montarCandidatas(cont, ctx) {
     else if (t.id === 'cd-desde') filtros.desde = t.value;
     else if (t.id === 'cd-hasta') filtros.hasta = t.value;
     else if (t.id === 'cd-consultor') filtros.consultor = t.value;
+    else if (t.id === 'cd-alta') filtros.soloAlta = t.checked;
     else if (t.dataset && t.dataset.cdSel) {
       if (t.checked) sel.add(t.dataset.cdSel); else sel.delete(t.dataset.cdSel);
       pintarLista();
