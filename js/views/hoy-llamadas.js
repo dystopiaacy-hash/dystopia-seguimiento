@@ -1,11 +1,10 @@
 /* "Sin llamada" de la pestaña Hoy (102): alumnos vivos cuya última llamada es de hace
-   LLAMADA_ROJO_DESDE días o más (js/config.js). Debajo, plegados, los vivos que nunca
+   el umbral de alerta del programa (cs_servicio_config, 123) o más. Debajo, plegados, los vivos que nunca
    tuvieron una llamada registrada. Vive en su propio contenedor, como las altas y el
    onboarding. Sin la 102 (o si falla la lectura) no muestra nada y el resto sigue igual. */
 import { esc, fmtFecha, plural } from '../ui.js';
 import { traerClientes, esVivo } from '../datos.js';
-import { LLAMADA_ROJO_DESDE } from '../config.js';
-import { sumarUltimaLlamada, diasSinLlamada, textoDias } from './llamada-semaforo.js';
+import { sumarUltimaLlamada, diasSinLlamada, textoDias, umbralesLlamada } from './llamada-semaforo.js';
 
 function fila(c, programaId) {
   const d = diasSinLlamada(c.ultima_llamada);
@@ -29,7 +28,7 @@ export function montarSinLlamada(box, programaId, vigente, alCambiar) {
     if (!atrasados.length && !nunca.length) { box.innerHTML = ''; return; }
     /* El contador suma a los que nunca tuvieron llamada: un alumno sin ninguna llamada
        también está "sin llamada hace N días o más" (en el semáforo es gris, no verde). */
-    const titulo = `Sin llamada hace ${plural(LLAMADA_ROJO_DESDE, 'día')} o más`;
+    const titulo = `Sin llamada hace ${plural(umbralesLlamada().alerta, 'día')} o más`;
     const total = atrasados.length + nunca.length;
     box.innerHTML = `<section class="hoy-grupo">
       <div class="section-title">${esc(titulo)} <span class="hoy-grupo-n hoy-n-atrasado">${total}</span><span class="line"></span></div>
@@ -48,7 +47,8 @@ export function montarSinLlamada(box, programaId, vigente, alCambiar) {
     try {
       const clientes = (await traerClientes(programaId)).filter(esVivo);
       if (await sumarUltimaLlamada(programaId, clientes)) {
-        a = clientes.filter(c => { const d = diasSinLlamada(c.ultima_llamada); return d != null && d >= LLAMADA_ROJO_DESDE; })
+        const alerta = umbralesLlamada().alerta;   // ya cargado por sumarUltimaLlamada
+        a = clientes.filter(c => { const d = diasSinLlamada(c.ultima_llamada); return d != null && d >= alerta; })
           .sort((x, y) => diasSinLlamada(y.ultima_llamada) - diasSinLlamada(x.ultima_llamada));
         s = clientes.filter(c => c.ultima_llamada == null)
           .sort((x, y) => (x.nombre || '').localeCompare(y.nombre || '', 'es'));

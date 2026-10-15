@@ -1,6 +1,7 @@
 /* Configuración — avisos de Discord por tipo (106): un webhook por programa y por tipo de aviso.
      satisfaccion  respuestas menores a 7, y 9 o 10 con "daría testimonio: sí"
      wins          cada win cargado (sin monto salvo que se habilite acá)
+     servicio      aviso diario de servicio (123; parámetros en config-servicio.js)
    Se guardan en cs_discord_canales (solo fundador, igual que cs_integraciones). Sin webhook
    cargado, o con el canal desactivado, la base no envía nada y no rompe. Los canales de Discord
    y sus webhooks los crea el jefe. Sin la 106 el bloque avisa que falta la migración. */
@@ -15,8 +16,12 @@ const TIPOS = [
   ['satisfaccion', 'Satisfacción',
     'Avisa cuando entra una respuesta menor a 7 (alumno, momento, puntaje y qué mejoraría) y cuando entra un 9 o 10 que daría testimonio.'],
   ['wins', 'Wins',
-    'Avisa cada win cargado (alumno, programa y texto). El pendiente "Pedir referido" aparece en Hoy.']
+    'Avisa cada win cargado (alumno, programa y texto). El pendiente "Pedir referido" aparece en Hoy.'],
+  ['servicio', 'Servicio (aviso diario)',
+    'Un mensaje por día con lo que el equipo tiene que mirar: alumnos sin llamada, accionables vencidos, formularios de satisfacción para enviar y morosos. La hora y los umbrales se configuran abajo, en "Aviso de servicio".']
 ];
+
+const ETIQUETA_MONTO = { wins: 'Incluir el monto del win', servicio: 'Incluir montos de los morosos' };
 
 export const htmlCanales = () => `
   <div class="conf-seccion">
@@ -35,7 +40,7 @@ function filaCanal([tipo, titulo, ayuda], c) {
       <div class="canal-opciones">
         <label class="check-row"><input type="checkbox" data-cn="activo"${v.activo ? ' checked' : ''}> Activado</label>
         <label class="check-row"><input type="checkbox" data-cn="nombre"${v.incluir_nombre === false ? '' : ' checked'}> Incluir el nombre del alumno</label>
-        ${tipo === 'wins' ? `<label class="check-row"><input type="checkbox" data-cn="monto"${v.incluir_monto ? ' checked' : ''}> Incluir el monto del win</label>` : ''}
+        ${ETIQUETA_MONTO[tipo] ? `<label class="check-row"><input type="checkbox" data-cn="monto"${v.incluir_monto ? ' checked' : ''}> ${esc(ETIQUETA_MONTO[tipo])}</label>` : ''}
       </div>
       <div>
         <button type="button" class="btn btn-accent btn-sm" data-cn-guardar="${esc(tipo)}">Guardar</button>
@@ -89,7 +94,7 @@ export async function montarCanales(box, programaId, vigente) {
       }
       const fila106 = {
         programa_id: programaId, tipo, webhook_url: url || null, activo: marca('activo'),
-        incluir_nombre: marca('nombre'), incluir_monto: tipo === 'wins' ? marca('monto') : false
+        incluir_nombre: marca('nombre'), incluir_monto: ETIQUETA_MONTO[tipo] ? marca('monto') : false
       };
       const { error: e } = await sb.from('cs_discord_canales').upsert(fila106, { onConflict: 'programa_id,tipo' });
       if (e) throw e;

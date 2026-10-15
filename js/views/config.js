@@ -12,6 +12,7 @@ import { esFundador } from '../sesion.js';
 import { guardar, num } from './comunes.js';
 import { htmlCanales, montarCanales } from './config-canales.js';
 import { htmlFathom, montarFathom } from './config-fathom.js';
+import { htmlServicio, montarServicio } from './config-servicio.js';
 import {
   htmlEtapas, leerEtapas, htmlPlantilla, leerPlantilla,
   completarKeys, validarPlantilla
@@ -97,6 +98,8 @@ export function vistaConfig(el, programaId, vigente) {
 
       ${htmlCanales()}
 
+      ${htmlServicio()}
+
       ${htmlFathom()}
 
       ${seccion('Chequeo diario', `
@@ -107,6 +110,8 @@ export function vistaConfig(el, programaId, vigente) {
         <div class="chequeo-res" id="cf-chequeo-res"></div>`)}`;
     montarCanales(el.querySelector('#cf-canales'), programaId, vigente)
       .catch(e => console.error('canales', e));   // 106: no frena el resto de la pantalla
+    montarServicio(el.querySelector('#cf-servicio'), programaId, vigente)
+      .catch(e => console.error('servicio', e));  // 123: idem
     montarFathom(el.querySelector('#cf-fathom'), vigente)
       .catch(e => console.error('fathom', e));    // 122: idem
   }

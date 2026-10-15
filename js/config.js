@@ -15,10 +15,12 @@ export const ONBOARDING_BASE_URL = 'https://producto.dystopia.com.ar';
 
 /* Semáforo de "Última llamada" (102): días desde la última llamada con el alumno.
    Verde hasta AMARILLO_DESDE - 1, amarillo de AMARILLO_DESDE a ROJO_DESDE - 1, rojo desde ROJO_DESDE.
-   Único lugar donde se definen: Clientes, Maestro y Hoy leen estos dos números.
-   Pendiente de decisión de Joaquín: 15 / 21 (los de Evolve) o 7 / 10. */
-export const LLAMADA_AMARILLO_DESDE = 15;
-export const LLAMADA_ROJO_DESDE = 21;
+   Decisión de Joaquín (123): 7 días aviso (amarillo) y 10 días alerta (rojo).
+   El valor real es POR PROGRAMA y lo edita el fundador en Configuración (cs_servicio_config):
+   Clientes, Maestro, Hoy, la ficha y el aviso a Discord leen ese mismo parámetro.
+   Estos dos números son solo el valor por defecto si la migración 123 no está corrida. */
+export const LLAMADA_AMARILLO_DESDE = 7;
+export const LLAMADA_ROJO_DESDE = 10;
 
 /* Satisfacción por etapa (106): color del último puntaje. Menos de ROJO_MENOS = rojo,
    de ahí hasta VERDE_DESDE - 1 = amarillo (7 y 8), VERDE_DESDE o más = verde (9 y 10).

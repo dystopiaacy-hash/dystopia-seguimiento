@@ -18,6 +18,7 @@ import { traerProductos, traerCicloCliente } from '../ciclo.js';
 import { traerOnboardingCliente } from '../datos-onboarding.js';
 import { traerLlamadasCliente } from '../datos-llamadas.js';
 import { traerResumenCliente, traerUltimaLlamadaCliente } from '../datos-estado.js';
+import { cargarUmbrales } from '../datos-servicio.js';   // 123: umbral sin llamada por programa
 import { traerEnviosCliente, traerMomentos } from '../datos-satisfaccion.js';
 import { traerWinsCliente } from '../datos-wins.js';
 import * as cabecera from './ficha-cabecera.js';
@@ -76,7 +77,7 @@ async function cargarDatos(programaCorto, clienteId) {
     /* Igual con las llamadas (102): sin la migración (o con error) no se muestran sus bloques. */
     traerLlamadasCliente(c.id).catch(e => { console.error('llamadas', e); return undefined; }),
     opcional(() => traerResumenCliente(c.id), 'resumen'),
-    opcional(() => traerUltimaLlamadaCliente(c.id), 'ultima llamada'),
+    opcional(() => cargarUmbrales(p.id).then(() => traerUltimaLlamadaCliente(c.id)), 'ultima llamada'),
     opcional(() => traerMomentos(p.id), 'momentos'),
     opcional(() => traerEnviosCliente(c.id), 'satisfacción'),
     opcional(() => traerWinsCliente(c.id), 'wins')
