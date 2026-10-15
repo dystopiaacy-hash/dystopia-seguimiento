@@ -207,20 +207,20 @@ export async function traerUltimaCorrida() {
    opciones: un string 'YYYY-MM-DD' (desde) o { desde, historial: true, consultor, reiniciar } (127):
    con historial arranca o continúa el historial completo de esa cuenta (una tanda por corrida). */
 export async function sincronizarFathom(opciones) {
-  const cuerpo = typeof opciones === 'string' ? { desde: opciones } : { ...(opciones || {}) };
+  const pedido = typeof opciones === 'string' ? { desde: opciones } : { ...(opciones || {}) };
   const { data: ses } = await sb.auth.getSession();
   const token = ses && ses.session && ses.session.access_token;
   if (!token) throw new Error('La sesión venció: volvé a entrar.');
   const r = await fetch(`${SUPABASE_URL}/functions/v1/fathom-sync`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, apikey: SUPABASE_KEY },
-    body: JSON.stringify(cuerpo)
+    body: JSON.stringify(pedido)
   });
-  let cuerpo = null;
-  try { cuerpo = await r.json(); } catch { /* sin cuerpo */ }
+  let respuesta = null;
+  try { respuesta = await r.json(); } catch { /* sin cuerpo */ }
   if (!r.ok) {
-    const motivo = (cuerpo && cuerpo.error) || `HTTP ${r.status}`;
+    const motivo = (respuesta && respuesta.error) || `HTTP ${r.status}`;
     throw new Error(`No se pudo sincronizar: ${motivo}`);
   }
-  return cuerpo;
+  return respuesta;
 }

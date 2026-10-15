@@ -495,13 +495,15 @@ Deno.serve(async (req) => {
   const COLS_BASE = 'id,nombre,secreto,ultima_sync_ok_at';
   const COLS_127 = `${COLS_BASE},email_login,hist_estado,hist_desde,hist_hasta,hist_cursor,hist_oldest,hist_desc,hist_traidas`;
   let tieneHist = true;
-  let rc = await sb.from('cs_fathom_consultores').select(COLS_127).eq('activo', true).order('orden').order('id');
+  // Tipo propio: las columnas de la 127 son opcionales en Consultor, asi que sirve para las dos consultas.
+  type RespConsultores = { data: Consultor[] | null; error: { message: string } | null };
+  let rc = await sb.from('cs_fathom_consultores').select(COLS_127).eq('activo', true).order('orden').order('id') as unknown as RespConsultores;
   if (rc.error) {
     tieneHist = false;
-    rc = await sb.from('cs_fathom_consultores').select(COLS_BASE).eq('activo', true).order('orden').order('id');
+    rc = await sb.from('cs_fathom_consultores').select(COLS_BASE).eq('activo', true).order('orden').order('id') as unknown as RespConsultores;
   }
   if (rc.error) return responder({ error: `no se pudo leer cs_fathom_consultores (migracion 124 corrida?): ${rc.error.message}` }, 500);
-  const cuentas = resolverCuentas((rc.data ?? []) as Consultor[]);
+  const cuentas = resolverCuentas(rc.data ?? []);
   if (!cuentas.some((c) => c.clave)) {
     return responder({
       error: 'ningun consultor activo tiene su secreto cargado en la funcion',
