@@ -29,6 +29,9 @@
 --        CUOTA RESELL, UPSELL / RESELL, COMPLETA UPSELL / RESELL) o "renov"; el primero de ellos marca la
 --        fecha, y otro separado por más de 5 meses NO se encadena (queda dudoso).
 --        UPSELL solo, FEE, PIF, 2DA CUOTA, etc. NO renuevan ni cambian fechas.
+--        CASO PRIMER PAGO: si el primer pago de Finanzas del alumno (el que definió su fecha_inicio en la 125) es
+--        RESELL / renov, ese ciclo ya es la renovación: fecha_fin = fecha de ese pago + 6 meses (no 4 + 6) y
+--        queda "Renovado (6 meses)" con campos_extra.renovacion.primer_pago = true.
 --        estado: activo si fecha_fin >= hoy, finalizado si ya pasó; baja y pausado no cambian de estado.
 --      Los pagos dudosos NO se renuevan: quedan marcados en campos_extra.dur128.dudosa (la ficha lo avisa).
 --      Respaldo previo de cada fila que toca en cs_bak_128_clientes (fecha_fin, estado, campos_extra).
@@ -417,13 +420,17 @@ pagos as (
         or (a.tel is not null and public.cs_norm_tel(f.telefono) = a.tel))
 ),
 cls0 as (
-  select g.id, g.fecha, g.concepto, g.via, a.fin_inicial,
-         case when g.fecha > a.fecha_inicio and g.concepto ~* 'renov' then 'renov'
-              when g.fecha > a.fecha_inicio and g.concepto ~* '\yresell\y' then 'resell' end as es_ren
-  from pagos g join al a on a.id = g.id
+  select h.id, h.fecha, h.concepto, h.via, h.fin_inicial, h.es_primero,
+         case when (h.es_primero or h.fecha > h.fecha_inicio) and h.concepto ~* 'renov' then 'renov'
+              when (h.es_primero or h.fecha > h.fecha_inicio) and h.concepto ~* '\yresell\y' then 'resell' end as es_ren
+  from (select g.id, g.fecha, g.concepto, g.via, a.fin_inicial, a.fecha_inicio,
+               -- primer pago cruzado por nombre = el que definió fecha_inicio (125)
+               (g.via = 'nombre' and g.fecha <= a.fecha_inicio
+                and g.fecha = min(g.fecha) filter (where g.via = 'nombre') over (partition by g.id)) as es_primero
+        from pagos g join al a on a.id = g.id) h
 ),
 cls as (
-  select c0.id, c0.fecha, c0.concepto, c0.via,
+  select c0.id, c0.fecha, c0.concepto, c0.via, c0.es_primero,
          case
            when c0.via = 'nombre' and c0.es_ren is not null
                 and c0.fecha <= min(c0.fecha) filter (where c0.via = 'nombre' and c0.es_ren is not null)
@@ -437,6 +444,7 @@ res as (
   select a.id,
     (select min(x.fecha) from cls x where x.id = a.id and x.tipo like 'seguro%') as pago_ren,
     (select x.tipo from cls x where x.id = a.id and x.tipo like 'seguro%' order by x.fecha limit 1) as tipo_ren,
+    exists (select 1 from cls x where x.id = a.id and x.tipo like 'seguro%' and x.es_primero) as primer_pago,
     (select min(x.fecha) from cls x where x.id = a.id and x.tipo = 'dudoso') as pago_dud_fin,
     (select x.concepto from cls x where x.id = a.id and x.tipo = 'dudoso' order by x.fecha limit 1) as concepto_dud,
     case when not exists (select 1 from pagos g where g.id = a.id)
@@ -444,7 +452,7 @@ res as (
   from al a
 ),
 plan as (
-  select a.id, a.estado, a.fin_actual, a.fin_inicial, r.pago_ren, r.tipo_ren,
+  select a.id, a.estado, a.fin_actual, a.fin_inicial, r.pago_ren, r.tipo_ren, r.primer_pago,
          coalesce(r.pago_dud_fin, r.pago_dud_planilla) as pago_dud, r.concepto_dud,
          p.hoy, p.m_ini, p.m_ren,
          (not a.ya_128 and a.estado <> 'pausado' and a.ren_app_fin is null) as tocar,
@@ -453,7 +461,8 @@ plan as (
               when coalesce(r.pago_dud_fin, r.pago_dud_planilla) is not null then 'dudoso'
               else 'ninguna' end as renovacion,
          case when r.pago_ren is not null and a.ren_app_fin is null
-              then (greatest(a.fin_inicial, r.pago_ren) + make_interval(months => p.m_ren))::date
+              then (case when r.primer_pago then r.pago_ren else greatest(a.fin_inicial, r.pago_ren) end
+                    + make_interval(months => p.m_ren))::date
               else a.fin_inicial end as fin_nuevo
   from al a join res r on r.id = a.id cross join params p
 )
@@ -482,6 +491,7 @@ update public.cs_clientes c
               'aplicado', p.hoy,
               'meses_inicial', p.m_ini,
               'renovacion', p.renovacion,
+              'primer_pago', case when p.renovacion = 'finanzas' and p.primer_pago then true end,
               'dudosa', case when p.renovacion = 'dudoso'
                              then jsonb_strip_nulls(jsonb_build_object('pago_fecha', p.pago_dud, 'concepto', p.concepto_dud))
                         end)))
@@ -489,7 +499,8 @@ update public.cs_clientes c
                  then jsonb_build_object('renovacion', jsonb_build_object(
                         'meses', p.m_ren,
                         'pago_fecha', p.pago_ren,
-                        'desde', greatest(p.fin_inicial, p.pago_ren),
+                        'desde', case when p.primer_pago then p.pago_ren else greatest(p.fin_inicial, p.pago_ren) end,
+                        'primer_pago', case when p.primer_pago then true end,
                         'hasta', p.fin_nuevo,
                         'origen', 'finanzas'))
                  else '{}'::jsonb end
@@ -578,6 +589,15 @@ begin
     ) as x(c, esp);
     res := res || format('regla de concepto: RESELL y renov renuevan, UPSELL solo / FEE / PIF no|%s|17 conceptos',
                          coalesce(v_ok, false));
+
+    -- 8. caso primer pago RESELL: el ciclo ya es la renovación, fecha_fin = pago + 6 meses (no 4 + 6).
+    --    (Aritmética de la fórmula; la clasificación real corre en la sección 3 y se controla en 10d.)
+    v_f := date '2026-03-10';
+    res := res || format('primer pago RESELL: fin = pago + 6 meses, no (pago + 4) + 6|%s|fin=%s',
+                         (v_f + make_interval(months => 6))::date = date '2026-09-10'
+                         and (v_f + make_interval(months => 6))::date
+                             <> ((v_f + make_interval(months => 4))::date + make_interval(months => 6))::date,
+                         (v_f + make_interval(months => 6))::date);
 
     raise exception 'HUMO128_FIN';
   exception when others then
@@ -690,6 +710,26 @@ select '10c sin renovados por FEE / PIF / UPSELL solos (el concepto del pago no 
             and f.fecha = (t.campos_extra->'renovacion'->>'pago_fecha')::date
             and btrim(coalesce(f.concepto, '')) ~* '^(FEE|PIF|UPSELL|CUOTA UPSELL|2DA CUOTA|FEE DE PIF)$'))
 union all
+select '10d renovados cuyo primer pago es RESELL / renov: fecha_fin = ese pago + 6 meses (no 4 + 6)', '0 que no cumplan',
+       (select count(*) from t where d->>'primer_pago' = 'true'
+          and fecha_fin is distinct from ((t.campos_extra->'renovacion'->>'pago_fecha')::date
+                                          + make_interval(months => 6))::date)::text,
+       not exists (select 1 from t where d->>'primer_pago' = 'true'
+          and fecha_fin is distinct from ((t.campos_extra->'renovacion'->>'pago_fecha')::date
+                                          + make_interval(months => 6))::date)
+union all
+select '10e renovados cuyo primer pago es RESELL (informativo)', 'cantidad',
+       count(*) filter (where d->>'primer_pago' = 'true')::text, true
+from t
+union all
+select '10f pagos RESELL / renov sin alumno de teo (informativo, ver C17)', 'cantidad para revisar a mano',
+       (select count(*)::text from public.fin_pagos f
+         where f.cliente_id = 'teo'
+           and (btrim(coalesce(f.concepto, '')) ~* 'renov' or btrim(coalesce(f.concepto, '')) ~* '\yresell\y')
+           and not exists (select 1 from t x where public.cs_norm_nombre(f.alumno) = public.cs_norm_nombre(x.nombre)
+                           or (public.cs_norm_tel(x.telefono) is not null
+                               and public.cs_norm_tel(x.telefono) = public.cs_norm_tel(f.telefono)))), true
+union all
 select '11 la prueba de humo no dejó datos', '0',
        (select count(*) from public.cs_programas where id like 'humo128%')::text,
        not exists (select 1 from public.cs_programas where id like 'humo128%')
@@ -714,11 +754,25 @@ commit;
 --   select nombre, fecha_inicio, fecha_fin, campos_extra->'renovacion' as renovacion
 --   from public.cs_clientes where programa_id = 'teo' and campos_extra->'dur128'->>'renovacion' = 'finanzas'
 --   order by nombre;
+--   (los que traen "primer_pago": true entraron antes de la planilla y su primer pago ya era RESELL)
 --
 -- C16. Dudosos, para revisar uno por uno y renovarlos desde la app si corresponde:
 --   select nombre, fecha_fin, campos_extra->'dur128'->'dudosa' as dudosa
 --   from public.cs_clientes where programa_id = 'teo' and campos_extra->'dur128'->>'renovacion' = 'dudoso'
 --   order by nombre;
+--
+-- C17. RESELL sin alumno: pagos RESELL / renov de teo que no cruzan con ningún alumno (revisar a mano, no hacen
+--      nada; con nombres, no pegar en chats). Es la misma lista que Q6 de la vista previa 128a.
+--   select f.fecha, f.alumno, f.telefono, btrim(coalesce(f.concepto, '')) as concepto
+--   from public.fin_pagos f
+--   where f.cliente_id = 'teo'
+--     and (btrim(coalesce(f.concepto, '')) ~* 'renov' or btrim(coalesce(f.concepto, '')) ~* '\yresell\y')
+--     and not exists (select 1 from public.cs_clientes c
+--                     where c.programa_id = 'teo'
+--                       and (public.cs_norm_nombre(c.nombre) = public.cs_norm_nombre(f.alumno)
+--                            or (public.cs_norm_tel(c.telefono) is not null
+--                                and public.cs_norm_tel(c.telefono) = public.cs_norm_tel(f.telefono))))
+--   order by f.fecha, f.alumno;
 
 
 -- =====================================================================

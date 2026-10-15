@@ -21,6 +21,11 @@
 --         pago) un ultimo_pago de la planilla de la 125 posterior al fin del primer ciclo.
 --       - UPSELL solo es un cambio de plan: nunca cambia fechas.
 --     Si hay una renovación segura: fecha_fin = mayor(fin del primer ciclo, fecha del pago) + 6 meses.
+--     CASO PRIMER PAGO: si el primer pago que Finanzas tiene del alumno (cruzado por nombre, el que definió su
+--     fecha_inicio en la 125) es RESELL / renov, ese ciclo ya es una renovación (entró antes de la planilla):
+--     fecha_fin = fecha de ese pago + 6 meses (NO se suman 4 + 6). Se ve en Q1 fila 54 y en Q3 (primer_pago).
+--     Pagos RESELL / renov sin alumno cruzado: Q6 (solo para revisar, no hacen nada).
+-- Los bloques son Q1 a Q6.
 --     Si el alumno ya tiene una renovación 'renovado' cargada en la app, no se toca.
 --   * Estado: baja y pausado no cambian; el resto queda activo/onboarding/en_renovacion si fecha_fin >= hoy,
 --     finalizado si ya pasó (un finalizado con fecha_fin >= hoy vuelve a activo).
@@ -59,13 +64,17 @@ pagos as (
         or (a.tel is not null and public.cs_norm_tel(f.telefono) = a.tel))
 ),
 cls0 as (
-  select g.id, g.fecha, g.concepto, g.via, a.fin_inicial,
-         case when g.fecha > a.fecha_inicio and g.concepto ~* 'renov' then 'renov'
-              when g.fecha > a.fecha_inicio and g.concepto ~* '\yresell\y' then 'resell' end as es_ren
-  from pagos g join al a on a.id = g.id
+  select h.id, h.fecha, h.concepto, h.via, h.fin_inicial, h.es_primero,
+         case when (h.es_primero or h.fecha > h.fecha_inicio) and h.concepto ~* 'renov' then 'renov'
+              when (h.es_primero or h.fecha > h.fecha_inicio) and h.concepto ~* '\yresell\y' then 'resell' end as es_ren
+  from (select g.id, g.fecha, g.concepto, g.via, a.fin_inicial, a.fecha_inicio,
+               -- primer pago cruzado por nombre = el que definió fecha_inicio (125)
+               (g.via = 'nombre' and g.fecha <= a.fecha_inicio
+                and g.fecha = min(g.fecha) filter (where g.via = 'nombre') over (partition by g.id)) as es_primero
+        from pagos g join al a on a.id = g.id) h
 ),
 cls as (
-  select c0.id, c0.fecha, c0.concepto, c0.via,
+  select c0.id, c0.fecha, c0.concepto, c0.via, c0.es_primero,
          case
            when c0.via = 'nombre' and c0.es_ren is not null
                 and c0.fecha <= min(c0.fecha) filter (where c0.via = 'nombre' and c0.es_ren is not null)
@@ -79,20 +88,22 @@ res as (
   select a.id,
     (select min(x.fecha) from cls x where x.id = a.id and x.tipo like 'seguro%') as pago_ren,
     (select x.tipo from cls x where x.id = a.id and x.tipo like 'seguro%' order by x.fecha limit 1) as tipo_ren,
+    exists (select 1 from cls x where x.id = a.id and x.tipo like 'seguro%' and x.es_primero) as primer_pago,
     coalesce((select min(x.fecha) from cls x where x.id = a.id and x.tipo = 'dudoso'),
              case when not exists (select 1 from pagos g where g.id = a.id)
                   and a.ultimo_pago_planilla > a.fin_inicial then a.ultimo_pago_planilla end) as pago_dud
   from al a
 ),
 plan as (
-  select a.id, a.estado, a.fin_actual, a.fin_inicial, r.pago_ren, r.tipo_ren, r.pago_dud, p.hoy,
+  select a.id, a.estado, a.fin_actual, a.fin_inicial, r.pago_ren, r.tipo_ren, r.primer_pago, r.pago_dud, p.hoy,
          (not a.ya_128 and a.estado <> 'pausado' and a.ren_app_fin is null) as tocar,
          case when a.ren_app_fin is not null then 'app'
               when r.pago_ren is not null then 'finanzas'
               when r.pago_dud is not null then 'dudoso'
               else 'ninguna' end as renovacion,
          case when r.pago_ren is not null and a.ren_app_fin is null
-              then (greatest(a.fin_inicial, r.pago_ren) + make_interval(months => p.m_ren))::date
+              then (case when r.primer_pago then r.pago_ren else greatest(a.fin_inicial, r.pago_ren) end
+                    + make_interval(months => p.m_ren))::date
               else a.fin_inicial end as fin_nuevo
   from al a join res r on r.id = a.id cross join params p
 ),
@@ -124,8 +135,15 @@ select orden, concepto, valor from (
   union all select 51, '  por concepto "renov"', count(*) filter (where tocar and renovacion = 'finanzas' and tipo_ren = 'seguro_renov')::text from fin
   union all select 52, '  por concepto RESELL (RESELL, CUOTA RESELL, UPSELL / RESELL...)', count(*) filter (where tocar and renovacion = 'finanzas' and tipo_ren = 'seguro_resell')::text from fin
   union all select 53, '  renovados que hoy ya estarían vencidos', count(*) filter (where tocar and renovacion = 'finanzas' and fin_nuevo < hoy)::text from fin
+  union all select 54, '  renovados cuyo primer pago es RESELL / renov (fecha_fin = ese pago + 6 meses, no 4 + 6)', count(*) filter (where tocar and renovacion = 'finanzas' and primer_pago)::text from fin
   union all select 60, 'Dudosos (sin renovación, ver Q2)', count(*) filter (where tocar and renovacion = 'dudoso')::text from fin
   union all select 61, 'Renovados que además tienen otro pago posterior o un RESELL separado por más de 5 meses (ver Q2)', count(*) filter (where tocar and renovacion = 'finanzas' and pago_dud is not null)::text from fin
+  union all select 70, 'Pagos RESELL / renov que no cruzan con ningún alumno de teo (ver Q6)', (
+         select count(*)::text from public.fin_pagos f
+         where f.cliente_id = 'teo'
+           and (btrim(coalesce(f.concepto, '')) ~* 'renov' or btrim(coalesce(f.concepto, '')) ~* '\yresell\y')
+           and not exists (select 1 from al a where public.cs_norm_nombre(f.alumno) = a.nom
+                                                or (a.tel is not null and public.cs_norm_tel(f.telefono) = a.tel)))
 ) t
 order by orden;
 
@@ -155,13 +173,17 @@ pagos as (
    and (public.cs_norm_nombre(f.alumno) = a.nom or (a.tel is not null and public.cs_norm_tel(f.telefono) = a.tel))
 ),
 cls0 as (
-  select g.id, g.fecha, g.concepto, g.via, a.fin_inicial,
-         case when g.fecha > a.fecha_inicio and g.concepto ~* 'renov' then 'renov'
-              when g.fecha > a.fecha_inicio and g.concepto ~* '\yresell\y' then 'resell' end as es_ren
-  from pagos g join al a on a.id = g.id
+  select h.id, h.fecha, h.concepto, h.via, h.fin_inicial, h.es_primero,
+         case when (h.es_primero or h.fecha > h.fecha_inicio) and h.concepto ~* 'renov' then 'renov'
+              when (h.es_primero or h.fecha > h.fecha_inicio) and h.concepto ~* '\yresell\y' then 'resell' end as es_ren
+  from (select g.id, g.fecha, g.concepto, g.via, a.fin_inicial, a.fecha_inicio,
+               -- primer pago cruzado por nombre = el que definió fecha_inicio (125)
+               (g.via = 'nombre' and g.fecha <= a.fecha_inicio
+                and g.fecha = min(g.fecha) filter (where g.via = 'nombre') over (partition by g.id)) as es_primero
+        from pagos g join al a on a.id = g.id) h
 ),
 cls as (
-  select c0.id, c0.fecha, c0.concepto, c0.via,
+  select c0.id, c0.fecha, c0.concepto, c0.via, c0.es_primero,
          case
            when c0.via = 'nombre' and c0.es_ren is not null
                 and c0.fecha <= min(c0.fecha) filter (where c0.via = 'nombre' and c0.es_ren is not null)
@@ -209,13 +231,17 @@ pagos as (
    and (public.cs_norm_nombre(f.alumno) = a.nom or (a.tel is not null and public.cs_norm_tel(f.telefono) = a.tel))
 ),
 cls0 as (
-  select g.id, g.fecha, g.concepto, g.via, a.fin_inicial,
-         case when g.fecha > a.fecha_inicio and g.concepto ~* 'renov' then 'renov'
-              when g.fecha > a.fecha_inicio and g.concepto ~* '\yresell\y' then 'resell' end as es_ren
-  from pagos g join al a on a.id = g.id
+  select h.id, h.fecha, h.concepto, h.via, h.fin_inicial, h.es_primero,
+         case when (h.es_primero or h.fecha > h.fecha_inicio) and h.concepto ~* 'renov' then 'renov'
+              when (h.es_primero or h.fecha > h.fecha_inicio) and h.concepto ~* '\yresell\y' then 'resell' end as es_ren
+  from (select g.id, g.fecha, g.concepto, g.via, a.fin_inicial, a.fecha_inicio,
+               -- primer pago cruzado por nombre = el que definió fecha_inicio (125)
+               (g.via = 'nombre' and g.fecha <= a.fecha_inicio
+                and g.fecha = min(g.fecha) filter (where g.via = 'nombre') over (partition by g.id)) as es_primero
+        from pagos g join al a on a.id = g.id) h
 ),
 cls as (
-  select c0.id, c0.fecha, c0.concepto, c0.via,
+  select c0.id, c0.fecha, c0.concepto, c0.via, c0.es_primero,
          case
            when c0.via = 'nombre' and c0.es_ren is not null
                 and c0.fecha <= min(c0.fecha) filter (where c0.via = 'nombre' and c0.es_ren is not null)
@@ -226,12 +252,15 @@ cls as (
   from cls0 c0
 ),
 primero as (
-  select distinct on (x.id) x.id, x.fecha, x.concepto, x.tipo
+  select distinct on (x.id) x.id, x.fecha, x.concepto, x.tipo, x.es_primero
   from cls x where x.tipo like 'seguro%' order by x.id, x.fecha
 )
 select a.nombre, a.estado as estado_hoy, a.fecha_inicio, a.fin_inicial, p.fecha as pago_renovacion, p.concepto, p.tipo as regla,
-       (greatest(a.fin_inicial, p.fecha) + make_interval(months => (select m_ren from params)))::date as fin_nuevo,
-       case when (greatest(a.fin_inicial, p.fecha) + make_interval(months => (select m_ren from params)))::date >= (select hoy from params)
+       p.es_primero as primer_pago_de_finanzas,
+       (case when p.es_primero then p.fecha else greatest(a.fin_inicial, p.fecha) end
+        + make_interval(months => (select m_ren from params)))::date as fin_nuevo,
+       case when (case when p.es_primero then p.fecha else greatest(a.fin_inicial, p.fecha) end
+                  + make_interval(months => (select m_ren from params)))::date >= (select hoy from params)
             then 'activo' else 'finalizado' end as estado_despues
 from al a join primero p on p.id = a.id
 where not a.ya_128 and a.estado <> 'pausado' and a.ren_app is null
@@ -272,3 +301,20 @@ where c.programa_id = 'teo'
   and (c.campos_extra ? 'dur128' or c.estado = 'pausado'
        or exists (select 1 from public.cs_renovaciones r where r.cliente_id = c.id and r.estado = 'renovado'))
 order by c.nombre;
+
+
+-- =====================================================================
+-- Q6. RESELL SIN ALUMNO: pagos de teo en Finanzas con concepto RESELL / renov (p. ej. "CUOTA RESELL") cuyo
+-- nombre ni teléfono cruzan con ningún alumno de teo. Para revisar a mano (¿nombre distinto? ¿falta cargar
+-- al alumno?). No hacen nada: la 128 no los usa. Tiene nombres: no pegar en chats.
+-- =====================================================================
+select f.fecha, f.alumno, f.telefono, btrim(coalesce(f.concepto, '')) as concepto, 'RESELL sin alumno' as motivo
+from public.fin_pagos f
+where f.cliente_id = 'teo'
+  and (btrim(coalesce(f.concepto, '')) ~* 'renov' or btrim(coalesce(f.concepto, '')) ~* '\yresell\y')
+  and not exists (
+    select 1 from public.cs_clientes c
+    where c.programa_id = 'teo'
+      and (public.cs_norm_nombre(c.nombre) = public.cs_norm_nombre(f.alumno)
+           or (public.cs_norm_tel(c.telefono) is not null and public.cs_norm_tel(c.telefono) = public.cs_norm_tel(f.telefono))))
+order by f.fecha, f.alumno;
