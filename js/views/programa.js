@@ -4,7 +4,7 @@
 import { esc } from '../ui.js';
 import { setHeader, SECCIONES } from '../layout.js';
 import { esFundador, puedeGestionarFathom } from '../sesion.js';
-import { vistaFathom } from './fathom-sin-asignar.js';
+import { vistaLlamadas } from './llamadas-fathom.js';
 import { vistaHoy } from './hoy.js';
 import { vistaDashboard } from './dashboard.js';
 import { vistaClientes } from './clientes.js';
@@ -52,6 +52,12 @@ export function vistaPrograma(el, { p, sub, clienteId, vigente }) {
     return null;
   }
 
+  /* Ruta vieja "Llamadas sin asignar" (122): ahora es la pantalla Llamadas (124). */
+  if (sub === 'fathom') {
+    location.replace('#/p/' + encodeURIComponent(p.id) + '/llamadas');
+    return null;
+  }
+
   const seccion = SECCIONES.find(s => s[0] === sub);
   if (!seccion) {
     setHeader(p.nombre, p.marca || '');
@@ -93,7 +99,7 @@ export function vistaPrograma(el, { p, sub, clienteId, vigente }) {
   if (sub === 'revision') return vistaRevision(cont, p.id, vigente);
   if (sub === 'satisfaccion') return vistaSatisfaccion(cont, p.id, vigente);
   if (sub === 'dudas') return vistaDudas(cont, p.id, vigente);
-  if (sub === 'fathom') return vistaFathom(cont, p.id, vigente);
+  if (sub === 'llamadas') return vistaLlamadas(cont, p.id, vigente);
   if (sub === 'formularios') return vistaFormularios(cont, p.id, vigente);
   if (sub === 'metricas') return vistaMetricas(cont, p.id, vigente);
   if (sub === 'config') return vistaConfig(cont, p.id, vigente);

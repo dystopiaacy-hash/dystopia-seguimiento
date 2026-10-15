@@ -1,29 +1,52 @@
-/* Datos de la sincronización con Fathom (122). Las llamadas entran solas por la Edge Function
-   fathom-sync; acá solo se leen y se asignan a mano. La API key de Fathom vive en un secreto de
-   la función: nunca pasa por el front ni por una tabla. Sin la 122 las lecturas devuelven
-   undefined y las pantallas avisan que falta la migración. */
+/* Datos de la sincronización con Fathom (122, 124). Las llamadas entran solas por la Edge Function
+   fathom-sync, una cuenta de Fathom por consultor (cs_fathom_consultores); acá solo se leen y se
+   asignan a mano. La API key de Fathom vive en un secreto de la función: nunca pasa por el front ni
+   por una tabla (la tabla guarda solo el NOMBRE del secreto). Lo que cada usuario ve lo decide la
+   RLS (llamadas de alumno: quien tiene acceso al programa; pendientes y "no es alumno": fundador
+   y cliente). Sin la 124 las lecturas devuelven undefined y las pantallas avisan. */
 import { sb } from './supabase.js';
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 import { faltaObjeto } from './datos-faltante.js';
 
-/* Sin la transcripción (texto largo): la lista no la necesita. */
-const COLS_SIN_ASIGNAR = 'id,externo_id,motivo,estado,fecha,titulo,tipo,duracion_min,grabacion_url,'
-  + 'grabacion_share_url,resumen,en_que_esta,action_items,invitados,candidatos,created_at';
-
 export const TIPO_LLAMADA_LABEL = {
   onboarding: 'Onboarding', seguimiento: 'Seguimiento', resell: 'Resell', otra: 'Otra'
+};
+export const ESTADO_FATHOM_LABEL = {
+  alumno: 'Alumno', pendiente: 'Pendiente', no_alumno: 'No es alumno'
 };
 export const MOTIVO_LABEL = {
   sin_alumno: 'Ningún invitado coincide con un alumno habilitado',
   varios_alumnos: 'Coincide con más de un alumno'
 };
 
-/* Pendientes de asignar, más nuevas primero. undefined = 122 sin correr. */
-export async function traerSinAsignar() {
-  const { data, error } = await sb.from('cs_fathom_sin_asignar').select(COLS_SIN_ASIGNAR)
-    .eq('estado', 'pendiente').order('fecha', { ascending: false }).limit(500);
+/* Todas las llamadas de Fathom que el usuario puede ver, más nuevas primero. undefined = falta la 124. */
+export async function traerLlamadasFathom() {
+  const { data, error } = await sb.from('cs_v_fathom_llamadas').select('*')
+    .order('fecha', { ascending: false }).order('inicio_at', { ascending: false }).limit(1000);
   if (error) {
     if (faltaObjeto(error)) return undefined;
+    throw error;
+  }
+  return data || [];
+}
+
+/* Cuentas de Fathom por consultor (activas e inactivas). undefined = falta la 124. */
+export async function traerConsultores() {
+  const { data, error } = await sb.from('cs_fathom_consultores')
+    .select('id,nombre,secreto,activo,orden,ultimo_at,ultimo_estado,ultimo_resumen,ultima_sync_ok_at')
+    .order('orden').order('id');
+  if (error) {
+    if (faltaObjeto(error)) return undefined;
+    throw error;
+  }
+  return data || [];
+}
+
+/* Programas habilitados para asignar (los ve quien ve las llamadas privadas). [] si no corresponde. */
+export async function traerProgramasHabilitados() {
+  const { data, error } = await sb.rpc('cs_fathom_programas');
+  if (error) {
+    if (faltaObjeto(error)) return [];
     throw error;
   }
   return data || [];
@@ -35,8 +58,13 @@ export async function asignarLlamada(id, clienteId) {
   return data;
 }
 
-export async function descartarLlamada(id) {
-  const { error } = await sb.rpc('cs_fathom_descartar', { p_id: id });
+export async function marcarNoAlumno(id) {
+  const { error } = await sb.rpc('cs_fathom_marcar_no_alumno', { p_id: id });
+  if (error) throw error;
+}
+
+export async function reabrirLlamada(id) {
+  const { error } = await sb.rpc('cs_fathom_reabrir', { p_id: id });
   if (error) throw error;
 }
 
@@ -66,17 +94,29 @@ export async function guardarConfigFathom(cambios) {
   if (!data || !data.length) throw new Error('No se guardó: falta la fila de configuración (migración 122).');
 }
 
+export async function guardarConsultor(id, cambios) {
+  const { data, error } = await sb.from('cs_fathom_consultores').update(cambios).eq('id', id).select('id');
+  if (error) throw error;
+  if (!data || !data.length) throw new Error('No se guardó el consultor.');
+}
+
+/* Nueva cuenta: solo el NOMBRE del secreto (FATHOM_API_KEY_<ALGO>), nunca la key. */
+export async function crearConsultor({ id, nombre, secreto, orden }) {
+  const { error } = await sb.from('cs_fathom_consultores').insert({ id, nombre, secreto, orden, activo: true });
+  if (error) throw error;
+}
+
 /* Última corrida (o null). */
 export async function traerUltimaCorrida() {
   const { data, error } = await sb.from('cs_fathom_corridas')
-    .select('inicio,fin,origen,estado,traidas,asignadas,creadas,actualizadas,vinculadas,sin_asignar,ignoradas,errores,parcial,detalle')
+    .select('inicio,fin,origen,estado,traidas,asignadas,creadas,actualizadas,vinculadas,sin_asignar,ignoradas,errores,parcial,detalle,por_consultor')
     .order('inicio', { ascending: false }).limit(1).maybeSingle();
   if (error) throw error;
   return data || null;
 }
 
-/* "Sincronizar Fathom ahora": llama a la Edge Function con la sesión del fundador. Devuelve el
-   resumen JSON (traídas, asignadas, sin asignar, errores). Puede tardar hasta ~2 minutos. */
+/* "Sincronizar ahora": llama a la Edge Function con la sesión del fundador. Devuelve el resumen
+   JSON (totales y `consultores` con el desglose). Puede tardar hasta ~2 minutos. */
 export async function sincronizarFathom(desde) {
   const { data: ses } = await sb.auth.getSession();
   const token = ses && ses.session && ses.session.access_token;

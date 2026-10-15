@@ -20,9 +20,16 @@
 //   - Toda la escritura va por la RPC cs_fathom_registrar (migracion 122): una transaccion
 //     por reunion, sin duplicar, sin pisar lo cargado a mano.
 //
-// Secretos de la funcion (Supabase > Edge Functions > Secrets):
-//   FATHOM_API_KEY            key de Fathom de la cuenta de Joaquin (User Settings > API Access)
-//   FATHOM_API_KEY_2 .. _9    opcionales: otras cuentas de Fathom, mismo tratamiento
+// Cuentas (migracion 124): una por consultor, tabla cs_fathom_consultores (id, nombre, secreto,
+// activo). Se recorren las activas cuyo secreto exista; una sin secreto se saltea sin error
+// (estado 'sin_secreto'). Cada llamada guarda el consultor que la grabo. El limite de Fathom es
+// por cuenta (key): hay pausa entre paginas de cada una.
+//
+// Secretos de la funcion (Supabase > Edge Functions > Secrets), nombres exactos:
+//   FATHOM_API_KEY            Joaco (User Settings > API Access de su Fathom)
+//   FATHOM_API_KEY_TEO        Teo
+//   FATHOM_API_KEY_MARTU      Martu
+//   (un consultor nuevo = una fila en cs_fathom_consultores con secreto FATHOM_API_KEY_<ALGO>)
 //   FATHOM_PAUSA_MS           opcional, pausa entre paginas (default 2500)
 //   FATHOM_PRESUPUESTO_SEG    opcional, tiempo maximo de la corrida (default 110)
 // La key de Fathom nunca va al front, ni a tablas, ni a la respuesta ni a los logs.
@@ -121,18 +128,31 @@ async function autorizar(req: Request): Promise<string | null> {
 }
 
 // ---------------------------------------------------------------------------
-// Cuentas de Fathom (hoy una; para sumar otra: secreto FATHOM_API_KEY_2)
+// Cuentas de Fathom por consultor (cs_fathom_consultores, migracion 124)
 // ---------------------------------------------------------------------------
-function cuentasFathom(): { nombre: string; clave: string }[] {
-  const nombres = ['FATHOM_API_KEY', ...Array.from({ length: 8 }, (_, i) => `FATHOM_API_KEY_${i + 2}`)];
-  const salida: { nombre: string; clave: string }[] = [];
+type Consultor = { id: string; nombre: string; secreto: string; ultima_sync_ok_at?: string | null };
+// Solo secretos FATHOM_API_KEY[_X]: aunque alguien editara la tabla, la funcion no lee otros secretos.
+const RX_SECRETO = /^FATHOM_API_KEY(_[A-Z0-9]+)*$/;
+
+type Cuenta = Consultor & { clave: string | null; omitir: string | null };
+function resolverCuentas(consultores: Consultor[]): Cuenta[] {
   const vistas = new Set<string>();
-  for (const nombre of nombres) {
-    const clave = (Deno.env.get(nombre) ?? '').trim();
-    if (clave && !vistas.has(clave)) { vistas.add(clave); salida.push({ nombre, clave }); }
-  }
-  return salida;
+  return consultores.map((c) => {
+    const clave = RX_SECRETO.test(c.secreto) ? (Deno.env.get(c.secreto) ?? '').trim() : '';
+    if (!clave) return { ...c, clave: null, omitir: 'sin_secreto' };
+    if (vistas.has(clave)) return { ...c, clave: null, omitir: 'clave_repetida' };   // dos consultores con la misma key
+    vistas.add(clave);
+    return { ...c, clave, omitir: null };
+  });
 }
+
+type Conteo = {
+  estado: string; traidas: number; creadas: number; actualizadas: number; vinculadas: number;
+  sin_asignar: number; ignoradas: number; errores: number;
+};
+const conteoVacio = (estado = 'ok'): Conteo => ({
+  estado, traidas: 0, creadas: 0, actualizadas: 0, vinculadas: 0, sin_asignar: 0, ignoradas: 0, errores: 0,
+});
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -240,7 +260,7 @@ function resolverAlumno(emails: string[], alumnos: Map<string, Alumno[]>): { alu
 // ---------------------------------------------------------------------------
 // Una reunion -> payload de cs_fathom_registrar
 // ---------------------------------------------------------------------------
-function armarPayload(m: any, alumno: Alumno | undefined, candidatos: string[], externos: string[]) {
+function armarPayload(m: any, consultor: string, alumno: Alumno | undefined, candidatos: string[], externos: string[]) {
   const titulo = String(m.meeting_title || m.title || '').trim();
   const resumen = String(m.default_summary?.markdown_formatted ?? '').trim();
   const ini = m.recording_start_time || m.scheduled_start_time || m.created_at;
@@ -252,6 +272,8 @@ function armarPayload(m: any, alumno: Alumno | undefined, candidatos: string[], 
   }
   return {
     externo_id: `fathom:${m.recording_id}`,
+    consultor,
+    origen: 'sync',
     cliente_id: alumno?.id ?? null,
     motivo: alumno ? null : (candidatos.length ? 'varios_alumnos' : 'sin_alumno'),
     candidatos,
@@ -299,8 +321,17 @@ Deno.serve(async (req) => {
   if (cuerpo.desde != null && !RX_FECHA.test(String(cuerpo.desde))) return responder({ error: '"desde" debe ser YYYY-MM-DD' }, 400);
   if (cuerpo.hasta != null && !RX_FECHA.test(String(cuerpo.hasta))) return responder({ error: '"hasta" debe ser YYYY-MM-DD' }, 400);
 
-  const cuentas = cuentasFathom();
-  if (!cuentas.length) return responder({ error: 'falta el secreto FATHOM_API_KEY en la funcion' }, 500);
+  // Consultores activos (migracion 124) y que secretos existen
+  const { data: cons, error: econs } = await sb.from('cs_fathom_consultores')
+    .select('id,nombre,secreto,ultima_sync_ok_at').eq('activo', true).order('orden').order('id');
+  if (econs) return responder({ error: `no se pudo leer cs_fathom_consultores (migracion 124 corrida?): ${econs.message}` }, 500);
+  const cuentas = resolverCuentas((cons ?? []) as Consultor[]);
+  if (!cuentas.some((c) => c.clave)) {
+    return responder({
+      error: 'ningun consultor activo tiene su secreto cargado en la funcion',
+      consultores: cuentas.map((c) => ({ id: c.id, secreto: c.secreto, estado: c.omitir })),
+    }, 500);
+  }
 
   const inicio = Date.now();
   const limite = inicio + PRESUPUESTO_MS;
@@ -312,42 +343,48 @@ Deno.serve(async (req) => {
   const programas: string[] = (cfg?.programas ?? []).filter((p: unknown) => typeof p === 'string');
   if (!programas.length) return responder({ error: 'no hay programas habilitados en cs_fathom_config' }, 409);
 
-  // Desde: body > ultima corrida completa - 2 dias > 60 dias atras
-  let desdeISO: string;
-  if (cuerpo.desde) {
-    desdeISO = new Date(`${cuerpo.desde}T00:00:00-03:00`).toISOString();
-  } else {
-    const { data: ult } = await sb.from('cs_fathom_corridas').select('inicio').eq('estado', 'ok')
-      .order('inicio', { ascending: false }).limit(1).maybeSingle();
-    const base = ult?.inicio ? Date.parse(ult.inicio) - 2 * 86400000 : Date.now() - 60 * 86400000;
-    desdeISO = new Date(base).toISOString();
-  }
+  // Desde, por consultor: body > su ultima corrida completa - 2 dias > 60 dias atras (cuenta nueva).
+  // Cada cuenta tiene su propia ventana: sumar un consultor no obliga a re-traer a los demas.
+  const ms60 = Date.now() - 60 * 86400000;
+  const desdeDe = (c: { ultima_sync_ok_at?: string | null }): string => {
+    if (cuerpo.desde) return new Date(`${cuerpo.desde}T00:00:00-03:00`).toISOString();
+    const base = c.ultima_sync_ok_at ? Date.parse(c.ultima_sync_ok_at) - 2 * 86400000 : ms60;
+    return new Date(base).toISOString();
+  };
   const hastaISO = cuerpo.hasta ? new Date(`${cuerpo.hasta}T23:59:59-03:00`).toISOString() : null;
+  const desdeISO = cuentas.filter((c) => c.clave).map((c) => desdeDe(c)).sort()[0];
 
   const { data: corrida, error: ecor } = await sb.from('cs_fathom_corridas')
     .insert({ origen, desde: desdeISO, estado: 'en_curso' }).select('id').single();
   if (ecor) return responder({ error: `no se pudo abrir la corrida: ${ecor.message}` }, 500);
 
-  const res = { traidas: 0, creadas: 0, actualizadas: 0, vinculadas: 0, sin_asignar: 0, ignoradas: 0 };
+  const porConsultor: Record<string, Conteo> = {};
   const errores: { recording_id: unknown; motivo: string }[] = [];
   let totalErrores = 0;
   let parcial = false;
   let fatal: string | null = null;
 
-  const falla = (id: unknown, motivo: string) => {
+  const falla = (c: Conteo, cta: string, id: unknown, motivo: string) => {
     totalErrores++;
-    if (errores.length < MAX_ERRORES_DETALLE) errores.push({ recording_id: id, motivo: motivo.slice(0, 300) });
+    c.errores++;
+    if (errores.length < MAX_ERRORES_DETALLE) errores.push({ recording_id: id, motivo: `${cta}: ${motivo}`.slice(0, 300) });
   };
 
   try {
     const alumnos = await cargarAlumnos(sb, programas);
 
     for (const cuenta of cuentas) {
+      const c = porConsultor[cuenta.id] = conteoVacio();
+      if (cuenta.omitir) { c.estado = cuenta.omitir; continue; }
+      if (parcial) { c.estado = 'omitido_por_tiempo'; continue; }
+
+      const desdeCuenta = desdeDe(cuenta);
       let cursor: string | null = null;
+      let cuentaFallo = false;
       do {
-        if (Date.now() + PAUSA_MS > limite) { parcial = true; break; }
+        if (Date.now() + PAUSA_MS > limite) { parcial = true; c.estado = 'parcial'; break; }
         const params = new URLSearchParams({
-          created_after: desdeISO,
+          created_after: desdeCuenta,
           include_summary: 'true', include_transcript: 'true', include_action_items: 'true',
         });
         if (hastaISO) params.set('created_before', hastaISO);
@@ -355,65 +392,95 @@ Deno.serve(async (req) => {
 
         let pagina: any;
         try {
-          pagina = await fathomGet(cuenta.clave, '/meetings', params, limite);
+          pagina = await fathomGet(cuenta.clave!, '/meetings', params, limite);
         } catch (e) {
-          if (e instanceof SinPresupuesto) { parcial = true; break; }
-          falla(null, `${cuenta.nombre}: ${(e as Error).message}`);
+          if (e instanceof SinPresupuesto) { parcial = true; c.estado = 'parcial'; break; }
+          falla(c, cuenta.id, null, (e as Error).message);
+          cuentaFallo = true;
           break;   // esta cuenta no sigue; las demas si
         }
 
         for (const m of pagina.items ?? []) {
-          res.traidas++;
+          c.traidas++;
           try {
             const invitados: any[] = Array.isArray(m.calendar_invitees) ? m.calendar_invitees : [];
-            if (!invitados.some((i) => i?.is_external)) { res.ignoradas++; continue; }
+            if (!invitados.some((i) => i?.is_external)) { c.ignoradas++; continue; }
             const grabador = String(m.recorded_by?.email ?? '').toLowerCase().trim();
             const externos = [...new Set(invitados
               .filter((i) => i?.is_external && i?.email)
               .map((i) => String(i.email).toLowerCase().trim())
               .filter((e) => e && e !== grabador))];
             const { alumno, candidatos } = resolverAlumno(externos, alumnos);
-            const { data, error } = await sb.rpc('cs_fathom_registrar', { p: armarPayload(m, alumno, candidatos, externos) });
-            if (error) { falla(m.recording_id, error.message); continue; }
+            const { data, error } = await sb.rpc('cs_fathom_registrar',
+              { p: armarPayload(m, cuenta.id, alumno, candidatos, externos) });
+            if (error) { falla(c, cuenta.id, m.recording_id, error.message); continue; }
             const r = String(data?.resultado ?? '');
-            if (r === 'creada') res.creadas++;
-            else if (r === 'actualizada') res.actualizadas++;
-            else if (r === 'vinculada') res.vinculadas++;
-            else res.sin_asignar++;
+            if (r === 'creada') c.creadas++;
+            else if (r === 'actualizada') c.actualizadas++;
+            else if (r === 'vinculada') c.vinculadas++;
+            else c.sin_asignar++;
           } catch (e) {
-            falla(m?.recording_id, (e as Error).message);
+            falla(c, cuenta.id, m?.recording_id, (e as Error).message);
           }
         }
 
         cursor = pagina.next_cursor ?? null;
-        if (cursor) await dormir(PAUSA_MS);
+        if (cursor) await dormir(PAUSA_MS);   // limite de Fathom: por cuenta (key)
       } while (cursor);
-      if (parcial) break;
+
+      if (c.estado !== 'parcial') {
+        c.estado = cuentaFallo && c.traidas === 0 ? 'error' : c.errores ? 'con_errores' : 'ok';
+      }
     }
   } catch (e) {
     fatal = (e as Error).message;
   }
 
-  const asignadas = res.creadas + res.actualizadas + res.vinculadas;
+  // Totales
+  const tot = conteoVacio();
+  for (const c of Object.values(porConsultor)) {
+    tot.traidas += c.traidas; tot.creadas += c.creadas; tot.actualizadas += c.actualizadas;
+    tot.vinculadas += c.vinculadas; tot.sin_asignar += c.sin_asignar; tot.ignoradas += c.ignoradas;
+  }
+  const asignadas = tot.creadas + tot.actualizadas + tot.vinculadas;
   const estado = fatal ? 'error' : parcial ? 'parcial' : totalErrores ? 'con_errores' : 'ok';
   const detalle = [
     fatal ? `error: ${fatal}` : '',
     parcial ? 'corrida cortada por tiempo: repetir (o usar "desde"/"hasta" por tramos)' : '',
+    ...Object.entries(porConsultor).filter(([, c]) => ['sin_secreto', 'clave_repetida'].includes(c.estado))
+      .map(([id, c]) => `${id}: ${c.estado === 'sin_secreto' ? 'saltado, falta el secreto' : 'saltado, misma key que otro consultor'}`),
     ...errores.map((e) => `${e.recording_id ?? 'cuenta'}: ${e.motivo}`),
   ].filter(Boolean).join('\n').slice(0, 2000);
 
+  // Resultado de cada consultor (solo conteos): lo muestra Configuracion.
+  const fin = new Date().toISOString();
+  const ESTADOS_BD = ['ok', 'parcial', 'con_errores', 'error', 'sin_secreto', 'clave_repetida', 'omitido_por_tiempo'];
+  for (const cuenta of cuentas) {
+    const c = porConsultor[cuenta.id];
+    if (!c) continue;
+    const { estado: e, ...resumen } = c;
+    const fila: Record<string, unknown> = {
+      ultimo_at: fin, ultimo_estado: ESTADOS_BD.includes(e) ? e : 'error', ultimo_resumen: resumen,
+    };
+    if (e === 'ok') fila.ultima_sync_ok_at = new Date(inicio).toISOString();
+    await sb.from('cs_fathom_consultores').update(fila).eq('id', cuenta.id);
+  }
+  const desglose = Object.fromEntries(cuentas.filter((c) => porConsultor[c.id])
+    .map((c) => [c.id, { nombre: c.nombre, ...porConsultor[c.id] }]));
+
   await sb.from('cs_fathom_corridas').update({
-    fin: new Date().toISOString(), estado, traidas: res.traidas, asignadas, creadas: res.creadas,
-    actualizadas: res.actualizadas, vinculadas: res.vinculadas, sin_asignar: res.sin_asignar,
-    ignoradas: res.ignoradas, errores: totalErrores, parcial, detalle: detalle || null,
+    fin, estado, traidas: tot.traidas, asignadas, creadas: tot.creadas,
+    actualizadas: tot.actualizadas, vinculadas: tot.vinculadas, sin_asignar: tot.sin_asignar,
+    ignoradas: tot.ignoradas, errores: totalErrores, parcial, detalle: detalle || null,
+    por_consultor: desglose,
   }).eq('id', corrida.id);
 
   // Solo conteos y motivos: nunca contenido de llamadas, mails ni la key.
   return responder({
     corrida_id: corrida.id, estado, invocado_por: quien, desde: desdeISO, hasta: hastaISO,
-    programas_habilitados: programas, cuentas: cuentas.length,
-    traidas: res.traidas, asignadas, creadas: res.creadas, actualizadas: res.actualizadas,
-    vinculadas: res.vinculadas, sin_asignar: res.sin_asignar, ignoradas_internas: res.ignoradas,
+    programas_habilitados: programas, consultores: desglose,
+    traidas: tot.traidas, asignadas, creadas: tot.creadas, actualizadas: tot.actualizadas,
+    vinculadas: tot.vinculadas, sin_asignar: tot.sin_asignar, ignoradas_internas: tot.ignoradas,
     errores: totalErrores, parcial, segundos: Math.round((Date.now() - inicio) / 100) / 10,
     detalle_errores: fatal ? [{ recording_id: null, motivo: fatal }, ...errores] : errores,
   }, fatal ? 500 : 200);

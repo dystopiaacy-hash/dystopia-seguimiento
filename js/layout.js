@@ -4,7 +4,8 @@ import { esc } from './ui.js';
 import { yo, esFundador, etiquetaRol, puedeGestionarFathom } from './sesion.js';
 
 /* Secciones de un programa: [sub-ruta, etiqueta, soloFundador, soloGestor]
-   soloGestor (122): fundador o CSM, no cliente@ de solo lectura. */
+   soloGestor (122): fundador o CSM, no cliente@ de solo lectura (hoy ninguna lo usa).
+   "Llamadas" (124) la ve cualquiera con acceso al programa: la RLS decide qué filas. */
 export const SECCIONES = [
   ['hoy', 'Hoy', false],
   ['', 'Dashboard', false],
@@ -18,7 +19,7 @@ export const SECCIONES = [
   ['revision', 'Revisión', false],
   ['satisfaccion', 'Satisfacción', false],
   ['dudas', 'Dudas frecuentes', false],
-  ['fathom', 'Llamadas sin asignar', false, true],
+  ['llamadas', 'Llamadas', false],
   ['formularios', 'Formularios', false],
   ['metricas', 'Métricas', false],
   ['config', 'Configuración', true]

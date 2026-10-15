@@ -72,6 +72,24 @@
   color:var(--text);}
 .cf-fathom-detalle{white-space:pre-wrap;overflow-wrap:anywhere;margin:var(--sp-2) 0 0;}
 
+/* ---------- Pantalla Llamadas por consultor (124) ---------- */
+.fa-filtros{display:flex;gap:var(--sp-3);flex-wrap:wrap;align-items:flex-end;margin:var(--sp-3) 0;
+  font-size:var(--fs-meta);color:var(--text-dim);}
+.fa-filtros label{display:flex;flex-direction:column;gap:var(--sp-1);}
+.fa-filtros select,.fa-filtros input{background:var(--surface-2);border:1px solid transparent;border-radius:var(--radius-sm);
+  min-height:var(--control-h);padding:0 var(--sp-3);color:var(--ink);font-size:var(--fs-meta);}
+.fa-n{font-size:var(--fs-micro);color:var(--text-faint);margin-left:var(--sp-1);}
+.fa-estado{font-size:var(--fs-micro);font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
+.fa-alumno{color:var(--accent);}
+.fa-pendiente{color:var(--text-dim);}
+.fa-no_alumno{color:var(--text-faint);}
+.fa-det{margin-top:var(--sp-2);font-size:var(--fs-meta);}
+.fa-det summary{cursor:pointer;color:var(--text-dim);}
+.fa-texto{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:var(--sp-1);color:var(--text);}
+.cf-consultor{display:flex;gap:var(--sp-3);flex-wrap:wrap;align-items:center;padding:var(--sp-2) 0;
+  border-top:1px solid var(--border-soft);font-size:var(--fs-meta);}
+.cf-consultor-n{flex:1;min-width:200px;}
+
 @media (max-width:720px){
   .ll-sub{margin-left:var(--sp-3);}
 }
