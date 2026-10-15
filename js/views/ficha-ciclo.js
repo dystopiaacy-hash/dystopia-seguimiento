@@ -85,10 +85,32 @@ function filaAviso(ctx, n) {
     </div>`;
 }
 
+/* 128: renovación guardada en campos_extra.renovacion ({meses, pago_fecha, desde, hasta, origen}), la
+   escribe el trigger al cerrar una renovación o la migración 128 al detectarla en Finanzas. La
+   "dudosa" (campos_extra.dur128.dudosa) es un pago posterior al primer ciclo que no se pudo
+   decidir: se avisa, no cuenta como renovación. */
+function bloqueRenovado(c) {
+  const ex = c.campos_extra || {};
+  const r = ex.renovacion;
+  if (r && r.hasta) {
+    const meses = Number(r.meses) > 0 ? ` (${plural(Number(r.meses), 'mes', 'meses')})` : '';
+    const pago = r.pago_fecha ? `Pago del ${esc(fmtFecha(r.pago_fecha))}. ` : '';
+    return `<div class="hint">Renovado${meses} · ${pago}Fin del programa renovado: ${esc(fmtFecha(r.hasta))}
+      ${r.origen === 'finanzas' ? '· detectado desde Finanzas' : ''}</div>`;
+  }
+  const d = ex.dur128 && ex.dur128.dudosa;
+  if (d) {
+    return `<div class="hint">Posible renovación sin confirmar: hay un pago del ${esc(fmtFecha(d.pago_fecha))}
+      (${esc(d.concepto || 'sin concepto')}) después de terminado el primer ciclo. Si renovó, registrala desde Renovaciones.</div>`;
+  }
+  return '';
+}
+
 export function html(ctx) {
   const { c } = ctx;
   return `
     <div class="card ficha-ciclo">
+      ${bloqueRenovado(c)}
       <div class="ficha-campos">
         ${campoProducto(ctx)}
         ${campoResell(c)}

@@ -14,7 +14,9 @@ import {
   mensajeError, MOTIVO_NO_RENOVACION, ESTADO_LABEL, RESELL_PRODUCTO_LABEL
 } from '../datos.js';
 import { guardar, linkCliente, mapaPorId, badgeRen, opcionesHtml, num } from './comunes.js';
-import { traerProductos, traerCicloCliente, opcionesProducto, finConProducto, finVigente } from '../ciclo.js';
+import {
+  traerProductos, traerCicloCliente, opcionesProducto, finConProducto, finVigente, sumarMeses
+} from '../ciclo.js';
 
 const DIAS_TRIMESTRE = 90;
 
@@ -134,7 +136,10 @@ export function modalCerrarRenovacion(r, cliente, prog, alGuardar, { resultado: 
   const finActual = finVigente(cliente) || hoyAR();
   /* Si ya venció (resell en días de gracia), la fecha nueva se cuenta desde hoy. */
   const base = finActual < hoyAR() ? hoyAR() : finActual;
-  const porDefecto = sumarDias(base, num(prog && prog.duracion_default_dias) || 90);
+  /* 128: con duración de renovación en meses (teo = 6), la fecha nueva es base + N meses calendario. */
+  const meses = num(prog && prog.duracion_renovacion_meses) || 0;
+  const porDefecto = meses ? sumarMeses(base, meses)
+    : sumarDias(base, num(prog && prog.duracion_default_dias) || 90);
   const nombre = cliente ? cliente.nombre : 'este cliente';
 
   const m = abrirModal({
@@ -157,7 +162,8 @@ export function modalCerrarRenovacion(r, cliente, prog, alGuardar, { resultado: 
         <div class="form-row"><label for="rc-fin">Nueva fecha de fin</label>
           <input type="date" id="rc-fin" value="${esc(porDefecto)}">
           <div class="hint" id="rc-fin-hint">La del programa que compró. Por defecto, ${finActual < hoyAR() ? 'hoy' : 'fin actual'}
-            + ${esc(plural(num(prog && prog.duracion_default_dias) || 90, 'día'))} (duración del programa).</div></div>
+            + ${meses ? esc(plural(meses, 'mes', 'meses')) + ' (duración de la renovación del programa)'
+              : esc(plural(num(prog && prog.duracion_default_dias) || 90, 'día')) + ' (duración del programa)'}.</div></div>
       </div>
       <div id="rc-bloque-motivo" hidden>
         <div class="form-row"><label for="rc-motivo">Motivo</label>
@@ -186,7 +192,7 @@ export function modalCerrarRenovacion(r, cliente, prog, alGuardar, { resultado: 
   const catalogo = () => productos.find(x => x.id === $('rc-catalogo').value) || null;
   const proponerFin = () => {
     const pr = catalogo();
-    if (!pr || fechaTocada) return;
+    if (!pr || fechaTocada || meses) return;   // con meses (128) manda la duración de renovación del programa
     $('rc-fin').value = finConProducto(cli, pr);
     const fv = finVigente(cli);
     $('rc-fin-hint').textContent = `Calculada: ${fv && fv > hoyAR() ? 'fin vigente' : 'hoy'} + ${plural(num(pr.duracion_dias), 'día')} de ${pr.nombre}. Si la cambiás, se guarda la tuya.`;
@@ -234,7 +240,8 @@ export function modalCerrarRenovacion(r, cliente, prog, alGuardar, { resultado: 
         return;
       }
       /* Con producto y sin tocar la fecha, la calcula la base (misma cuenta que la propuesta). */
-      cambios = { estado, nuevaFechaFin: pr && !fechaTocada ? null : fin, producto, productoId: pr ? pr.id : null };
+      cambios = { estado, nuevaFechaFin: (pr || meses) && !fechaTocada ? null : fin, producto,
+        productoId: pr ? pr.id : null, calculaBase: !!meses };
     } else {
       const clave = $('rc-motivo').value;
       const texto = $('rc-texto').value;

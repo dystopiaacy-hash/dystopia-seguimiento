@@ -96,6 +96,17 @@ export function registrarAviso(id, n, fecha) {
 
 /* Misma cuenta que cs_tg_renovaciones_before: la mayor entre el fin vigente y hoy,
    + la duración del producto. Solo para mostrar: la base la vuelve a calcular. */
+/* Meses calendario (128): igual que Postgres, el día se recorta al fin de mes
+   (31/01 + 1 mes = 28/02). Solo para mostrar: la base vuelve a calcular. */
+export function sumarMeses(fecha, n) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(fecha || ''));
+  if (!m) return '';
+  const total = Number(m[1]) * 12 + (Number(m[2]) - 1) + Number(n);
+  const y = Math.floor(total / 12), mes = total % 12;
+  const d = Math.min(Number(m[3]), new Date(Date.UTC(y, mes + 1, 0)).getUTCDate());
+  return `${y}-${String(mes + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
 export function finConProducto(c, producto) {
   if (!producto) return '';
   const fin = finVigente(c);

@@ -34,7 +34,16 @@ const AJUSTES = [
     'Debajo de este puntaje, una respuesta genera alerta de satisfacción baja.']
 ];
 
-const RX_DISCORD = /^https:\/\/((canary|ptb)\.)?(discord|discordapp)\.com\/api\/webhooks\//;
+/* 128: duración en meses calendario, opcional. Vacío = usar la lógica de días (la de arriba y la de los
+   productos). Solo se muestran si la migración 128 ya está corrida (la columna viene en cs_programas). */
+const AJUSTES_MESES = [
+  ['duracion_inicial_meses', 'Duración inicial (meses)', 1, 60,
+    'Fecha de fin de un cliente nuevo = inicio + estos meses. Vacío = usa los días del producto o del programa.'],
+  ['duracion_renovacion_meses', 'Duración de la renovación (meses)', 1, 60,
+    'Al renovar, la fecha de fin se extiende estos meses (desde el fin vigente o desde hoy si ya venció). Vacío = usa los días del producto.']
+];
+
+const RX_DISCORD =/^https:\/\/((canary|ptb)\.)?(discord|discordapp)\.com\/api\/webhooks\//;
 
 function campoAjuste(p, [campo, label, min, max, hint]) {
   const paso = campo === 'satisfaccion_umbral_bajo' ? '0.5' : '1';
@@ -71,7 +80,8 @@ export function vistaConfig(el, programaId, vigente) {
           ${prog.activo ? 'Desactivar programa' : 'Activar programa'}</button>`)}
 
       ${seccion('Plazos y SLAs',
-        `<div class="conf-grid">${AJUSTES.map(a => campoAjuste(prog, a)).join('')}</div>`,
+        `<div class="conf-grid">${AJUSTES.map(a => campoAjuste(prog, a)).join('')}
+          ${AJUSTES_MESES.filter(a => a[0] in prog).map(a => campoAjuste(prog, a)).join('')}</div>`,
         '<button type="button" class="btn btn-accent btn-sm" id="cf-guardar-ajustes">Guardar plazos</button>')}
 
       ${seccion('Etapas', `<div id="cf-etapas">${htmlEtapas(estado.etapas)}</div>`,
@@ -147,6 +157,17 @@ export function vistaConfig(el, programaId, vigente) {
         return;
       }
       cambios[campo] = campo === 'satisfaccion_umbral_bajo' ? v : Math.round(v);
+    }
+    for (const [campo, label, min, max] of AJUSTES_MESES) {   // 128: opcionales, vacío = null
+      const inp = el.querySelector(`[data-ajuste="${campo}"]`);
+      if (!inp) continue;
+      if (inp.value.trim() === '') { cambios[campo] = null; continue; }
+      const v = Number(inp.value);
+      if (isNaN(v) || v < min || v > max || !Number.isInteger(v)) {
+        toast(`"${label}" tiene que ser un número entero entre ${min} y ${max}, o quedar vacío.`, 'error');
+        return;
+      }
+      cambios[campo] = v;
     }
     await guardar(() => guardarPrograma(programaId, cambios), {
       ok: 'Plazos guardados.', luego: recargar, control: boton

@@ -404,11 +404,12 @@ export function armarMotivo(clave, texto) {
    producto es obligatorio con renovado: se valida acá para no llegar al error de la base.
    productoId (039, catálogo): con nuevaFechaFin null, la base calcula la fecha nueva
    (fin vigente o hoy, la mayor, + duración) y el cliente queda con ese producto. */
-export async function cerrarRenovacion(id, { estado, nuevaFechaFin = null, motivo = null, producto = null, productoId = null }) {
+export async function cerrarRenovacion(id, { estado, nuevaFechaFin = null, motivo = null, producto = null, productoId = null, calculaBase = false }) {
   if (estado === 'renovado' && !RESELL_PRODUCTO_LABEL[producto]) {
     throw new Error('Elegí qué compró: mismo programa, upsell, downsell u otro.');
   }
-  if (estado === 'renovado' && !nuevaFechaFin && !productoId) {
+  /* calculaBase (128): el programa tiene duración de renovación en meses y la base calcula la fecha. */
+  if (estado === 'renovado' && !nuevaFechaFin && !productoId && !calculaBase) {
     throw new Error('Poné la nueva fecha de fin o elegí el producto.');
   }
   const cambios = estado === 'renovado'
