@@ -24,7 +24,11 @@
 --        que la ficha muestre "Renovado (6 meses)". Con fecha explícita manda la explícita (como antes).
 --      Programas sin meses: el comportamiento es idéntico al de la 039.
 --   3. Recalcula los alumnos de teo (ver la regla en la vista previa 128a):
---        fecha_fin = fecha_inicio + 4 meses, o + 6 meses más si Finanzas muestra una renovación segura;
+--        fecha_fin = fecha_inicio + 4 meses, o mayor(fin del primer ciclo, pago) + 6 meses si Finanzas muestra
+--        una renovación segura = pago cruzado por nombre cuyo concepto contiene la palabra RESELL (incluye
+--        CUOTA RESELL, UPSELL / RESELL, COMPLETA UPSELL / RESELL) o "renov"; el primero de ellos marca la
+--        fecha, y otro separado por más de 5 meses NO se encadena (queda dudoso).
+--        UPSELL solo, FEE, PIF, 2DA CUOTA, etc. NO renuevan ni cambian fechas.
 --        estado: activo si fecha_fin >= hoy, finalizado si ya pasó; baja y pausado no cambian de estado.
 --      Los pagos dudosos NO se renuevan: quedan marcados en campos_extra.dur128.dudosa (la ficha lo avisa).
 --      Respaldo previo de cada fila que toca en cs_bak_128_clientes (fecha_fin, estado, campos_extra).
@@ -412,14 +416,22 @@ pagos as (
    and (public.cs_norm_nombre(f.alumno) = a.nom
         or (a.tel is not null and public.cs_norm_tel(f.telefono) = a.tel))
 ),
-cls as (
-  select g.id, g.fecha, g.concepto, g.via,
-         case
-           when g.via = 'nombre' and g.concepto ~* 'renov' and g.fecha > a.fecha_inicio then 'seguro_concepto'
-           when g.via = 'nombre' and g.fecha > a.fin_inicial and upper(g.concepto) ~ '^(FEE|PIF)$' then 'seguro_fecha'
-           when g.fecha > a.fin_inicial or (g.concepto ~* 'renov' and g.fecha > a.fecha_inicio) then 'dudoso'
-         end as tipo
+cls0 as (
+  select g.id, g.fecha, g.concepto, g.via, a.fin_inicial,
+         case when g.fecha > a.fecha_inicio and g.concepto ~* 'renov' then 'renov'
+              when g.fecha > a.fecha_inicio and g.concepto ~* '\yresell\y' then 'resell' end as es_ren
   from pagos g join al a on a.id = g.id
+),
+cls as (
+  select c0.id, c0.fecha, c0.concepto, c0.via,
+         case
+           when c0.via = 'nombre' and c0.es_ren is not null
+                and c0.fecha <= min(c0.fecha) filter (where c0.via = 'nombre' and c0.es_ren is not null)
+                                over (partition by c0.id) + interval '5 months'
+             then 'seguro_' || c0.es_ren
+           when c0.es_ren is not null or c0.fecha > c0.fin_inicial then 'dudoso'
+         end as tipo
+  from cls0 c0
 ),
 res as (
   select a.id,
@@ -503,6 +515,7 @@ declare
   v_f   date;
   v_f2  date;
   v_e   jsonb;
+  v_ok  boolean;
 begin
   begin
     insert into public.cs_programas (id, nombre, duracion_inicial_meses, duracion_renovacion_meses)
@@ -552,6 +565,19 @@ begin
     select fecha_fin, campos_extra into v_f2, v_e from public.cs_clientes where id = v_b;
     res := res || format('renovar sin meses con fecha explicita: la respeta, sin renovacion en campos_extra|%s|fin=%s',
                          v_f2 = hoy + 100 and not (v_e ? 'renovacion'), v_f2);
+
+    -- 7. regla de concepto de la renovación (la misma de la sección 3): RESELL o renov renuevan;
+    --    UPSELL solo, FEE, PIF, 2DA CUOTA, FEE DE PIF, REFUERZA FEE, vacío y "RESELLER" no.
+    select bool_and((x.c ~* 'renov' or x.c ~* '\yresell\y') = x.esp) into v_ok
+    from (values
+      ('RESELL', true), ('CUOTA RESELL', true), ('UPSELL / RESELL', true), ('COMPLETA UPSELL / RESELL', true),
+      ('resell', true), ('Renovación', true),
+      ('UPSELL', false), ('CUOTA UPSELL', false), ('FEE', false), ('PIF', false), ('FEE DE PIF', false),
+      ('2DA CUOTA', false), ('1RA CUOTA', false), ('REFUERZA FEE', false), ('COMPLETA PIF', false),
+      ('', false), ('RESELLER', false)
+    ) as x(c, esp);
+    res := res || format('regla de concepto: RESELL y renov renuevan, UPSELL solo / FEE / PIF no|%s|17 conceptos',
+                         coalesce(v_ok, false));
 
     raise exception 'HUMO128_FIN';
   exception when others then
@@ -635,6 +661,34 @@ select '10 resumen (informativo)', 'renovados / dudosos / sin renovación',
        || count(*) filter (where d->>'renovacion' = 'dudoso')::text || ' / '
        || count(*) filter (where d->>'renovacion' = 'ninguna')::text, true
 from t
+union all
+select '10b renovados por Finanzas: el pago es RESELL / renov del mismo alumno (por nombre)', '0 que no cumplan',
+       (select count(*) from t where d->>'renovacion' = 'finanzas' and not exists (
+          select 1 from public.fin_pagos f
+          where f.cliente_id = 'teo'
+            and public.cs_norm_nombre(f.alumno) = public.cs_norm_nombre(t.nombre)
+            and f.fecha = (t.campos_extra->'renovacion'->>'pago_fecha')::date
+            and (f.concepto ~* 'renov' or f.concepto ~* '\yresell\y')))::text,
+       not exists (select 1 from t where d->>'renovacion' = 'finanzas' and not exists (
+          select 1 from public.fin_pagos f
+          where f.cliente_id = 'teo'
+            and public.cs_norm_nombre(f.alumno) = public.cs_norm_nombre(t.nombre)
+            and f.fecha = (t.campos_extra->'renovacion'->>'pago_fecha')::date
+            and (f.concepto ~* 'renov' or f.concepto ~* '\yresell\y')))
+union all
+select '10c sin renovados por FEE / PIF / UPSELL solos (el concepto del pago no es RESELL ni renov)', '0',
+       (select count(*) from t where d->>'renovacion' = 'finanzas' and exists (
+          select 1 from public.fin_pagos f
+          where f.cliente_id = 'teo'
+            and public.cs_norm_nombre(f.alumno) = public.cs_norm_nombre(t.nombre)
+            and f.fecha = (t.campos_extra->'renovacion'->>'pago_fecha')::date
+            and btrim(coalesce(f.concepto, '')) ~* '^(FEE|PIF|UPSELL|CUOTA UPSELL|2DA CUOTA|FEE DE PIF)$'))::text,
+       not exists (select 1 from t where d->>'renovacion' = 'finanzas' and exists (
+          select 1 from public.fin_pagos f
+          where f.cliente_id = 'teo'
+            and public.cs_norm_nombre(f.alumno) = public.cs_norm_nombre(t.nombre)
+            and f.fecha = (t.campos_extra->'renovacion'->>'pago_fecha')::date
+            and btrim(coalesce(f.concepto, '')) ~* '^(FEE|PIF|UPSELL|CUOTA UPSELL|2DA CUOTA|FEE DE PIF)$'))
 union all
 select '11 la prueba de humo no dejó datos', '0',
        (select count(*) from public.cs_programas where id like 'humo128%')::text,
