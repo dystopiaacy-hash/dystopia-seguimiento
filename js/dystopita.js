@@ -3,16 +3,21 @@
    Dystopita solo lo muestra; los permisos y el recorte por programa los impone la base.
    - Burbujita (globito de chat con cara). Estados: quieta (flota y parpadea), deslizándose de lado unos px, durmiendo, pensando
      (tres puntitos) y saludo. prefers-reduced-motion: sin flotar ni moverse, solo parpadea.
+   - Cada tanto (y mientras la IA responde) aparece una notebook pixel y tipea; si se suelta con velocidad contra una esquina
+     explota en píxeles y se rearma ahí (con movimiento reducido no explota: solo se acomoda en la esquina).
    - Se arrastra con mouse o dedo; la posición se recuerda en localStorage y se corrige al cambiar el tamaño de la ventana.
    - En pantallas chicas: más chica, fija en la esquina, sin arrastre, y el panel ocupa casi toda la pantalla. */
 import { puedeUsarChatIa } from './sesion.js';
-import { svgCuadro, svgZ } from './dystopita-sprites.js';
+import { svgCuadro, svgZ, svgCompu, pixelesCuadro, DIM } from './dystopita-sprites.js';
+import { velocidadFinal, esquinaCercana, explotarPixeles } from './dystopita-efectos.js';
 import { vistaPreguntar } from './views/preguntar-ia.js';
 
 const CLAVE = 'dystopita_pos_v1';
 const MARGEN = 8;          // distancia mínima al borde de la pantalla
 const MARGEN_INICIAL = 20; // posición por defecto: abajo a la derecha
 const SUENO_MS = 90_000;   // sin interacción => se duerme
+const VEL_EXPLOTA = 1.1;   // px/ms en los últimos 100 ms antes de soltar
+const ZONA_ESQUINA = 40;   // px de la esquina de la pantalla
 const CUADROS_POR_ESTADO = {
   quieto: ['quieto'], paso: ['quieto'], saludo: ['quieto'],
   dormido: ['dormido'], pensando: ['pensA', 'pensB', 'pensC']
@@ -27,10 +32,11 @@ const azar = (a, b) => a + Math.random() * (b - a);
 const limitar = (v, min, max) => Math.max(min, Math.min(v, Math.max(min, max)));
 
 let raiz = null, btn = null, cuerpo = null, mover = null, globo = null, panel = null, chatEl = null, observador = null;
+let compuEl = null, boomEl = null, compuVisible = false, compuP = -1, cn = 0, explotando = false, cancelarBoom = null, muestras = [];
 let estado = 'quieto', pensando = false, parpadeando = false, n = 0, cuadroActual = '';
 let pos = { x: 0, y: 0 }, anclado = true, desplazo = 0;   // desplazo: px que caminó desde su posición
 let arrastre = null, suprimirClick = false, abierto = false, chatPrograma;
-let tickId = null, suenoId = null, espontaneoId = null, parpadeoId = null, estadoId = null, globoId = null;
+let tickId = null, suenoId = null, espontaneoId = null, parpadeoId = null, estadoId = null, globoId = null, trabajoId = null, trabajoRndId = null;
 let escuchas = [];
 
 /* ---------- Posición ---------- */
@@ -90,6 +96,7 @@ function ir(nuevo, ms) {
   estado = nuevo;
   raiz.dataset.estado = nuevo;
   if (nuevo !== 'paso') { mover.style.transition = 'none'; }
+  if (nuevo === 'dormido') ponerCompu(false);
   n = 0;
   pintar();
   if (ms) estadoId = setTimeout(reposar, ms);
@@ -98,7 +105,53 @@ function reposar() {
   ir(pensando ? 'pensando' : 'quieto');
 }
 
-function ocupado() { return !!arrastre || abierto || pensando || estado === 'dormido' || estado === 'saludo'; }
+function ocupado() { return !!arrastre || abierto || pensando || explotando || estado === 'dormido' || estado === 'saludo'; }
+
+/* ---------- Notebook: aparece delante y la burbujita "tipea" (1 px arriba y abajo, por CSS) ---------- */
+function pintarCompu() {
+  const p = mqQuieto.matches ? 15 : cn % 16;
+  if (p === compuP) return;
+  compuP = p;
+  compuEl.innerHTML = svgCompu(p);
+}
+function ponerCompu(on) {
+  if (on && explotando) return;
+  clearTimeout(trabajoId);
+  if (on === compuVisible) return;
+  compuVisible = on;
+  compuEl.hidden = !on;
+  if (on) { cn = 0; compuP = -1; pintarCompu(); raiz.dataset.compu = '1'; } else delete raiz.dataset.compu;
+}
+function programarTrabajo() {
+  clearTimeout(trabajoRndId);
+  trabajoRndId = setTimeout(() => {
+    if (!ocupado() && !mqQuieto.matches && estado === 'quieto' && !compuVisible) {
+      ponerCompu(true);
+      trabajoId = setTimeout(() => { if (!pensando) ponerCompu(false); }, azar(4000, 6500));
+    }
+    programarTrabajo();
+  }, azar(25000, 50000));
+}
+
+/* ---------- Explosión contra una esquina ---------- */
+function estallar() {
+  if (mqQuieto.matches || movil()) return;
+  explotando = true;
+  ponerCompu(false);
+  clearTimeout(estadoId);
+  raiz.dataset.boom = '1';
+  decir('¡uy!', 1800);
+  cancelarBoom = explotarPixeles(boomEl, pixelesCuadro(cuadroActual || 'quieto'), DIM, tam() / DIM.w, terminarBoom);
+}
+function terminarBoom() {
+  cancelarBoom = null;
+  explotando = false;
+  if (!raiz) return;
+  delete raiz.dataset.boom;
+  boomEl.replaceChildren();
+  if (pensando) ponerCompu(true);
+  reiniciarSueno();
+}
 
 /* Deslizamiento lateral corto y lento (hasta 14 px de su lugar), sin salirse de la pantalla. */
 function caminar() {
@@ -174,6 +227,7 @@ function posicionarPanel() {
 }
 function abrir() {
   plegar();
+  if (!pensando) ponerCompu(false);
   if (chatPrograma !== programaActual() || !chatEl.firstChild) montarChat();
   abierto = true;
   panel.hidden = false;
@@ -195,8 +249,9 @@ function cerrar(devolverFoco) {
 function alPresionar(e) {
   suprimirClick = false;
   actividad();
-  if (movil() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  if (movil() || explotando || (e.pointerType === 'mouse' && e.button !== 0)) return;
   plegar();
+  muestras = [];
   arrastre = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y, movio: false };
   try { btn.setPointerCapture(e.pointerId); } catch { /* sin captura */ }
 }
@@ -204,11 +259,15 @@ function alMover(e) {
   if (!arrastre || e.pointerId !== arrastre.id) return;
   const dx = e.clientX - arrastre.sx, dy = e.clientY - arrastre.sy;
   if (!arrastre.movio && Math.hypot(dx, dy) < 5) return;
+  if (!arrastre.movio && !pensando) ponerCompu(false);
   arrastre.movio = true;
   raiz.classList.add('dy-arrastrando');
   pos = { x: arrastre.ox + dx, y: arrastre.oy + dy };
   encajar();
   aplicar();
+  const t = performance.now();
+  muestras.push({ t, x: e.clientX, y: e.clientY });
+  while (muestras.length && t - muestras[0].t > 200) muestras.shift();
 }
 function alSoltar(e) {
   if (!arrastre || e.pointerId !== arrastre.id) return;
@@ -218,8 +277,11 @@ function alSoltar(e) {
   try { btn.releasePointerCapture(e.pointerId); } catch { /* ya liberado */ }
   if (movio && e.type === 'pointerup') {
     anclado = false;
-    guardarPos();
-    suprimirClick = true;    // el click que sigue a un arrastre no abre el panel
+    suprimirClick = true;    // el click que sigue a un arrastre (o a una explosión) no abre el panel
+    // Soltada con velocidad contra una esquina: se acomoda ahí y explota (con movimiento reducido, solo se acomoda)
+    const esq = velocidadFinal(muestras, performance.now()) >= VEL_EXPLOTA
+      ? esquinaCercana(pos, tam(), alto(), innerWidth, innerHeight, ZONA_ESQUINA, MARGEN_INICIAL) : null;
+    if (esq) { pos = { x: esq.x, y: esq.y }; encajar(); aplicar(); guardarPos(); estallar(); } else guardarPos();
   }
   reiniciarSueno();
 }
@@ -243,6 +305,8 @@ export function montarDystopita() {
     <button type="button" class="dy-btn" aria-label="Abrir Dystopita" aria-expanded="false" aria-controls="dy-panel">
       <span class="dy-mover">
         <span class="dy-cuerpo"></span>
+        <span class="dy-boom" aria-hidden="true"></span>
+        <span class="dy-compu" aria-hidden="true" hidden></span>
         <span class="dy-zzz" aria-hidden="true">${svgZ()}</span>
       </span>
     </button>`;
@@ -263,6 +327,8 @@ export function montarDystopita() {
   btn = raiz.querySelector('.dy-btn');
   cuerpo = raiz.querySelector('.dy-cuerpo');
   mover = raiz.querySelector('.dy-mover');
+  boomEl = raiz.querySelector('.dy-boom');
+  compuEl = raiz.querySelector('.dy-compu');
   globo = raiz.querySelector('.dy-globo');
   chatEl = panel.querySelector('.dy-chat');
   chatPrograma = undefined;
@@ -281,6 +347,7 @@ export function montarDystopita() {
   btn.addEventListener('pointercancel', alSoltar);
   btn.addEventListener('pointerenter', actividad);
   btn.addEventListener('click', e => {
+    if (explotando) { e.preventDefault(); return; }
     if (suprimirClick) { suprimirClick = false; e.preventDefault(); return; }
     if (abierto) cerrar(false); else abrir();
   });
@@ -290,6 +357,7 @@ export function montarDystopita() {
   escuchar(window, 'hashchange', () => { if (abierto && chatPrograma !== programaActual()) montarChat(); });
   escuchar(window, 'ia-chat-pensando', e => {
     pensando = !!(e.detail && e.detail.pensando);
+    ponerCompu(pensando);
     if (pensando) ir('pensando'); else if (estado === 'pensando') ir('quieto');
     reiniciarSueno();
   });
@@ -314,8 +382,9 @@ export function montarDystopita() {
   });
   observador.observe(chatEl, { childList: true, subtree: true });
 
-  tickId = setInterval(() => { n++; pintar(); }, 220);
+  tickId = setInterval(() => { n++; pintar(); if (compuVisible) { cn++; pintarCompu(); } }, 220);
   programarEspontaneo();
+  programarTrabajo();
   programarParpadeo();
   reiniciarSueno();
 
@@ -328,7 +397,9 @@ export function montarDystopita() {
 }
 
 export function desmontarDystopita() {
-  [tickId, suenoId, espontaneoId, parpadeoId, estadoId, globoId].forEach(clearTimeout);
+  [tickId, suenoId, espontaneoId, parpadeoId, estadoId, globoId, trabajoId, trabajoRndId].forEach(clearTimeout);
+  if (cancelarBoom) cancelarBoom();
+  cancelarBoom = null;
   clearInterval(tickId);
   for (const [b, t, f, o] of escuchas) b.removeEventListener(t, f, o);
   escuchas = [];
@@ -336,6 +407,7 @@ export function desmontarDystopita() {
   observador = null;
   if (raiz) raiz.remove();
   if (panel) panel.remove();
-  raiz = panel = btn = cuerpo = mover = globo = chatEl = null;
+  raiz = panel = btn = cuerpo = mover = globo = chatEl = compuEl = boomEl = null;
+  compuVisible = false; compuP = -1; explotando = false; muestras = [];
   estado = 'quieto'; pensando = false; parpadeando = false; abierto = false; arrastre = null; desplazo = 0; cuadroActual = '';
 }

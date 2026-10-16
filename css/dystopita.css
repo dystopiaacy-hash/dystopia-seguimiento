@@ -22,6 +22,21 @@
 @keyframes dy-flota{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
 @keyframes dy-salto{0%,100%{transform:translateY(0);}40%{transform:translateY(-7px);}70%{transform:translateY(0);}85%{transform:translateY(-2px);}}
 
+/* Notebook (sprite de 10 x 7, 3 px por pixel) delante de la burbujita; la burbujita tipea 1 px arriba y abajo */
+.dy-s{fill:#26215C;}
+.dy-l{fill:#CECBF6;}
+.dy-compu{position:absolute;left:50%;bottom:-5px;width:30px;height:21px;margin-left:-15px;pointer-events:none;}
+.dy-compu svg{display:block;width:100%;height:100%;}
+.dy-compu[hidden]{display:none;}
+.dy-raiz[data-compu] .dy-cuerpo{animation:dy-teclea .36s steps(1,end) infinite;}
+@keyframes dy-teclea{0%,100%{transform:translateY(0);}50%{transform:translateY(-1px);}}
+
+/* Explosión de píxeles contra una esquina: el dibujo normal se esconde y los píxeles sueltos se animan por JS */
+.dy-boom{position:absolute;inset:0;display:block;pointer-events:none;}
+.dy-boom svg{display:block;width:100%;height:100%;overflow:visible;}
+.dy-boom rect{transform-box:fill-box;transform-origin:center;}
+.dy-raiz[data-boom] .dy-cuerpo,.dy-raiz[data-boom] .dy-zzz,.dy-raiz[data-boom] .dy-compu{visibility:hidden;}
+
 /* z chiquita (durmiendo): sube y se desvanece */
 .dy-zzz{position:absolute;top:-6px;right:-2px;width:9px;height:9px;display:none;pointer-events:none;opacity:0;}
 .dy-zzz svg{display:block;width:100%;height:100%;}
@@ -65,6 +80,7 @@
 /* ---------- Pantallas chicas: 3 px por pixel, fija en la esquina, sin arrastre; panel casi a pantalla completa ---------- */
 @media (max-width:640px){
   .dy-raiz{--dy-w:36px;--dy-h:30px;}
+  .dy-compu{width:20px;height:14px;margin-left:-10px;bottom:-3px;}
   .dy-btn{cursor:pointer;touch-action:manipulation;}
   .dy-panel{inset:8px;width:auto;height:auto;}
 }

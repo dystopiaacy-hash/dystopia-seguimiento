@@ -65,6 +65,41 @@ export function svgCuadro(nombre) {
   return cache[nombre];
 }
 
+/* Tamaño de la grilla, para quien necesite escalar los píxeles. */
+export const DIM = { w: W, h: H };
+
+/* Píxeles sueltos de un cuadro ({x, y, c}), para la explosión. */
+export function pixelesCuadro(nombre) {
+  const g = dibujar(CUADROS[nombre] || CUADROS.quieto);
+  const r = [];
+  g.forEach((fila, y) => fila.forEach((c, x) => { if (c !== '.') r.push({ x, y, c }); }));
+  return r;
+}
+
+/* Notebook chiquita (10 x 7): contorno o, cuerpo b, brillo h, pantalla s y líneas l que se van "escribiendo". */
+const COMPU = [
+  '.oooooooo.',
+  '.osssssso.',
+  '.osssssso.',
+  '.osssssso.',
+  'oooooooooo',
+  'obhbhbhbbo',
+  '.oooooooo.'
+];
+const cacheCompu = {};
+
+/* p = progreso del tipeo (0 a 15): la primera línea crece con 0..5, la segunda con 6..11 y después quedan las dos. */
+export function svgCompu(p) {
+  if (!cacheCompu[p]) {
+    const g = COMPU.map(f => f.split(''));
+    [[1, Math.min(5, p)], [3, Math.max(0, Math.min(5, p - 6))]].forEach(([y, largo]) => {
+      for (let x = 0; x < largo; x++) g[y][2 + x] = 'l';
+    });
+    cacheCompu[p] = svgDe(g, 10, 7);
+  }
+  return cacheCompu[p];
+}
+
 /* La "z" chiquita que sube cuando duerme (3 x 3). */
 export function svgZ() {
   return svgDe([['o', 'o', 'o'], ['.', 'o', '.'], ['o', 'o', 'o']], 3, 3);
