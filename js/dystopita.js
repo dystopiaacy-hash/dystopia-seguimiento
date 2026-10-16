@@ -1,11 +1,12 @@
 /* Dystopita: mascota pixel art que abre el chat interno de IA (panel desplegable) en todas las pantallas de Producto.
    Solo se monta para fundador, rol producto y rol cliente (puedeUsarChatIa). El chat es el de la 140 (views/preguntar-ia.js):
    Dystopita solo lo muestra; los permisos y el recorte por programa los impone la base.
-   - Animaciones que cambian solas (quieta, tipeando, caminando, durmiendo, pensando, saludo). prefers-reduced-motion: cuadro fijo.
+   - Burbujita (globito de chat con cara). Estados: quieta (flota y parpadea), deslizándose de lado unos px, durmiendo, pensando
+     (tres puntitos) y saludo. prefers-reduced-motion: sin flotar ni moverse, solo parpadea.
    - Se arrastra con mouse o dedo; la posición se recuerda en localStorage y se corrige al cambiar el tamaño de la ventana.
    - En pantallas chicas: más chica, fija en la esquina, sin arrastre, y el panel ocupa casi toda la pantalla. */
 import { puedeUsarChatIa } from './sesion.js';
-import { svgCuadro } from './dystopita-sprites.js';
+import { svgCuadro, svgZ } from './dystopita-sprites.js';
 import { vistaPreguntar } from './views/preguntar-ia.js';
 
 const CLAVE = 'dystopita_pos_v1';
@@ -13,14 +14,15 @@ const MARGEN = 8;          // distancia mínima al borde de la pantalla
 const MARGEN_INICIAL = 20; // posición por defecto: abajo a la derecha
 const SUENO_MS = 90_000;   // sin interacción => se duerme
 const CUADROS_POR_ESTADO = {
-  quieto: ['quieto'], tipeo: ['tipeoA', 'tipeoB'], paso: ['pasoA', 'pasoB'],
-  dormido: ['dormido'], pensando: ['pensando'], saludo: ['saludoA', 'saludoB']
+  quieto: ['quieto'], paso: ['quieto'], saludo: ['quieto'],
+  dormido: ['dormido'], pensando: ['pensA', 'pensB', 'pensC']
 };
 
 const mqMovil = window.matchMedia('(max-width: 640px)');
 const mqQuieto = window.matchMedia('(prefers-reduced-motion: reduce)');
 const movil = () => mqMovil.matches;
-const tam = () => (movil() ? 48 : 64);
+const tam = () => (movil() ? 36 : 48);        // ancho del sprite (4 px por pixel; 3 en celular)
+const alto = () => (movil() ? 30 : 40);
 const azar = (a, b) => a + Math.random() * (b - a);
 const limitar = (v, min, max) => Math.max(min, Math.min(v, Math.max(min, max)));
 
@@ -33,8 +35,7 @@ let escuchas = [];
 
 /* ---------- Posición ---------- */
 function posInicial() {
-  const t = tam();
-  return { x: innerWidth - t - MARGEN_INICIAL, y: innerHeight - t - MARGEN_INICIAL };
+  return { x: innerWidth - tam() - MARGEN_INICIAL, y: innerHeight - alto() - MARGEN_INICIAL };
 }
 function cargarPos() {
   try {
@@ -47,9 +48,8 @@ function guardarPos() {
   try { localStorage.setItem(CLAVE, JSON.stringify(pos)); } catch { /* sin almacenamiento */ }
 }
 function encajar() {
-  const t = tam();
-  pos.x = limitar(pos.x, MARGEN, innerWidth - t - MARGEN);
-  pos.y = limitar(pos.y, MARGEN, innerHeight - t - MARGEN);
+  pos.x = limitar(pos.x, MARGEN, innerWidth - tam() - MARGEN);
+  pos.y = limitar(pos.y, MARGEN, innerHeight - alto() - MARGEN);
 }
 function aplicar() {
   raiz.style.left = pos.x + 'px';
@@ -78,10 +78,10 @@ function plegar() {
 /* ---------- Dibujo y estados ---------- */
 function pintar() {
   let nombre;
-  if (estado === 'quieto' && parpadeando) nombre = 'parpadeo';
+  if ((estado === 'quieto' || estado === 'paso') && parpadeando) nombre = 'parpadeo';
   else {
     const lista = CUADROS_POR_ESTADO[estado];
-    nombre = mqQuieto.matches ? lista[0] : lista[n % lista.length];
+    nombre = !mqQuieto.matches ? lista[Math.floor(n / 2) % lista.length] : estado === 'pensando' ? 'pensFijo' : lista[0];
   }
   if (nombre !== cuadroActual) { cuadroActual = nombre; cuerpo.innerHTML = svgCuadro(nombre); }
 }
@@ -100,15 +100,14 @@ function reposar() {
 
 function ocupado() { return !!arrastre || abierto || pensando || estado === 'dormido' || estado === 'saludo'; }
 
-/* Unos pasos de lado a lado (hasta 60 px de su lugar), sin salirse de la pantalla. */
+/* Deslizamiento lateral corto y lento (hasta 14 px de su lugar), sin salirse de la pantalla. */
 function caminar() {
   const libreIzq = raiz.offsetLeft - MARGEN, libreDer = innerWidth - (raiz.offsetLeft + tam()) - MARGEN;
-  const lo = -Math.min(60, libreIzq), hi = Math.min(60, libreDer);
-  const dir = desplazo > 20 ? -1 : desplazo < -20 ? 1 : (Math.random() < 0.5 ? -1 : 1);
-  const destino = limitar(desplazo + dir * azar(30, 60), lo, hi);
-  if (Math.abs(destino - desplazo) < 8) return;
-  const ms = Math.max(1500, Math.abs(destino - desplazo) * 55);
-  cuerpo.style.transform = destino < desplazo ? 'scaleX(-1)' : '';
+  const lo = -Math.min(14, libreIzq), hi = Math.min(14, libreDer);
+  const dir = desplazo > 5 ? -1 : desplazo < -5 ? 1 : (Math.random() < 0.5 ? -1 : 1);
+  const destino = limitar(desplazo + dir * azar(6, 14), lo, hi);
+  if (Math.abs(destino - desplazo) < 4) return;
+  const ms = Math.max(2500, Math.abs(destino - desplazo) * 250);
   ir('paso', ms);
   mover.style.transition = `transform ${ms}ms linear`;
   mover.style.transform = `translateX(${destino}px)`;
@@ -120,17 +119,15 @@ function programarEspontaneo() {
   clearTimeout(espontaneoId);
   espontaneoId = setTimeout(() => {
     if (!ocupado() && !mqQuieto.matches && estado === 'quieto') {
-      const q = Math.random();
-      if (q < 0.35) ir('tipeo', azar(4000, 7000));
-      else if (q < 0.65 && !movil()) caminar();
+      if (Math.random() < 0.3 && !movil()) caminar();
     }
     programarEspontaneo();
-  }, azar(6000, 12000));
+  }, azar(8000, 16000));
 }
 function programarParpadeo() {
   clearTimeout(parpadeoId);
   parpadeoId = setTimeout(() => {
-    if (estado === 'quieto' && !mqQuieto.matches) {
+    if (estado === 'quieto' || estado === 'paso') {
       parpadeando = true; pintar();
       setTimeout(() => { parpadeando = false; pintar(); }, 140);
     }
@@ -172,7 +169,7 @@ function posicionarPanel() {
   const W = Math.min(380, innerWidth - 16), H = Math.min(540, innerHeight - 16), t = tam(), sep = 10;
   const aLaIzq = pos.x + t / 2 > innerWidth / 2;
   const left = limitar(aLaIzq ? pos.x - W - sep : pos.x + t + sep, 8, innerWidth - W - 8);
-  const top = limitar(pos.y + t - H, 8, innerHeight - H - 8);
+  const top = limitar(pos.y + alto() - H, 8, innerHeight - H - 8);
   panel.style.cssText = `left:${left}px;top:${top}px;width:${W}px;height:${H}px`;
 }
 function abrir() {
@@ -246,9 +243,7 @@ export function montarDystopita() {
     <button type="button" class="dy-btn" aria-label="Abrir Dystopita" aria-expanded="false" aria-controls="dy-panel">
       <span class="dy-mover">
         <span class="dy-cuerpo"></span>
-        <span class="dy-sombra"></span>
-        <span class="dy-zzz" aria-hidden="true">z Z</span>
-        <span class="dy-pienso" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="dy-zzz" aria-hidden="true">${svgZ()}</span>
       </span>
     </button>`;
   panel = document.createElement('section');
@@ -327,8 +322,8 @@ export function montarDystopita() {
   // Saludo corto al cargar
   setTimeout(() => {
     if (!raiz) return;
-    ir('saludo', 4200);
-    decir('¡Hola! Soy Dystopita', 4200);
+    ir('saludo', 900);
+    decir('¡Hola! Soy Dystopita', 3000);
   }, 700);
 }
 

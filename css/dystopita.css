@@ -1,50 +1,42 @@
-/* Dystopita: mascota pixel art + panel del chat interno (js/dystopita.js). Colores de la paleta de la app. */
+/* Dystopita (Burbujita): mascota pixel art + panel del chat interno (js/dystopita.js). */
 
-/* ---------- Colores del sprite ---------- */
-.dy-k{fill:#1F2430;}
-.dy-a{fill:var(--accent,#4F46E5);}
-.dy-l{fill:#A9A5F5;}
-.dy-s{fill:#151A2C;}
-.dy-e{fill:#5EEAD4;}
-.dy-y{fill:var(--sem-amarillo,#F59E0B);}
+/* ---------- Colores del sprite (propios: se ven igual en modo oscuro) ---------- */
+.dy-o{fill:#3C3489;}
+.dy-b{fill:#7F77DD;}
+.dy-h{fill:#CECBF6;}
+.dy-e{fill:#26215C;}
+.dy-d{fill:#26215C;fill-opacity:.25;}
 
-/* ---------- Mascota ---------- */
-.dy-raiz{position:fixed;z-index:80;--dy-t:64px;width:var(--dy-t);height:var(--dy-t);}
+/* ---------- Mascota (sprite de 12 x 10, 4 px por pixel) ---------- */
+.dy-raiz{position:fixed;z-index:80;--dy-w:48px;--dy-h:40px;width:var(--dy-w);height:var(--dy-h);}
 .dy-btn{display:block;position:relative;width:100%;height:100%;padding:0;margin:0;border:0;background:transparent;
   cursor:grab;touch-action:none;border-radius:var(--radius-sm,8px);-webkit-tap-highlight-color:transparent;}
 .dy-arrastrando .dy-btn{cursor:grabbing;}
 .dy-btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
 .dy-mover{position:absolute;inset:0;display:block;}
-.dy-cuerpo{position:absolute;inset:0;display:block;animation:dy-respira 2.6s linear infinite;}
-.dy-cuerpo svg{display:block;width:100%;height:100%;pointer-events:none;filter:drop-shadow(0 2px 0 rgba(16,24,40,.12));}
-.dy-sombra{position:absolute;left:14%;right:14%;bottom:-3px;height:4px;border-radius:50%;background:rgba(16,24,40,.16);}
-.dy-raiz[data-estado="paso"] .dy-cuerpo{animation:dy-bote .44s linear infinite;}
-.dy-raiz[data-estado="tipeo"] .dy-cuerpo{animation:dy-bote .36s linear infinite;}
+.dy-cuerpo{position:absolute;inset:0;display:block;animation:dy-flota 2.6s ease-in-out infinite;}
+.dy-cuerpo svg{display:block;width:100%;height:100%;pointer-events:none;transition:transform .15s ease-out;}
+.dy-btn:hover .dy-cuerpo svg{transform:scale(1.06);}
 .dy-raiz[data-estado="dormido"] .dy-cuerpo{animation-duration:4.4s;}
-@keyframes dy-respira{0%,50%{transform:translateY(0);}51%,100%{transform:translateY(2px);}}
-@keyframes dy-bote{0%,50%{transform:translateY(0);}51%,100%{transform:translateY(-2px);}}
+.dy-raiz[data-estado="saludo"] .dy-cuerpo{animation:dy-salto .5s ease-out 1;}
+@keyframes dy-flota{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
+@keyframes dy-salto{0%,100%{transform:translateY(0);}40%{transform:translateY(-7px);}70%{transform:translateY(0);}85%{transform:translateY(-2px);}}
 
-/* zzz (durmiendo) y puntitos (pensando) */
-.dy-zzz{position:absolute;top:-8px;right:-4px;display:none;font:700 12px/1 var(--font-mono,monospace);color:var(--text-dim);
-  letter-spacing:2px;pointer-events:none;}
-.dy-raiz[data-estado="dormido"] .dy-zzz{display:block;animation:dy-zzz 2.4s linear infinite;}
-@keyframes dy-zzz{0%{opacity:0;transform:translateY(6px);}30%{opacity:1;}100%{opacity:0;transform:translateY(-8px);}}
-.dy-pienso{position:absolute;top:-10px;left:50%;transform:translateX(-50%);display:none;gap:4px;pointer-events:none;}
-.dy-raiz[data-estado="pensando"] .dy-pienso{display:flex;}
-.dy-pienso i{width:5px;height:5px;background:var(--accent);animation:dy-punto 1.1s steps(1) infinite;}
-.dy-pienso i:nth-child(2){animation-delay:.18s;}
-.dy-pienso i:nth-child(3){animation-delay:.36s;}
-@keyframes dy-punto{0%{opacity:.25;}30%{opacity:1;}60%,100%{opacity:.25;}}
+/* z chiquita (durmiendo): sube y se desvanece */
+.dy-zzz{position:absolute;top:-6px;right:-2px;width:9px;height:9px;display:none;pointer-events:none;opacity:0;}
+.dy-zzz svg{display:block;width:100%;height:100%;}
+.dy-raiz[data-estado="dormido"] .dy-zzz{display:block;animation:dy-zzz 3.2s linear infinite;}
+@keyframes dy-zzz{0%{opacity:0;transform:translateY(4px);}25%{opacity:1;}70%{opacity:.8;}100%{opacity:0;transform:translateY(-8px);}}
 
 /* Globo de saludo */
-.dy-globo{position:absolute;bottom:calc(100% + 10px);right:0;white-space:nowrap;padding:6px 10px;background:var(--surface);
-  color:var(--text);border:2px solid var(--ink);border-radius:6px;font:600 12px/1.3 var(--font-sans);box-shadow:var(--shadow-md);
+.dy-globo{position:absolute;bottom:calc(100% + 10px);right:0;white-space:nowrap;padding:5px 9px;background:var(--surface);
+  color:var(--text);border:1px solid var(--border);border-radius:10px;font:600 12px/1.3 var(--font-sans);box-shadow:var(--shadow-md);
   pointer-events:none;}
-.dy-globo::after{content:"";position:absolute;top:100%;right:18px;border:6px solid transparent;border-top-color:var(--ink);}
+.dy-globo::after{content:"";position:absolute;top:100%;right:18px;border:6px solid transparent;border-top-color:var(--border);}
 .dy-izq .dy-globo{right:auto;left:0;}
 .dy-izq .dy-globo::after{right:auto;left:18px;}
 .dy-abajo .dy-globo{bottom:auto;top:calc(100% + 10px);}
-.dy-abajo .dy-globo::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:var(--ink);}
+.dy-abajo .dy-globo::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:var(--border);}
 .dy-globo[hidden]{display:none;}
 
 /* ---------- Panel ---------- */
@@ -70,15 +62,15 @@
 .dy-chat .chat-ia-form{flex-wrap:nowrap;}
 .dy-chat .chat-ia-form textarea{min-width:0;}
 
-/* ---------- Pantallas chicas: más chica, fija en la esquina, sin arrastre; panel casi a pantalla completa ---------- */
+/* ---------- Pantallas chicas: 3 px por pixel, fija en la esquina, sin arrastre; panel casi a pantalla completa ---------- */
 @media (max-width:640px){
-  .dy-raiz{--dy-t:48px;}
+  .dy-raiz{--dy-w:36px;--dy-h:30px;}
   .dy-btn{cursor:pointer;touch-action:manipulation;}
   .dy-panel{inset:8px;width:auto;height:auto;}
 }
 
-/* ---------- Movimiento mínimo ---------- */
+/* ---------- Movimiento mínimo: sin flotar, saltar ni moverse (el parpadeo lo hace el JS) ---------- */
 @media (prefers-reduced-motion:reduce){
   .dy-raiz *,.dy-panel{animation:none !important;transition:none !important;}
-  .dy-pienso i{opacity:1;}
+  .dy-raiz[data-estado="dormido"] .dy-zzz{opacity:1;}
 }
