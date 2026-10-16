@@ -20,6 +20,7 @@ export const SECCIONES = [
   ['satisfaccion', 'Satisfacción', false],
   ['dudas', 'Dudas frecuentes', false],
   ['llamadas', 'Llamadas', false],
+  ['preguntar', 'Preguntale a la IA', false, true],
   ['formularios', 'Formularios', false],
   ['metricas', 'Métricas', false],
   ['config', 'Configuración', true]

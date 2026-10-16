@@ -21,6 +21,7 @@ import { vistaMetricas } from './metricas.js';
 import { vistaConfig } from './config.js';
 import { vistaSatisfaccion } from './satisfaccion.js';
 import { vistaDudas } from './dudas.js';
+import { vistaPreguntar } from './preguntar-ia.js';   // 140 (IA)
 
 export function vacio(big, small = '', extra = '') {
   return `<div class="card empty-state"><div class="big">${esc(big)}</div>${small ? `<div class="small">${esc(small)}</div>` : ''}${extra}</div>`;
@@ -100,6 +101,7 @@ export function vistaPrograma(el, { p, sub, clienteId, vigente }) {
   if (sub === 'satisfaccion') return vistaSatisfaccion(cont, p.id, vigente);
   if (sub === 'dudas') return vistaDudas(cont, p.id, vigente);
   if (sub === 'llamadas') return vistaLlamadas(cont, p.id, vigente);
+  if (sub === 'preguntar') return vistaPreguntar(cont, p.id, vigente);
   if (sub === 'formularios') return vistaFormularios(cont, p.id, vigente);
   if (sub === 'metricas') return vistaMetricas(cont, p.id, vigente);
   if (sub === 'config') return vistaConfig(cont, p.id, vigente);

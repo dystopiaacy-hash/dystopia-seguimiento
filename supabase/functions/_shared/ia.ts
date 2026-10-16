@@ -19,6 +19,11 @@
 // En los modelos 5.5 el thinking viene prendido y gasta tokens de salida: dejar max_tokens holgado.
 // Solo se lee el texto de los bloques `text` (los `thinking` se descartan).
 //   if (r.ok) usar(r.texto);
+//
+// Herramientas (tool use, 139/140): `herramientas` va tal cual a la API; NUNCA se manda tool_choice
+// (los 5.5 dan 400 con any/tool: queda en auto). Si el modelo pide herramientas, r.usos trae
+// [{id, name, input}] y r.contenido el contenido COMPLETO de la respuesta (con los bloques de
+// thinking): hay que devolverlo tal cual como turno del assistant junto con los tool_result.
 
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.116.0';
 
@@ -41,7 +46,9 @@ const PRECIOS: Record<string, Precio> = {
   'claude-haiku-4-5': { entrada: 1, salida: 5 },
 };
 
-export type Mensaje = { role: 'user' | 'assistant'; content: string };
+// content: texto o bloques (tool_use / tool_result / el contenido devuelto por el modelo)
+export type Mensaje = { role: 'user' | 'assistant'; content: string | unknown[] };
+export type UsoHerramienta = { id: string; name: string; input: Record<string, unknown> };
 export type OpcionesClaude = {
   app: 'producto' | 'crm' | 'finanzas' | 'ventas';
   funcion: string;
@@ -57,6 +64,8 @@ export type OpcionesClaude = {
   effort?: 'low' | 'medium' | 'high';
   /** cliente de Supabase con service role; si falta, se crea uno con las variables de la función */
   supabase?: SupabaseClient;
+  /** definiciones de herramientas ({name, description, input_schema}); sin tool_choice (auto) */
+  herramientas?: unknown[];
 };
 export type ResultadoClaude = {
   ok: boolean;
@@ -67,6 +76,11 @@ export type ResultadoClaude = {
   costo_usd: number | null;
   ms: number;
   error: string | null;
+  /** pedidos de herramientas del modelo (vacío si no pidió ninguna) */
+  usos: UsoHerramienta[];
+  /** contenido completo de la respuesta (para devolverlo en el turno siguiente de un tool use) */
+  contenido: unknown[];
+  stop_reason: string | null;
 };
 
 const URL_API = 'https://api.anthropic.com/v1/messages';
@@ -117,7 +131,7 @@ export async function llamarClaude(o: OpcionesClaude): Promise<ResultadoClaude> 
   const t0 = Date.now();
   const res: ResultadoClaude = {
     ok: false, texto: '', modelo: o.modelo, tokens_entrada: null, tokens_salida: null,
-    costo_usd: null, ms: 0, error: null,
+    costo_usd: null, ms: 0, error: null, usos: [], contenido: [], stop_reason: null,
   };
   const clave = (Deno.env.get('ANTHROPIC_API_KEY') ?? '').trim();
   if (!clave) {
@@ -128,6 +142,7 @@ export async function llamarClaude(o: OpcionesClaude): Promise<ResultadoClaude> 
       // temperature solo en 4.x (en 5.5 devuelve 400 con valores no default)
       ...(o.temperatura != null && /(^|-)4-/.test(o.modelo) ? { temperature: o.temperatura } : {}),
       ...(o.effort ? { output_config: { effort: o.effort } } : {}),
+      ...(o.herramientas?.length ? { tools: o.herramientas } : {}),
     });
     for (let intento = 1; intento <= REINTENTOS; intento++) {
       try {
@@ -155,7 +170,15 @@ export async function llamarClaude(o: OpcionesClaude): Promise<ResultadoClaude> 
         res.texto = Array.isArray(j?.content)
           ? j.content.filter((b: { type?: string }) => b?.type === 'text').map((b: { text?: string }) => b.text ?? '').join('').trim()
           : '';
-        if (!res.texto) { res.error = 'respuesta vacía'; break; }
+        res.contenido = Array.isArray(j?.content) ? j.content : [];
+        res.stop_reason = typeof j?.stop_reason === 'string' ? j.stop_reason : null;
+        res.usos = res.contenido
+          .filter((b) => (b as { type?: string })?.type === 'tool_use')
+          .map((b) => {
+            const x = b as { id?: string; name?: string; input?: Record<string, unknown> };
+            return { id: String(x.id ?? ''), name: String(x.name ?? ''), input: x.input ?? {} };
+          });
+        if (!res.texto && !res.usos.length) { res.error = 'respuesta vacía'; break; }
         res.ok = true;
         break;
       } catch (e) {

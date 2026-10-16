@@ -20,6 +20,7 @@ import { tarjetaError } from './programa.js';
 import { montarSelectorAlumno } from './alumno-selector.js';
 import { montarSelectorDudas } from './duda-selector.js';
 import { montarCandidatas } from './dudas-candidatas.js';
+import { montarPropuestasIa } from './dudas-ia.js';   // 139 (IA)
 
 const ORIGENES = Object.entries(ORIGEN_DUDA_LABEL);
 
@@ -65,6 +66,7 @@ export function vistaDudas(el, programaId, vigente) {
   const filtro = { q: '', nuevas: false };
   let alta = null;   // selectores del formulario de arriba
   const filtrosCand = { estado: 'pendiente', desde: '', hasta: '', consultor: '', soloAlta: true };   // persisten entre repintados
+  const filtrosIa = { soloRepetidas: true };
   const editar = () => puedeEditarPrograma(programaId);
 
   function visibles() {
@@ -86,6 +88,7 @@ export function vistaDudas(el, programaId, vigente) {
 
   function pintar() {
     el.innerHTML = `
+      <div id="du-ia"></div>
       <div id="du-cand"></div>
       ${editar() ? `<div class="section-title">Registrar una mención<span class="line"></span></div>
       <div class="card duda-alta">
@@ -113,6 +116,9 @@ export function vistaDudas(el, programaId, vigente) {
       };
     }
     pintarLista();
+    montarPropuestasIa(el.querySelector('#du-ia'), {
+      programaId, filtros: filtrosIa, clientes: () => clientes, recargar: cargar
+    }).catch(e => console.error('dudas ia', e));
     montarCandidatas(el.querySelector('#du-cand'), {
       programaId, filtros: filtrosCand, dudas: () => dudas, clientes: () => clientes, recargar: cargar
     }).catch(e => console.error('dudas candidatas', e));

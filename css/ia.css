@@ -1,0 +1,22 @@
+/* IA Fase 2 (139, 140): riesgo de abandono en la ficha, propuestas de dudas y chat interno. */
+
+/* ---------- Riesgo de abandono (ficha) ---------- */
+.ia-riesgo-linea{display:flex;align-items:flex-start;gap:var(--sp-3);flex-wrap:wrap;}
+.ia-riesgo-alto{color:var(--sem-rojo);border-color:var(--sem-rojo);}
+.ia-riesgo-medio{color:var(--sem-amarillo-text);border-color:var(--sem-amarillo);}
+.ia-riesgo-bajo{color:var(--sem-verde);border-color:var(--sem-verde);}
+
+/* ---------- Propuestas de dudas ---------- */
+.duda-ia{display:flex;flex-direction:column;gap:var(--sp-2);margin-bottom:var(--sp-3);}
+
+/* ---------- Chat interno "Preguntale a la IA" ---------- */
+.chat-ia{display:flex;flex-direction:column;gap:var(--sp-4);max-width:860px;}
+.chat-ia-ejemplos{display:flex;flex-wrap:wrap;gap:var(--sp-2);}
+.chat-ia-form{display:flex;gap:var(--sp-2);align-items:flex-start;flex-wrap:wrap;}
+.chat-ia-form textarea{flex:1;min-width:240px;}
+.chat-ia-hilo{display:flex;flex-direction:column;gap:var(--sp-3);}
+.chat-ia-msg{padding:var(--sp-3) var(--sp-4);border-radius:var(--radius, 10px);border:1px solid var(--border);
+  white-space:pre-wrap;overflow-wrap:anywhere;}
+.chat-ia-msg-yo{background:var(--accent-soft);border-color:var(--accent-line);align-self:flex-end;max-width:90%;}
+.chat-ia-msg-ia{background:var(--surface);}
+.chat-ia-meta{font-size:var(--fs-micro);color:var(--text-faint);margin-top:var(--sp-1);}

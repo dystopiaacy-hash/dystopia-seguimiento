@@ -25,6 +25,7 @@ import { traerEstadoPagos } from '../datos-pagos.js';   // 133 (usa la 129 y la 
 import * as cabecera from './ficha-cabecera.js';
 import * as estado from './ficha-estado.js';
 import * as enQueEsta from './ficha-en-que-esta.js';   // 137 (IA)
+import * as riesgo from './ficha-riesgo.js';   // 139 (IA)
 import * as satisfaccion from './ficha-satisfaccion.js';
 import * as wins from './ficha-wins.js';
 import * as pagos from './ficha-pagos.js';
@@ -42,6 +43,7 @@ import * as historial from './ficha-historial.js';
 const BLOQUES = [
   ['cabecera', cabecera],
   ['estado', estado],
+  ['riesgo', riesgo],
   ['enqueesta', enQueEsta],
   ['pagos', pagos],
   ['ciclo', ciclo],
