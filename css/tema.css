@@ -31,9 +31,9 @@
   --text-dim:#52525b;    /* secundario */
   --text-faint:#71717a;  /* etiquetas, ayudas */
   --on-accent:#ffffff;   /* texto sobre el color de acento */
-  /* Acento (violeta de Dystopia) */
-  --accent:#4f46e5; --accent-hover:#4338ca; --accent-text:#4f46e5;
-  --accent-soft:rgba(79,70,229,.08); --accent-line:rgba(79,70,229,.32);
+  /* Acento: violeta de la mascota Burbujita (#7F77DD), decisión de Joaquín 16/10 */
+  --accent:#7F77DD; --accent-hover:#6B62CF; --accent-text:#5A51C2;
+  --accent-soft:rgba(127,119,221,.10); --accent-line:rgba(127,119,221,.38);
   /* Estados e indicadores */
   --success:#047857; --success-soft:rgba(4,120,87,.10);
   --warning:#d97706; --warning-text:#92400e; --warning-soft:rgba(217,119,6,.12);
@@ -41,7 +41,7 @@
   --pink:#db2777;    --pink-soft:rgba(219,39,119,.10);
   --cyan:#0f766e;
   /* Series de gráficos (en este orden) */
-  --chart-1:#4f46e5; --chart-2:#0d9488; --chart-3:#db2777; --chart-4:#d97706;
+  --chart-1:#7F77DD; --chart-2:#0d9488; --chart-3:#db2777; --chart-4:#d97706;
   --chart-5:#7c3aed; --chart-6:#65a30d; --chart-7:#0284c7; --chart-8:#e11d48;
   --chart-grid:#ececef;
   /* Forma */
@@ -63,8 +63,8 @@
   --overlay:rgba(0,0,0,.62);
   --ink:#fafafa; --text:#e4e4e7; --text-dim:#a1a1aa; --text-faint:#8b8b94;
   --on-accent:#ffffff;
-  --accent:#6657ee; --accent-hover:#7a6df2; --accent-text:#a59cff;
-  --accent-soft:rgba(139,127,255,.14); --accent-line:rgba(139,127,255,.42);
+  --accent:#7F77DD; --accent-hover:#958EE6; --accent-text:#ADA7EE;
+  --accent-soft:rgba(127,119,221,.16); --accent-line:rgba(127,119,221,.45);
   --success:#2dd4bf; --success-soft:rgba(45,212,191,.14);
   --warning:#fbbf24; --warning-text:#fbbf24; --warning-soft:rgba(251,191,36,.14);
   --danger:#f87171;  --danger-soft:rgba(248,113,113,.14);
@@ -88,8 +88,8 @@
     --overlay:rgba(0,0,0,.62);
     --ink:#fafafa; --text:#e4e4e7; --text-dim:#a1a1aa; --text-faint:#8b8b94;
     --on-accent:#ffffff;
-    --accent:#6657ee; --accent-hover:#7a6df2; --accent-text:#a59cff;
-    --accent-soft:rgba(139,127,255,.14); --accent-line:rgba(139,127,255,.42);
+    --accent:#7F77DD; --accent-hover:#958EE6; --accent-text:#ADA7EE;
+    --accent-soft:rgba(127,119,221,.16); --accent-line:rgba(127,119,221,.45);
     --success:#2dd4bf; --success-soft:rgba(45,212,191,.14);
     --warning:#fbbf24; --warning-text:#fbbf24; --warning-soft:rgba(251,191,36,.14);
     --danger:#f87171;  --danger-soft:rgba(248,113,113,.14);
