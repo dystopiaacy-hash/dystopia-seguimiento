@@ -98,6 +98,14 @@
 .cf-consultor{display:flex;gap:var(--sp-3);flex-wrap:wrap;align-items:center;padding:var(--sp-2) 0;
   border-top:1px solid var(--border-soft);font-size:var(--fs-meta);}
 .cf-consultor-n{flex:1;min-width:200px;}
+.cc-fila{align-items:flex-end;}
+.cc-fila label{display:flex;flex-direction:column;gap:var(--sp-1);color:var(--text-dim);}
+.cc-fila select,.cc-fila input[type=time],.cc-fila input[type=number],.cc-fila input[type=text]{background:var(--surface-2);
+  border:1px solid transparent;border-radius:var(--radius-sm);min-height:var(--control-h);padding:0 var(--sp-2);
+  color:var(--ink);font-size:var(--fs-meta);}
+.cc-fila input[type=number]{width:90px;}
+.cc-fila .cc-activo{flex-direction:row;align-items:center;}
+.cc-clase{font-size:var(--fs-meta);color:var(--text-dim);}
 
 @media (max-width:720px){
   .ll-sub{margin-left:var(--sp-3);}

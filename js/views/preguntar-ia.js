@@ -1,10 +1,7 @@
-/* Pestaña "Preguntale a la IA" (#/p/:programa/preguntar, 140). Solo fundador y rol producto (edición en algún programa).
-   SOLO LECTURA: Sonnet entiende la pregunta y elige una de 3 consultas ya armadas en la base; la base responde con los
-   permisos de quien pregunta. Sabe responder:
-     1. ¿Qué alumnos de <cliente> están atrasados o sin llamada?
-     2. ¿En qué está <alumno>?
-     3. ¿Quién está por renovar o debe plata?
-   Si la pregunta no entra en esas, lo dice y sugiere estas. El historial vive solo en esta pantalla (no se guarda). */
+/* Pestaña "Preguntale a la IA" (#/p/:programa/preguntar, 140) y chat de Dystopita. Fundador, rol producto y rol cliente.
+   SOLO LECTURA: Sonnet entiende la pregunta y elige consultas ya armadas en la base (Producto, Marketing, Ventas y Finanzas,
+   ver docs/dystopita-herramientas.md); la base responde con los permisos de quien pregunta. Si la pregunta no entra en
+   ninguna, lo dice. El historial vive solo en esta pantalla (no se guarda). */
 import { esc, toast } from '../ui.js';
 import { puedeUsarChatIa } from '../sesion.js';
 import { mensajeError } from '../datos.js';
@@ -14,7 +11,18 @@ import { vacio } from './programa.js';
 const HERRAMIENTA = {
   alumnos_atrasados: 'alumnos atrasados',
   en_que_esta_alumno: 'en qué está un alumno',
-  por_renovar_o_deuda: 'por renovar o deuda'
+  por_renovar_o_deuda: 'por renovar o deuda',
+  alumnos_cantidad: 'cantidad de alumnos',
+  mkt_piezas_publicadas: 'piezas publicadas',
+  mkt_pendientes_produccion: 'pendientes de producción',
+  mkt_analisis_semanal: 'análisis semanal',
+  ventas_llamadas: 'llamadas',
+  ventas_por_persona: 'llamadas por closer o setter',
+  ventas_leads: 'leads',
+  fin_cobros: 'cobros',
+  fin_ingresos_gastos: 'ingresos y gastos',
+  fin_deudas: 'deudas',
+  fin_pagos: 'pagos'
 };
 
 /* Conserva la conversación al cambiar de pestaña y volver. */
@@ -28,7 +36,7 @@ export function vistaPreguntar(el, programaId, vigente) {
   const ejemplos = [
     programaId ? `¿Qué alumnos de ${programaId} están atrasados o sin llamada?` : '¿Qué alumnos están atrasados o sin llamada?',
     '¿En qué está ',
-    '¿Quién está por renovar o debe plata?'
+    programaId ? `¿Cuántos alumnos activos tiene ${programaId}?` : '¿Cuántos alumnos activos hay por cliente?'
   ];
   let esperando = false;
 
@@ -45,7 +53,7 @@ export function vistaPreguntar(el, programaId, vigente) {
       <div class="chat-ia">
         <div class="card">
           <p><strong>Preguntale a la IA</strong> · solo lectura: no modifica nada.</p>
-          <p class="hint">Por ahora responde tres tipos de pregunta, con los datos que vos tenés permiso de ver. Si le preguntás otra cosa, te lo dice.</p>
+          <p class="hint">Responde de Producto, Marketing, Ventas y Finanzas, con los datos que vos tenés permiso de ver. Si no tiene la herramienta para tu pregunta, te lo dice.</p>
           <div class="chat-ia-ejemplos">
             ${ejemplos.map((t, i) => `<button type="button" class="btn btn-sm" data-ia-ejemplo="${i}">${esc(t.trim())}${i === 1 ? '…' : ''}</button>`).join('')}
           </div>

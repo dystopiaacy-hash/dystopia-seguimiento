@@ -29,13 +29,21 @@ export async function traerResumenCliente(clienteId) {
   return data || null;
 }
 
-/* { fecha, fuente } de la última llamada (cs_v_ultima_llamada, 102) o null. */
+/* { fecha, fuente, modalidad, sinAlerta, onboarding, ultimaConsultoria } de la última llamada
+   (cs_v_ultima_llamada, 102; las 4 últimas son de la 157: sin ella quedan null / false) o null. */
 export async function traerUltimaLlamadaCliente(clienteId) {
-  const { data, error } = await sb.from('cs_v_ultima_llamada')
-    .select('ultima_llamada,fuente').eq('cliente_id', clienteId).maybeSingle();
+  const base = 'ultima_llamada,fuente';
+  let { data, error } = await sb.from('cs_v_ultima_llamada')
+    .select(base + ',modalidad,sin_alerta,onboarding_fecha,ultima_consultoria').eq('cliente_id', clienteId).maybeSingle();
+  if (error && error.code === '42703') {
+    ({ data, error } = await sb.from('cs_v_ultima_llamada').select(base).eq('cliente_id', clienteId).maybeSingle());
+  }
   if (error) {
     if (faltaObjeto(error)) return null;
     throw error;
   }
-  return data ? { fecha: data.ultima_llamada, fuente: data.fuente } : null;
+  return data ? {
+    fecha: data.ultima_llamada, fuente: data.fuente, modalidad: data.modalidad || null, sinAlerta: !!data.sin_alerta,
+    onboarding: data.onboarding_fecha || null, ultimaConsultoria: data.ultima_consultoria || null
+  } : null;
 }

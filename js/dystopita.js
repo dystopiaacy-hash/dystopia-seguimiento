@@ -230,6 +230,7 @@ function abrir() {
   if (!pensando) ponerCompu(false);
   if (chatPrograma !== programaActual() || !chatEl.firstChild) montarChat();
   abierto = true;
+  raiz.dataset.abierto = '1';
   panel.hidden = false;
   btn.setAttribute('aria-expanded', 'true');
   globo.hidden = true;
@@ -240,6 +241,7 @@ function abrir() {
 function cerrar(devolverFoco) {
   if (!abierto) return;
   abierto = false;
+  delete raiz.dataset.abierto;
   panel.hidden = true;
   btn.setAttribute('aria-expanded', 'false');
   if (devolverFoco) btn.focus();

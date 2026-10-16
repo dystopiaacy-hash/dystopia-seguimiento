@@ -50,7 +50,8 @@ export function montarSinLlamada(box, programaId, vigente, alCambiar) {
         const alerta = umbralesLlamada().alerta;   // ya cargado por sumarUltimaLlamada
         a = clientes.filter(c => { const d = diasSinLlamada(c.ultima_llamada); return d != null && d >= alerta; })
           .sort((x, y) => diasSinLlamada(y.ultima_llamada) - diasSinLlamada(x.ultima_llamada));
-        s = clientes.filter(c => c.ultima_llamada == null)
+        /* 157: los grupales sin datos de asistencia no cuentan como "sin llamada" (no tienen 1 a 1 periódico). */
+        s = clientes.filter(c => c.ultima_llamada == null && !c.ultima_llamada_sin_alerta)
           .sort((x, y) => (x.nombre || '').localeCompare(y.nombre || '', 'es'));
       }
     } catch (e) {

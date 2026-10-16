@@ -14,6 +14,7 @@ import { actualizarFila, borrarFila } from '../datos.js';
 import { guardar } from './comunes.js';
 import { agregarAccionables, agregarSubtarea, parsearAccionables } from '../datos-llamadas.js';
 import { modalNueva, modalEditarLlamada } from './ficha-llamada-modales.js';
+import { CLASE_LLAMADA } from '../datos-consultorias.js';   // 157
 
 const T_ACC = 'cs_llamada_accionables';
 const hijosDe = (items, id) => items.filter(a => a.padre_id === id);
@@ -36,11 +37,18 @@ function item(a, { editar, fundador, sub = false, contexto = false }) {
     </div>`;
 }
 
+/* 157: clase de cada llamada (onboarding | uno_a_uno | consultoria | otra), de cs_v_llamadas_clase. */
+let CLASES = null;
+const etiquetaClase = ll => {
+  const c = CLASES && CLASES.get(ll.id);
+  return c ? ` <span class="cc-clase">· ${esc(CLASE_LLAMADA[c] || c)}</span>` : '';
+};
+
 function cabeceraLlamada(ll, items, editar, fundador) {
   const pend = items.filter(a => !a.hecho).length;
   return `<div class="ll-head">
       <div class="ll-head-tit">
-        <span class="ll-fecha">Llamada del ${esc(fmtFecha(ll.fecha))}</span>
+        <span class="ll-fecha">Llamada del ${esc(fmtFecha(ll.fecha))}${etiquetaClase(ll)}</span>
         ${ll.titulo ? `<span class="ll-titulo">${esc(ll.titulo)}</span>` : ''}
         <span class="ll-cuenta">${esc(items.length ? plural(pend, 'pendiente') : 'sin accionables')}</span>
       </div>
@@ -108,6 +116,7 @@ function filaHecha(a, todos, editar, fundador) {
 export function html(ctx) {
   const d = ctx.llamadas;
   if (!d) return '';
+  CLASES = ctx.clasesLlamadas || null;
   const editar = puedeEditarPrograma(ctx.p.id);
   const fundador = esFundador();
   const { llamadas, accionables } = d;

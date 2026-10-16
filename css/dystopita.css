@@ -55,7 +55,8 @@
 .dy-globo[hidden]{display:none;}
 
 /* ---------- Panel ---------- */
-.dy-panel{position:fixed;z-index:85;display:flex;flex-direction:column;background:var(--surface);color:var(--text);
+.dy-panel{position:fixed;z-index:90;display:flex;flex-direction:column;isolation:isolate;
+  background-color:var(--surface,#fff);color:var(--text);
   border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);overflow:hidden;
   animation:dy-abre .14s ease-out;}
 .dy-panel[hidden]{display:none;}
@@ -67,15 +68,17 @@
   font-size:22px;line-height:1;cursor:pointer;}
 .dy-x:hover{background:rgba(255,255,255,.18);}
 .dy-x:focus-visible{outline:2px solid #fff;outline-offset:1px;}
-.dy-chat{flex:1;min-height:0;padding:var(--sp-3);display:flex;flex-direction:column;}
-.dy-chat-in{flex:1;min-height:0;}
+.dy-chat{flex:1;min-height:0;padding:var(--sp-3);display:flex;flex-direction:column;background-color:var(--surface,#fff);}
+.dy-chat-in{flex:1;min-height:0;background-color:var(--surface,#fff);}
 .dy-chat .chat-ia{max-width:none;height:100%;gap:var(--sp-3);}
 .dy-chat .chat-ia > .card{padding:var(--sp-3);}
 .dy-chat .chat-ia > .card .hint{display:none;}
 .dy-chat .chat-ia > .card p{margin:0 0 var(--sp-2);}
-.dy-chat .chat-ia-hilo{flex:1;min-height:0;overflow-y:auto;}
-.dy-chat .chat-ia-form{flex-wrap:nowrap;}
+.dy-chat .chat-ia-hilo{flex:1;min-height:0;overflow-y:auto;background-color:var(--surface,#fff);}
+.dy-chat .chat-ia-msg-ia{background-color:var(--surface-2,#f3f4f7);}
+.dy-chat .chat-ia-form{flex-wrap:nowrap;align-items:flex-end;flex-shrink:0;}
 .dy-chat .chat-ia-form textarea{min-width:0;}
+.dy-chat .chat-ia-form .btn{flex-shrink:0;position:relative;z-index:1;}
 
 /* ---------- Pantallas chicas: 3 px por pixel, fija en la esquina, sin arrastre; panel casi a pantalla completa ---------- */
 @media (max-width:640px){
@@ -83,6 +86,7 @@
   .dy-compu{width:20px;height:14px;margin-left:-10px;bottom:-3px;}
   .dy-btn{cursor:pointer;touch-action:manipulation;}
   .dy-panel{inset:8px;width:auto;height:auto;}
+  .dy-raiz[data-abierto]{visibility:hidden;}   /* el panel ocupa casi toda la pantalla: la burbuja no tiene que tapar el botón */
 }
 
 /* ---------- Movimiento mínimo: sin flotar, saltar ni moverse (el parpadeo lo hace el JS) ---------- */

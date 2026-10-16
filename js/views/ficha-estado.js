@@ -10,7 +10,13 @@ export function html(ctx) {
   const e = ctx.estado;
   if (!e) return '';
   const r = e.resumen || {};
-  const f = { ...ctx.c, ultima_llamada: e.ultima ? e.ultima.fecha : null, ultima_llamada_fuente: e.ultima ? e.ultima.fuente : null };
+  const u = e.ultima || null;
+  const f = { ...ctx.c, ultima_llamada: u ? u.fecha : null, ultima_llamada_fuente: u ? u.fuente : null,
+    ultima_llamada_sin_alerta: !!(u && u.sinAlerta) };
+  /* 157: alumno grupal = una sola llamada 1 a 1 (el onboarding) y después consultorías grupales. */
+  const pieSem = u && u.modalidad === 'grupal'
+    ? `Onboarding: ${u.onboarding ? esc(fmtFecha(u.onboarding)) : 'sin cargar'} · Última consultoría: ${celdaUltimaLlamada(f)}`
+    : `Última llamada: ${celdaUltimaLlamada(f)}`;
   const bloque = (titulo, texto) => `<div class="est-bloque">
       <div class="est-lab">${esc(titulo)}</div>
       ${texto ? `<div class="est-val">${esc(texto)}</div>` : '<div class="est-val txt-gris">Sin cargar</div>'}
@@ -27,7 +33,7 @@ export function html(ctx) {
         <span>${tiene && r.estado_fecha
           ? `Según la llamada del ${esc(fmtFecha(r.estado_fecha))}`
           : 'Todavía no hay una llamada con "En qué está" o "Próximos pasos". Se cargan al registrar la llamada.'}</span>
-        <span class="est-pie-sem">Última llamada: ${celdaUltimaLlamada(f)}</span>
+        <span class="est-pie-sem">${pieSem}</span>
       </div>
     </div>`;
 }

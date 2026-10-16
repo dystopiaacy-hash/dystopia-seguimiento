@@ -24,6 +24,10 @@
 //       ninguno o varios -> cs_fathom_sin_asignar (se asigna a mano desde la app):
 //           'interna'   = ningun otro invitado y ningun nombre en el titulo (ver clasificar)
 //           'pendiente' = hay alguien o un nombre, pero no coincide con un alumno
+//   - CONSULTORIAS GRUPALES (migracion 157): ANTES de buscar alumno, si la reunion arranca dentro de un
+//     horario activo de cs_consultoria_horarios del consultor (dia y hora ART, con tolerancia), va a
+//     cs_consultoria_registrar (cs_consultorias + asistentes + lo que dijo cada alumno + preguntas) y no se
+//     asigna a un alumno. Sin la 157 corrida se sigue como siempre. Se cuenta como `consultorias`.
 //   - Historial: { "historial": true, "consultor": "<id>" } (solo fundador o secret key) arranca el
 //     historial completo de esa cuenta (desde 2020-01-01 o "desde"); se trae por tandas y se guarda el
 //     cursor en cs_fathom_consultores.hist_*: cada corrida (manual o cron) sigue desde ahi y la corrida
@@ -165,12 +169,13 @@ function resolverCuentas(consultores: Consultor[]): Cuenta[] {
 type Conteo = {
   estado: string; traidas: number; creadas: number; actualizadas: number; vinculadas: number;
   sin_asignar: number; internas: number; ignoradas: number; errores: number; por_nombre: number;
+  consultorias: number;   // 157: reuniones que cayeron en un horario de consultoria grupal
   historial?: string;   // 'en_curso' | 'completo' cuando la cuenta tiene historial pedido
   historial_traidas?: number;
 };
 const conteoVacio = (estado = 'ok'): Conteo => ({
   estado, traidas: 0, creadas: 0, actualizadas: 0, vinculadas: 0, sin_asignar: 0, internas: 0, ignoradas: 0,
-  errores: 0, por_nombre: 0,
+  errores: 0, por_nombre: 0, consultorias: 0,
 });
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -563,6 +568,9 @@ Deno.serve(async (req) => {
   try {
     const alumnos = await cargarAlumnos(sb, programas);
 
+    // 157: si la migracion no esta corrida, cs_consultoria_horario_buscar falla y se sigue como siempre.
+    let consultoriasOk = true;
+
     // Una reunion de Fathom -> cs_fathom_registrar. Nada se ignora (127).
     const procesar = async (m: any, cuenta: Cuenta, c: Conteo) => {
       c.traidas++;
@@ -581,6 +589,32 @@ Deno.serve(async (req) => {
           .map((i) => normNombre(i.name ?? i.matched_speaker_display_name))
           .filter((n) => n.split(' ').filter(Boolean).length >= 2);
         const nombresTit = nombresDeTitulo(titulo, propios);
+
+        // 0. (157) consultoria grupal: la reunion arranca dentro de un horario cargado del consultor.
+        // No se asigna a un alumno: cs_consultoria_registrar arma la consultoria, los asistentes y las preguntas.
+        if (consultoriasOk) {
+          const iniReunion = m.recording_start_time || m.scheduled_start_time || m.created_at;
+          const { data: horarioId, error: eh } = await sb.rpc('cs_consultoria_horario_buscar',
+            { p_consultor: cuenta.id, p_inicio: iniReunion });
+          if (eh) {
+            consultoriasOk = false;
+            console.warn(`[consultorias] horarios no disponibles (migracion 157 corrida?): ${eh.code ?? 'error'}`);
+          } else if (horarioId) {
+            const base = armarPayload(m, cuenta.id, undefined, [], [], 'mail', false, []);
+            const asistentes = otros.map((i) => ({ nombre: i.name ?? i.matched_speaker_display_name ?? null, email: i.email ?? null }));
+            const { data: rc157, error: ec157 } = await sb.rpc('cs_consultoria_registrar', {
+              p: {
+                externo_id: base.externo_id, consultor: base.consultor, inicio_at: base.inicio_at, titulo: base.titulo,
+                duracion_min: base.duracion_min, grabacion_url: base.grabacion_url,
+                grabacion_share_url: base.grabacion_share_url, resumen: base.resumen,
+                transcripcion: base.transcripcion, asistentes,
+              },
+            });
+            if (ec157) { falla(c, cuenta.id, m.recording_id, ec157.message); return; }
+            if (String(rc157?.resultado ?? '') !== 'sin_horario') { c.consultorias++; return; }
+          }
+        }
+
         // 1. por mail (principal o extra). 2. respaldo: por nombre (nombre o alias), ver coincidenPorNombre.
         let { alumno, candidatos } = resolverAlumno(mails, alumnos.porMail);
         let asignadaPor: 'mail' | 'nombre' = 'mail';
@@ -755,7 +789,7 @@ Deno.serve(async (req) => {
   for (const c of Object.values(porConsultor)) {
     tot.traidas += c.traidas; tot.creadas += c.creadas; tot.actualizadas += c.actualizadas;
     tot.vinculadas += c.vinculadas; tot.sin_asignar += c.sin_asignar; tot.internas += c.internas;
-    tot.ignoradas += c.ignoradas; tot.por_nombre += c.por_nombre;
+    tot.ignoradas += c.ignoradas; tot.por_nombre += c.por_nombre; tot.consultorias += c.consultorias;
   }
   const asignadas = tot.creadas + tot.actualizadas + tot.vinculadas;
   const estado = fatal ? 'error' : parcial ? 'parcial' : totalErrores ? 'con_errores' : 'ok';
@@ -803,7 +837,7 @@ Deno.serve(async (req) => {
     programas_habilitados: programas, consultores: desglose,
     traidas: tot.traidas, asignadas, creadas: tot.creadas, actualizadas: tot.actualizadas,
     vinculadas: tot.vinculadas, sin_asignar: tot.sin_asignar, internas: tot.internas,
-    asignadas_por_nombre: tot.por_nombre,
+    asignadas_por_nombre: tot.por_nombre, consultorias_grupales: tot.consultorias,
     historial_pendiente: historialPendiente,
     errores: totalErrores, parcial, segundos: Math.round((Date.now() - inicio) / 100) / 10,
     detalle_errores: fatal ? [{ recording_id: null, motivo: fatal }, ...errores] : errores,

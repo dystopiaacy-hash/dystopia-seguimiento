@@ -93,15 +93,25 @@ export async function traerLlamadasCliente(clienteId) {
   return { llamadas: ll.data || [], accionables: acc.data || [], recursos: rec.data || [] };
 }
 
-/* Mapa cliente_id -> { fecha, fuente }. null = 102 sin correr. */
+/* Mapa cliente_id -> { fecha, fuente, modalidad, sinAlerta, onboarding, ultimaConsultoria }. null = 102 sin
+   correr. Con la 157 la vista trae modalidad (grupal / vip), sin_alerta (grupal sin datos de asistencia: no se
+   alerta por falta de 1 a 1) y la fecha del onboarding; sin ella esas columnas faltan y quedan en null / false. */
 export async function traerUltimasLlamadas(programaId) {
-  const { data, error } = await sb.from('cs_v_ultima_llamada')
-    .select('cliente_id,ultima_llamada,fuente').eq('programa_id', programaId).limit(5000);
+  const base = 'cliente_id,ultima_llamada,fuente';
+  let { data, error } = await sb.from('cs_v_ultima_llamada')
+    .select(base + ',modalidad,sin_alerta,onboarding_fecha,ultima_consultoria')
+    .eq('programa_id', programaId).limit(5000);
+  if (error && error.code === '42703') {
+    ({ data, error } = await sb.from('cs_v_ultima_llamada').select(base).eq('programa_id', programaId).limit(5000));
+  }
   if (error) {
     if (faltaTabla(error)) return null;
     throw error;
   }
-  return new Map((data || []).map(r => [r.cliente_id, { fecha: r.ultima_llamada, fuente: r.fuente }]));
+  return new Map((data || []).map(r => [r.cliente_id, {
+    fecha: r.ultima_llamada, fuente: r.fuente, modalidad: r.modalidad || null, sinAlerta: !!r.sin_alerta,
+    onboarding: r.onboarding_fecha || null, ultimaConsultoria: r.ultima_consultoria || null
+  }]));
 }
 
 /* ---------- Escrituras ---------- */
