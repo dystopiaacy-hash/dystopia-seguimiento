@@ -15,7 +15,7 @@
 
   /* Orden fijo: Marketing | Ventas | Producto | Finanzas. */
   var AREAS = [
-    { id: 'marketing', label: 'Marketing', url: 'https://mkt.dystopia.com.ar',         roles: ['fundador', 'cliente', 'editor', 'contenido'] },
+    { id: 'marketing', label: 'Marketing', url: 'https://mkt.dystopia.com.ar',         roles: ['fundador', 'cliente', 'editor', 'contenido', 'producto'] },
     { id: 'ventas',    label: 'Ventas',    url: 'https://ventas.dystopia.com.ar',      roles: ['fundador', 'cliente', 'closer', 'setter', 'ventas', 'finanzas'] },
     { id: 'producto',  label: 'Producto',  url: 'https://producto.dystopia.com.ar', roles: ['fundador', 'cliente', 'producto'] },
     { id: 'finanzas',  label: 'Finanzas',  url: 'https://finanzas.dystopia.com.ar',    roles: ['fundador', 'cliente', 'closer', 'setter', 'finanzas', 'ventas'] }
