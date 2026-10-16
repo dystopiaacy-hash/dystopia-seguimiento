@@ -11,6 +11,7 @@ import { renderLayout, renderNav, setHeader, setLive } from './layout.js';
 import { vistaPanel } from './views/panel.js';
 import { vistaConfigGeneral } from './views/config-general.js';
 import { vistaPrograma } from './views/programa.js';
+import { montarDystopita, desmontarDystopita } from './dystopita.js';
 
 const app = document.getElementById('app');
 let appIniciada = false;
@@ -231,6 +232,7 @@ async function iniciarApp() {
   if (!escuchandoCambios) { onChange(tabla => programarRefresco(tabla)); escuchandoCambios = true; }
   /* La suscripción la arma cada ruta (asegurarRealtime), acotada al programa abierto. */
   iniciarRouter();
+  montarDystopita();   // mascota + chat interno: solo fundador, producto y cliente
 }
 
 /* Si la sesión se cierra (en otra pestaña o por expiración), volver al login. */
@@ -238,6 +240,7 @@ sb.auth.onAuthStateChange(evento => {
   if (evento === 'SIGNED_OUT' && appIniciada) {
     appIniciada = false;
     pararRealtime();
+    desmontarDystopita();
     renderLogin();
   }
 });

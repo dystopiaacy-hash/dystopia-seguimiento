@@ -63,6 +63,12 @@ export function puedeGestionarFathom() {
   return yo.rol === 'fundador' || Object.values(yo.niveles).includes('edicion');
 }
 
+/* Chat interno / Dystopita (140, 141): fundador, rol producto (edición en algún programa) o rol cliente con programa.
+   La base lo impone igual con cs_chat_puede() y la RLS recorta al cliente a su programa. */
+export function puedeUsarChatIa() {
+  return puedeGestionarFathom() || (yo.rol === 'cliente' && yo.programas.length > 0);
+}
+
 export function programa(id) {
   return yo.programas.find(p => p.id === id) || null;
 }

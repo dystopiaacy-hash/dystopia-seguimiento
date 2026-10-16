@@ -1,0 +1,346 @@
+/* Dystopita: mascota pixel art que abre el chat interno de IA (panel desplegable) en todas las pantallas de Producto.
+   Solo se monta para fundador, rol producto y rol cliente (puedeUsarChatIa). El chat es el de la 140 (views/preguntar-ia.js):
+   Dystopita solo lo muestra; los permisos y el recorte por programa los impone la base.
+   - Animaciones que cambian solas (quieta, tipeando, caminando, durmiendo, pensando, saludo). prefers-reduced-motion: cuadro fijo.
+   - Se arrastra con mouse o dedo; la posición se recuerda en localStorage y se corrige al cambiar el tamaño de la ventana.
+   - En pantallas chicas: más chica, fija en la esquina, sin arrastre, y el panel ocupa casi toda la pantalla. */
+import { puedeUsarChatIa } from './sesion.js';
+import { svgCuadro } from './dystopita-sprites.js';
+import { vistaPreguntar } from './views/preguntar-ia.js';
+
+const CLAVE = 'dystopita_pos_v1';
+const MARGEN = 8;          // distancia mínima al borde de la pantalla
+const MARGEN_INICIAL = 20; // posición por defecto: abajo a la derecha
+const SUENO_MS = 90_000;   // sin interacción => se duerme
+const CUADROS_POR_ESTADO = {
+  quieto: ['quieto'], tipeo: ['tipeoA', 'tipeoB'], paso: ['pasoA', 'pasoB'],
+  dormido: ['dormido'], pensando: ['pensando'], saludo: ['saludoA', 'saludoB']
+};
+
+const mqMovil = window.matchMedia('(max-width: 640px)');
+const mqQuieto = window.matchMedia('(prefers-reduced-motion: reduce)');
+const movil = () => mqMovil.matches;
+const tam = () => (movil() ? 48 : 64);
+const azar = (a, b) => a + Math.random() * (b - a);
+const limitar = (v, min, max) => Math.max(min, Math.min(v, Math.max(min, max)));
+
+let raiz = null, btn = null, cuerpo = null, mover = null, globo = null, panel = null, chatEl = null, observador = null;
+let estado = 'quieto', pensando = false, parpadeando = false, n = 0, cuadroActual = '';
+let pos = { x: 0, y: 0 }, anclado = true, desplazo = 0;   // desplazo: px que caminó desde su posición
+let arrastre = null, suprimirClick = false, abierto = false, chatPrograma;
+let tickId = null, suenoId = null, espontaneoId = null, parpadeoId = null, estadoId = null, globoId = null;
+let escuchas = [];
+
+/* ---------- Posición ---------- */
+function posInicial() {
+  const t = tam();
+  return { x: innerWidth - t - MARGEN_INICIAL, y: innerHeight - t - MARGEN_INICIAL };
+}
+function cargarPos() {
+  try {
+    const v = JSON.parse(localStorage.getItem(CLAVE));
+    if (v && Number.isFinite(v.x) && Number.isFinite(v.y)) return { x: v.x, y: v.y };
+  } catch { /* sin almacenamiento */ }
+  return null;
+}
+function guardarPos() {
+  try { localStorage.setItem(CLAVE, JSON.stringify(pos)); } catch { /* sin almacenamiento */ }
+}
+function encajar() {
+  const t = tam();
+  pos.x = limitar(pos.x, MARGEN, innerWidth - t - MARGEN);
+  pos.y = limitar(pos.y, MARGEN, innerHeight - t - MARGEN);
+}
+function aplicar() {
+  raiz.style.left = pos.x + 'px';
+  raiz.style.top = pos.y + 'px';
+  raiz.classList.toggle('dy-izq', pos.x + tam() / 2 < innerWidth / 2);
+  raiz.classList.toggle('dy-abajo', pos.y < 70);
+  posicionarPanel();
+}
+function alRedimensionar() {
+  if (movil() || anclado) pos = posInicial();
+  encajar();
+  aplicar();
+}
+
+/* La caminata mueve solo el dibujo; antes de arrastrar o abrir el panel se suma a la posición real. */
+function plegar() {
+  if (!desplazo) return;
+  pos.x += desplazo;
+  desplazo = 0;
+  mover.style.transition = 'none';
+  mover.style.transform = '';
+  encajar();
+  aplicar();
+}
+
+/* ---------- Dibujo y estados ---------- */
+function pintar() {
+  let nombre;
+  if (estado === 'quieto' && parpadeando) nombre = 'parpadeo';
+  else {
+    const lista = CUADROS_POR_ESTADO[estado];
+    nombre = mqQuieto.matches ? lista[0] : lista[n % lista.length];
+  }
+  if (nombre !== cuadroActual) { cuadroActual = nombre; cuerpo.innerHTML = svgCuadro(nombre); }
+}
+function ir(nuevo, ms) {
+  clearTimeout(estadoId);
+  estado = nuevo;
+  raiz.dataset.estado = nuevo;
+  if (nuevo !== 'paso') { mover.style.transition = 'none'; }
+  n = 0;
+  pintar();
+  if (ms) estadoId = setTimeout(reposar, ms);
+}
+function reposar() {
+  ir(pensando ? 'pensando' : 'quieto');
+}
+
+function ocupado() { return !!arrastre || abierto || pensando || estado === 'dormido' || estado === 'saludo'; }
+
+/* Unos pasos de lado a lado (hasta 60 px de su lugar), sin salirse de la pantalla. */
+function caminar() {
+  const libreIzq = raiz.offsetLeft - MARGEN, libreDer = innerWidth - (raiz.offsetLeft + tam()) - MARGEN;
+  const lo = -Math.min(60, libreIzq), hi = Math.min(60, libreDer);
+  const dir = desplazo > 20 ? -1 : desplazo < -20 ? 1 : (Math.random() < 0.5 ? -1 : 1);
+  const destino = limitar(desplazo + dir * azar(30, 60), lo, hi);
+  if (Math.abs(destino - desplazo) < 8) return;
+  const ms = Math.max(1500, Math.abs(destino - desplazo) * 55);
+  cuerpo.style.transform = destino < desplazo ? 'scaleX(-1)' : '';
+  ir('paso', ms);
+  mover.style.transition = `transform ${ms}ms linear`;
+  mover.style.transform = `translateX(${destino}px)`;
+  desplazo = destino;
+}
+
+/* Cada tanto, algo distinto al azar (suave: la mayoría de las veces se queda quieta). */
+function programarEspontaneo() {
+  clearTimeout(espontaneoId);
+  espontaneoId = setTimeout(() => {
+    if (!ocupado() && !mqQuieto.matches && estado === 'quieto') {
+      const q = Math.random();
+      if (q < 0.35) ir('tipeo', azar(4000, 7000));
+      else if (q < 0.65 && !movil()) caminar();
+    }
+    programarEspontaneo();
+  }, azar(6000, 12000));
+}
+function programarParpadeo() {
+  clearTimeout(parpadeoId);
+  parpadeoId = setTimeout(() => {
+    if (estado === 'quieto' && !mqQuieto.matches) {
+      parpadeando = true; pintar();
+      setTimeout(() => { parpadeando = false; pintar(); }, 140);
+    }
+    programarParpadeo();
+  }, azar(2500, 6000));
+}
+function reiniciarSueno() {
+  clearTimeout(suenoId);
+  suenoId = setTimeout(() => { if (!pensando && !arrastre && !abierto) ir('dormido'); }, SUENO_MS);
+}
+function actividad() {
+  if (estado === 'dormido') ir(pensando ? 'pensando' : 'quieto');
+  reiniciarSueno();
+}
+
+/* ---------- Globo de texto ---------- */
+function decir(texto, ms) {
+  clearTimeout(globoId);
+  globo.textContent = texto;
+  globo.hidden = false;
+  globoId = setTimeout(() => { globo.hidden = true; }, ms);
+}
+
+/* ---------- Panel ---------- */
+function programaActual() {
+  const m = /^#\/p\/([^/?]+)/.exec(location.hash);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function montarChat() {
+  chatPrograma = programaActual();
+  const cont = document.createElement('div');
+  cont.className = 'dy-chat-in';
+  chatEl.replaceChildren(cont);
+  vistaPreguntar(cont, chatPrograma, () => true);   // la conversación (hilo) se conserva entre montajes
+}
+function posicionarPanel() {
+  if (!panel || panel.hidden) return;
+  if (movil()) { panel.style.cssText = ''; return; }
+  const W = Math.min(380, innerWidth - 16), H = Math.min(540, innerHeight - 16), t = tam(), sep = 10;
+  const aLaIzq = pos.x + t / 2 > innerWidth / 2;
+  const left = limitar(aLaIzq ? pos.x - W - sep : pos.x + t + sep, 8, innerWidth - W - 8);
+  const top = limitar(pos.y + t - H, 8, innerHeight - H - 8);
+  panel.style.cssText = `left:${left}px;top:${top}px;width:${W}px;height:${H}px`;
+}
+function abrir() {
+  plegar();
+  if (chatPrograma !== programaActual() || !chatEl.firstChild) montarChat();
+  abierto = true;
+  panel.hidden = false;
+  btn.setAttribute('aria-expanded', 'true');
+  globo.hidden = true;
+  posicionarPanel();
+  const ta = chatEl.querySelector('#ia-pregunta');
+  if (ta) ta.focus();
+}
+function cerrar(devolverFoco) {
+  if (!abierto) return;
+  abierto = false;
+  panel.hidden = true;
+  btn.setAttribute('aria-expanded', 'false');
+  if (devolverFoco) btn.focus();
+}
+
+/* ---------- Arrastre ---------- */
+function alPresionar(e) {
+  suprimirClick = false;
+  actividad();
+  if (movil() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  plegar();
+  arrastre = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y, movio: false };
+  try { btn.setPointerCapture(e.pointerId); } catch { /* sin captura */ }
+}
+function alMover(e) {
+  if (!arrastre || e.pointerId !== arrastre.id) return;
+  const dx = e.clientX - arrastre.sx, dy = e.clientY - arrastre.sy;
+  if (!arrastre.movio && Math.hypot(dx, dy) < 5) return;
+  arrastre.movio = true;
+  raiz.classList.add('dy-arrastrando');
+  pos = { x: arrastre.ox + dx, y: arrastre.oy + dy };
+  encajar();
+  aplicar();
+}
+function alSoltar(e) {
+  if (!arrastre || e.pointerId !== arrastre.id) return;
+  const movio = arrastre.movio;
+  arrastre = null;
+  raiz.classList.remove('dy-arrastrando');
+  try { btn.releasePointerCapture(e.pointerId); } catch { /* ya liberado */ }
+  if (movio && e.type === 'pointerup') {
+    anclado = false;
+    guardarPos();
+    suprimirClick = true;    // el click que sigue a un arrastre no abre el panel
+  }
+  reiniciarSueno();
+}
+
+/* ---------- Montaje ---------- */
+function escuchar(blanco, tipo, fn, opciones) {
+  blanco.addEventListener(tipo, fn, opciones);
+  escuchas.push([blanco, tipo, fn, opciones]);
+}
+
+export function montarDystopita() {
+  desmontarDystopita();
+  if (!puedeUsarChatIa()) return;
+
+  raiz = document.createElement('div');
+  raiz.id = 'dystopita';
+  raiz.className = 'dy-raiz';
+  raiz.dataset.estado = 'quieto';
+  raiz.innerHTML = `
+    <div class="dy-globo" role="status" hidden></div>
+    <button type="button" class="dy-btn" aria-label="Abrir Dystopita" aria-expanded="false" aria-controls="dy-panel">
+      <span class="dy-mover">
+        <span class="dy-cuerpo"></span>
+        <span class="dy-sombra"></span>
+        <span class="dy-zzz" aria-hidden="true">z Z</span>
+        <span class="dy-pienso" aria-hidden="true"><i></i><i></i><i></i></span>
+      </span>
+    </button>`;
+  panel = document.createElement('section');
+  panel.id = 'dy-panel';
+  panel.className = 'dy-panel';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-label', 'Dystopita');
+  panel.hidden = true;
+  panel.innerHTML = `
+    <header class="dy-panel-cab">
+      <h2>Dystopita</h2>
+      <button type="button" class="dy-x" aria-label="Cerrar">×</button>
+    </header>
+    <div class="dy-chat"></div>`;
+  document.body.append(raiz, panel);
+
+  btn = raiz.querySelector('.dy-btn');
+  cuerpo = raiz.querySelector('.dy-cuerpo');
+  mover = raiz.querySelector('.dy-mover');
+  globo = raiz.querySelector('.dy-globo');
+  chatEl = panel.querySelector('.dy-chat');
+  chatPrograma = undefined;
+
+  const guardada = cargarPos();
+  anclado = !guardada;
+  pos = guardada || posInicial();
+  if (movil()) pos = posInicial();
+  encajar();
+  aplicar();
+  pintar();
+
+  btn.addEventListener('pointerdown', alPresionar);
+  btn.addEventListener('pointermove', alMover);
+  btn.addEventListener('pointerup', alSoltar);
+  btn.addEventListener('pointercancel', alSoltar);
+  btn.addEventListener('pointerenter', actividad);
+  btn.addEventListener('click', e => {
+    if (suprimirClick) { suprimirClick = false; e.preventDefault(); return; }
+    if (abierto) cerrar(false); else abrir();
+  });
+  panel.querySelector('.dy-x').addEventListener('click', () => cerrar(true));
+
+  escuchar(window, 'resize', alRedimensionar);
+  escuchar(window, 'hashchange', () => { if (abierto && chatPrograma !== programaActual()) montarChat(); });
+  escuchar(window, 'ia-chat-pensando', e => {
+    pensando = !!(e.detail && e.detail.pensando);
+    if (pensando) ir('pensando'); else if (estado === 'pensando') ir('quieto');
+    reiniciarSueno();
+  });
+  escuchar(document, 'keydown', e => {
+    actividad();
+    if (e.key === 'Escape' && abierto) { e.preventDefault(); cerrar(true); }
+  });
+  escuchar(document, 'pointerdown', e => {
+    actividad();
+    if (abierto && !panel.contains(e.target) && !raiz.contains(e.target)) cerrar(false);
+  }, true);
+  escuchar(document, 'wheel', actividad, { passive: true, capture: true });
+
+  // Tras cada mensaje del chat: bajar al último y no perder el foco del cuadro de texto.
+  observador = new MutationObserver(() => {
+    const h = chatEl.querySelector('.chat-ia-hilo');
+    if (h) h.scrollTop = h.scrollHeight;
+    if (abierto && (!document.activeElement || document.activeElement === document.body)) {
+      const ta = chatEl.querySelector('#ia-pregunta');
+      if (ta) ta.focus();
+    }
+  });
+  observador.observe(chatEl, { childList: true, subtree: true });
+
+  tickId = setInterval(() => { n++; pintar(); }, 220);
+  programarEspontaneo();
+  programarParpadeo();
+  reiniciarSueno();
+
+  // Saludo corto al cargar
+  setTimeout(() => {
+    if (!raiz) return;
+    ir('saludo', 4200);
+    decir('¡Hola! Soy Dystopita', 4200);
+  }, 700);
+}
+
+export function desmontarDystopita() {
+  [tickId, suenoId, espontaneoId, parpadeoId, estadoId, globoId].forEach(clearTimeout);
+  clearInterval(tickId);
+  for (const [b, t, f, o] of escuchas) b.removeEventListener(t, f, o);
+  escuchas = [];
+  if (observador) observador.disconnect();
+  observador = null;
+  if (raiz) raiz.remove();
+  if (panel) panel.remove();
+  raiz = panel = btn = cuerpo = mover = globo = chatEl = null;
+  estado = 'quieto'; pensando = false; parpadeando = false; abierto = false; arrastre = null; desplazo = 0; cuadroActual = '';
+}

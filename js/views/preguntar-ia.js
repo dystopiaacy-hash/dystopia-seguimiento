@@ -6,7 +6,7 @@
      3. ¿Quién está por renovar o debe plata?
    Si la pregunta no entra en esas, lo dice y sugiere estas. El historial vive solo en esta pantalla (no se guarda). */
 import { esc, toast } from '../ui.js';
-import { puedeGestionarFathom } from '../sesion.js';
+import { puedeUsarChatIa } from '../sesion.js';
 import { mensajeError } from '../datos.js';
 import { preguntarIa } from '../datos-ia-chat.js';
 import { vacio } from './programa.js';
@@ -21,12 +21,12 @@ const HERRAMIENTA = {
 let hilo = [];
 
 export function vistaPreguntar(el, programaId, vigente) {
-  if (!puedeGestionarFathom()) {
-    el.innerHTML = vacio('Solo el fundador o el rol producto pueden usar esta sección.');
+  if (!puedeUsarChatIa()) {
+    el.innerHTML = vacio('No tenés acceso a esta sección.');
     return null;
   }
   const ejemplos = [
-    `¿Qué alumnos de ${programaId} están atrasados o sin llamada?`,
+    programaId ? `¿Qué alumnos de ${programaId} están atrasados o sin llamada?` : '¿Qué alumnos están atrasados o sin llamada?',
     '¿En qué está ',
     '¿Quién está por renovar o debe plata?'
   ];
@@ -69,6 +69,7 @@ export function vistaPreguntar(el, programaId, vigente) {
     const enviarBtn = el.querySelector('#ia-enviar');
     if (enviarBtn) enviarBtn.disabled = true;
     if (estado) estado.textContent = 'Pensando…';
+    window.dispatchEvent(new CustomEvent('ia-chat-pensando', { detail: { pensando: true } }));   // Dystopita
     try {
       const r = await preguntarIa(t, programaId);
       hilo.push({ rol: 'ia', texto: r.respuesta, consultas: r.consultas || [] });
@@ -76,6 +77,7 @@ export function vistaPreguntar(el, programaId, vigente) {
       toast(mensajeError(e), 'error');
       hilo.push({ rol: 'ia', texto: 'No pude responder: ' + mensajeError(e) });
     }
+    window.dispatchEvent(new CustomEvent('ia-chat-pensando', { detail: { pensando: false } }));
     esperando = false;
     if (!vigente()) return;
     pintar();
