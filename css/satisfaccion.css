@@ -14,7 +14,7 @@
   border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);
   font-weight:800;color:var(--text-dim);}
 .sat-num input:checked + span,.sat-op input:checked + span{background:var(--accent-soft);
-  border-color:var(--accent);color:var(--accent);}
+  border-color:var(--accent-text);color:var(--accent-text);}
 .sat-num input:focus-visible + span,.sat-op input:focus-visible + span{outline:2px solid var(--accent-line);outline-offset:2px;}
 .sat-extremos{display:flex;justify-content:space-between;margin-top:var(--sp-1);
   font-size:var(--fs-micro);color:var(--text-faint);}

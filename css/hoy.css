@@ -15,10 +15,10 @@
 .hoy-filtros{margin-bottom:var(--sp-5);}
 .hoy-chip{background:var(--surface);border:1px solid var(--border);border-radius:999px;min-height:var(--control-h-sm);padding:0 var(--sp-3);cursor:pointer;font-weight:600;font-size:var(--fs-meta);color:var(--text-dim);display:inline-flex;align-items:center;gap:var(--sp-1);white-space:nowrap;}
 .hoy-chip:hover{color:var(--ink);border-color:var(--accent-line);}
-.hoy-chip.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);font-weight:700;}
+.hoy-chip.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-text);font-weight:700;}
 .hoy-chip:focus-visible{outline:2px solid var(--accent-line);outline-offset:1px;}
 .hoy-chip-n{font-variant-numeric:tabular-nums;color:var(--text-faint);font-weight:600;}
-.hoy-chip.on .hoy-chip-n{color:var(--accent);}
+.hoy-chip.on .hoy-chip-n{color:var(--accent-text);}
 
 /* ---------- Grupos y tarjetas ---------- */
 .hoy-grupo .section-title{margin-top:var(--sp-6);}
@@ -64,7 +64,7 @@
 
 /* ---------- Clientes nuevos (altas desde pagos, 070) ---------- */
 .hoy-altas{margin-bottom:var(--sp-6);}
-.hoy-n-altas{color:var(--accent);}
+.hoy-n-altas{color:var(--accent-text);}
 .hoy-alta{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:var(--sp-3) var(--sp-4);background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius);padding:var(--sp-3) var(--sp-4);margin-bottom:var(--sp-2);box-shadow:var(--shadow);}
 .hoy-alta.ocupada{opacity:.6;}
 .hoy-alta-nombre{font-weight:700;color:var(--ink);overflow-wrap:anywhere;}

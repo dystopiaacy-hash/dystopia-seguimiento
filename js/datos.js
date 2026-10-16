@@ -167,7 +167,7 @@ export const REN_LABEL = {
 };
 export const REN_COLOR = {
   en_proceso: 'var(--sem-amarillo)', contactado: 'var(--sem-amarillo)', call_agendada: 'var(--cyan)',
-  propuesta_enviada: 'var(--accent)', renovado: 'var(--sem-verde)', no_renovado: 'var(--text-faint)'
+  propuesta_enviada: 'var(--accent-text)', renovado: 'var(--sem-verde)', no_renovado: 'var(--text-faint)'
 };
 
 /* Qué compró al renovar (cs_renovaciones.resell_producto). Obligatorio al cerrar como renovado. */

@@ -66,7 +66,7 @@
 .ll-fathom{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-2);
   font-size:var(--fs-meta);color:var(--text-dim);}
 .ll-fathom-tag{font-size:var(--fs-micro);font-weight:800;text-transform:uppercase;letter-spacing:.04em;
-  color:var(--accent);}
+  color:var(--accent-text);}
 .ll-transc{margin:var(--sp-2) 0 0;max-height:320px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;
   background:var(--surface-2);border-radius:var(--radius-sm);padding:var(--sp-3);font:inherit;font-size:var(--fs-meta);
   color:var(--text);}
@@ -80,7 +80,7 @@
   min-height:var(--control-h);padding:0 var(--sp-3);color:var(--ink);font-size:var(--fs-meta);}
 .fa-n{font-size:var(--fs-micro);color:var(--text-faint);margin-left:var(--sp-1);}
 .fa-estado{font-size:var(--fs-micro);font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
-.fa-alumno{color:var(--accent);}
+.fa-alumno{color:var(--accent-text);}
 .fa-pendiente{color:var(--text-dim);}
 .fa-no_alumno{color:var(--text-faint);}
 .fa-interna{color:var(--text-faint);font-style:italic;}

@@ -64,7 +64,7 @@ function filaHtml(a, base, editable) {
   const celdas = [
     ['Alumno', `<a class="cli-nombre" href="${base}/c/${encodeURIComponent(a.cliente_id)}">${esc(a.nombre)}</a>`, 'col-nombre'],
     ['Producto', a.producto ? esc(a.producto) : '<span class="txt-gris">Sin producto</span>', ''],
-    ['Resell', a.resell ? badge('Resell', 'var(--accent)', 'status') : '<span class="txt-gris">—</span>', ''],
+    ['Resell', a.resell ? badge('Resell', 'var(--accent-text)', 'status') : '<span class="txt-gris">—</span>', ''],
     ['Alta', a.fecha_alta ? esc(fmtFecha(a.fecha_alta)) : '—', ''],
     ['Estado', badge(lab, color, 'status'), ''],
     ['Avance', celdaAvance(a), 'col-prog'],

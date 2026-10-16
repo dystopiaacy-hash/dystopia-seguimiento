@@ -9,6 +9,7 @@
    bloque no se muestra. */
 import { esc, fmtFecha, plural, abrirModal, cerrarModal, confirmar, urlSegura } from '../ui.js';
 import { traerTranscripcion } from '../datos-fathom.js';
+import { limpiarMarkdown } from '../texto-limpio.js';
 import { esFundador, puedeEditarPrograma } from '../sesion.js';
 import { actualizarFila, borrarFila } from '../datos.js';
 import { guardar } from './comunes.js';
@@ -76,7 +77,7 @@ function infoLlamada(ll, editar) {
     <pre class="ll-transc" data-ll-transc-box="${esc(ll.id)}" hidden></pre>` : '';
   if (!partes.length && !barra) return '';
   return `<div class="ll-info">${partes.map(([t, v]) =>
-    `<div><span class="ll-info-lab">${esc(t)}</span> ${esc(v)}</div>`).join('')}${barra}</div>`;
+    `<div><span class="ll-info-lab">${esc(t)}</span> ${esc(limpiarMarkdown(v))}</div>`).join('')}${barra}</div>`;
 }
 
 function grupoPendientes(ll, items, editar, fundador) {

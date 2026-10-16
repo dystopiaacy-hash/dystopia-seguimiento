@@ -3,7 +3,8 @@
    tuvieron una llamada registrada. Vive en su propio contenedor, como las altas y el
    onboarding. Sin la 102 (o si falla la lectura) no muestra nada y el resto sigue igual. */
 import { esc, fmtFecha, plural } from '../ui.js';
-import { traerClientes, esVivo } from '../datos.js';
+import { traerClientes } from '../datos.js';
+import { esVigente } from '../vigencia.js';
 import { sumarUltimaLlamada, diasSinLlamada, textoDias, umbralesLlamada } from './llamada-semaforo.js';
 
 function fila(c, programaId) {
@@ -34,7 +35,7 @@ export function montarSinLlamada(box, programaId, vigente, alCambiar) {
       <div class="section-title">${esc(titulo)} <span class="hoy-grupo-n hoy-n-atrasado">${total}</span><span class="line"></span></div>
       ${atrasados.length ? atrasados.map(c => fila(c, programaId)).join('')
         : `<div class="muted-empty">${nunca.length
-          ? 'Ningún alumno con llamadas registradas pasó ese plazo.'
+          ? `Ningún alumno con llamadas registradas pasó ese plazo. Los ${nunca.length} de abajo todavía no tienen ninguna llamada registrada y por eso suman al número.`
           : 'Ningún alumno activo pasó ese plazo.'}</div>`}
       ${nunca.length ? `<details class="ll-nunca"><summary>${esc(plural(nunca.length, 'alumno activo sin ninguna llamada registrada (cuenta como sin llamada)', 'alumnos activos sin ninguna llamada registrada (cuentan como sin llamada)'))}</summary>
         ${nunca.map(c => fila(c, programaId)).join('')}</details>` : ''}
@@ -45,7 +46,7 @@ export function montarSinLlamada(box, programaId, vigente, alCambiar) {
     const n = ++pedido;
     let a = [], s = [];
     try {
-      const clientes = (await traerClientes(programaId)).filter(esVivo);
+      const clientes = (await traerClientes(programaId)).filter(esVigente);
       if (await sumarUltimaLlamada(programaId, clientes)) {
         const alerta = umbralesLlamada().alerta;   // ya cargado por sumarUltimaLlamada
         a = clientes.filter(c => { const d = diasSinLlamada(c.ultima_llamada); return d != null && d >= alerta; })

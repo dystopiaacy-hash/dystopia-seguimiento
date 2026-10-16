@@ -1,0 +1,115 @@
+/* =====================================================================
+   tema.css — tokens de diseño de Dystopia (tema claro y oscuro).
+   ESTE ARCHIVO ES IDÉNTICO EN LAS 4 APPS (Producto, Marketing, Ventas,
+   Finanzas). No tiene nada propio de ninguna: copiarlo tal cual.
+   Cargarlo PRIMERO, antes que cualquier otra hoja. Junto con js/tema-init.js
+   (en el <head>, antes del CSS) y js/tema.js (botón para cambiar de tema).
+
+   Cómo se elige el tema:
+   - <html data-theme="light|dark"> lo fuerza (lo pone tema-init.js a partir
+     de lo guardado por el usuario; si no hay nada, sigue al sistema).
+   - Sin data-theme (si el JS no corrió): prefers-color-scheme.
+   Estilo de referencia: dashboards oscuros (fondo casi negro, tarjetas un tono
+   más claras con borde fino, radio 12px) y el mismo diseño en claro.
+   ===================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ---------- Tema CLARO (por defecto) ---------- */
+:root{
+  color-scheme:light;
+  /* Superficies */
+  --bg:#f7f7f8;          /* fondo de la página */
+  --bg-alt:#ffffff;      /* barra lateral */
+  --surface:#ffffff;     /* tarjetas, modales */
+  --surface-2:#f4f4f5;   /* inputs, hover, chips */
+  --thead-bg:#fafafa; --tfoot-bg:#f4f4f5;
+  --border:#e4e4e7; --border-soft:#efeff1;
+  --overlay:rgba(24,24,27,.45);
+  /* Texto */
+  --ink:#18181b;         /* títulos y números */
+  --text:#27272a;        /* texto de lectura */
+  --text-dim:#52525b;    /* secundario */
+  --text-faint:#71717a;  /* etiquetas, ayudas */
+  --on-accent:#ffffff;   /* texto sobre el color de acento */
+  /* Acento (violeta de Dystopia) */
+  --accent:#4f46e5; --accent-hover:#4338ca; --accent-text:#4f46e5;
+  --accent-soft:rgba(79,70,229,.08); --accent-line:rgba(79,70,229,.32);
+  /* Estados e indicadores */
+  --success:#047857; --success-soft:rgba(4,120,87,.10);
+  --warning:#d97706; --warning-text:#92400e; --warning-soft:rgba(217,119,6,.12);
+  --danger:#c81e1e;  --danger-soft:rgba(200,30,30,.10);
+  --pink:#db2777;    --pink-soft:rgba(219,39,119,.10);
+  --cyan:#0f766e;
+  /* Series de gráficos (en este orden) */
+  --chart-1:#4f46e5; --chart-2:#0d9488; --chart-3:#db2777; --chart-4:#d97706;
+  --chart-5:#7c3aed; --chart-6:#65a30d; --chart-7:#0284c7; --chart-8:#e11d48;
+  --chart-grid:#ececef;
+  /* Forma */
+  --radius-lg:12px; --radius:12px; --radius-sm:8px;
+  --shadow:0 1px 2px rgba(24,24,27,.04);
+  --shadow-md:0 8px 24px rgba(24,24,27,.10);
+  --scroll-thumb:#d4d4d8;
+  /* Tipografía */
+  --font-sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:var(--font-sans);
+}
+
+/* ---------- Tema OSCURO ---------- */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0e0e10; --bg-alt:#0e0e10; --surface:#17171a; --surface-2:#1f1f23;
+  --thead-bg:#17171a; --tfoot-bg:#1c1c20;
+  --border:#26262b; --border-soft:#202024;
+  --overlay:rgba(0,0,0,.62);
+  --ink:#fafafa; --text:#e4e4e7; --text-dim:#a1a1aa; --text-faint:#8b8b94;
+  --on-accent:#ffffff;
+  --accent:#6657ee; --accent-hover:#7a6df2; --accent-text:#a59cff;
+  --accent-soft:rgba(139,127,255,.14); --accent-line:rgba(139,127,255,.42);
+  --success:#2dd4bf; --success-soft:rgba(45,212,191,.14);
+  --warning:#fbbf24; --warning-text:#fbbf24; --warning-soft:rgba(251,191,36,.14);
+  --danger:#f87171;  --danger-soft:rgba(248,113,113,.14);
+  --pink:#ec4899;    --pink-soft:rgba(236,72,153,.16);
+  --cyan:#2dd4bf;
+  --chart-1:#8b7fff; --chart-2:#2dd4bf; --chart-3:#ec4899; --chart-4:#fbbf24;
+  --chart-5:#a78bfa; --chart-6:#a3e635; --chart-7:#38bdf8; --chart-8:#fb7185;
+  --chart-grid:#222226;
+  --shadow:none;
+  --shadow-md:0 12px 32px rgba(0,0,0,.5);
+  --scroll-thumb:#35353b;
+}
+
+/* Sin data-theme (el JS no corrió): sigue al sistema. Mismos valores que arriba. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]):not([data-theme="dark"]){
+    color-scheme:dark;
+    --bg:#0e0e10; --bg-alt:#0e0e10; --surface:#17171a; --surface-2:#1f1f23;
+    --thead-bg:#17171a; --tfoot-bg:#1c1c20;
+    --border:#26262b; --border-soft:#202024;
+    --overlay:rgba(0,0,0,.62);
+    --ink:#fafafa; --text:#e4e4e7; --text-dim:#a1a1aa; --text-faint:#8b8b94;
+    --on-accent:#ffffff;
+    --accent:#6657ee; --accent-hover:#7a6df2; --accent-text:#a59cff;
+    --accent-soft:rgba(139,127,255,.14); --accent-line:rgba(139,127,255,.42);
+    --success:#2dd4bf; --success-soft:rgba(45,212,191,.14);
+    --warning:#fbbf24; --warning-text:#fbbf24; --warning-soft:rgba(251,191,36,.14);
+    --danger:#f87171;  --danger-soft:rgba(248,113,113,.14);
+    --pink:#ec4899;    --pink-soft:rgba(236,72,153,.16);
+    --cyan:#2dd4bf;
+    --chart-1:#8b7fff; --chart-2:#2dd4bf; --chart-3:#ec4899; --chart-4:#fbbf24;
+    --chart-5:#a78bfa; --chart-6:#a3e635; --chart-7:#38bdf8; --chart-8:#fb7185;
+    --chart-grid:#222226;
+    --shadow:none;
+    --shadow-md:0 12px 32px rgba(0,0,0,.5);
+    --scroll-thumb:#35353b;
+  }
+}
+
+/* ---------- Botón de tema (lo monta js/tema.js) ---------- */
+.tema-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface-2);color:var(--text-dim);cursor:pointer;flex-shrink:0;}
+.tema-btn:hover{color:var(--ink);background:var(--border-soft);}
+.tema-btn svg{width:15px;height:15px;display:block;}
+/* El sol se ve en oscuro (para pasar a claro) y la luna en claro. */
+.tema-btn .tema-sol{display:none;}
+:root[data-theme="dark"] .tema-btn .tema-sol{display:block;}
+:root[data-theme="dark"] .tema-btn .tema-luna{display:none;}

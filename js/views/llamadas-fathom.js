@@ -6,6 +6,7 @@
    pendientes y "no es alumno": solo fundador y cliente. Asignar y marcar: la base lo exige igual
    (cs_fathom_asignar / cs_fathom_marcar_no_alumno). Sin la 124 avisa que falta la migración. */
 import { esc, fmtFecha, plural, abrirModal, cerrarModal, confirmar, urlSegura, toast } from '../ui.js';
+import { limpiarMarkdown } from '../texto-limpio.js';
 import { yo, esFundador } from '../sesion.js';
 import { mensajeError } from '../datos.js';
 import {
@@ -38,7 +39,7 @@ function avisarResultado(base, r) {
 }
 
 const bloque = (titulo, texto) => texto
-  ? `<details class="fa-det"><summary>${esc(titulo)}</summary><div class="fa-texto">${esc(texto)}</div></details>` : '';
+  ? `<details class="fa-det"><summary>${esc(titulo)}</summary><div class="fa-texto">${esc(limpiarMarkdown(texto))}</div></details>` : '';
 
 function conQuien(l, alumnos) {
   if (l.estado === 'alumno') {

@@ -9,7 +9,7 @@
 /* ===== RENOVACIONES ===== */
 .ren-tasas{margin-bottom:var(--sp-5);}
 /* Por vencer y sin nadie a cargo: mismo rojo que el resto de "hay que actuar ya". */
-.ren-urgente{background:color-mix(in srgb, var(--sem-rojo) 7%, white);border-radius:var(--radius-sm);}
+.ren-urgente{background:color-mix(in srgb, var(--sem-rojo) 7%, var(--surface));border-radius:var(--radius-sm);}
 .ren-cli{font-weight:600;min-width:0;flex:1;}
 .ren-item .ren-cli + .ren-detalle{flex:2;}
 .ren-item .btn{margin-left:auto;}
@@ -71,7 +71,7 @@
 .rev-cliente{padding:var(--sp-5);}
 .rev-cab{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;}
 .rev-nombre{font-size:var(--fs-section);font-weight:800;color:var(--ink);}
-.rev-nombre:hover{color:var(--accent);}
+.rev-nombre:hover{color:var(--accent-text);}
 .rev-marca{font-size:var(--fs-micro);color:var(--text-faint);font-weight:600;}
 .rev-cab-meta{margin-left:auto;font-size:var(--fs-meta);color:var(--text-faint);}
 .rev-datos{display:flex;flex-wrap:wrap;gap:var(--sp-4);margin:var(--sp-2) 0 var(--sp-4);
@@ -88,7 +88,7 @@
   border-left:3px solid var(--accent);border-radius:var(--radius-sm);
   padding:var(--sp-2) var(--sp-3);margin-bottom:var(--sp-4);}
 .rev-accion-lab{font-size:var(--fs-micro);letter-spacing:.06em;text-transform:uppercase;
-  color:var(--accent);font-weight:800;}
+  color:var(--accent-text);font-weight:800;}
 .rev-accion-txt{font-size:var(--fs-body);color:var(--ink);font-weight:600;}
 
 .rev-sub{margin-bottom:var(--sp-3);}

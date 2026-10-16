@@ -20,7 +20,8 @@ import { montarReglasDudas } from './dudas-candidatas-reglas.js';
 const MAX_FILAS = 100;
 const MOTIVOS = {
   nombre: 'alumno identificado por nombre', varias_voces: 'hay varias voces ajenas al alumno',
-  unico_otro: 'alumno deducido por descarte', palabra: 'sin «?»', regla_134: 'regla anterior'
+  unico_otro: 'alumno deducido por descarte', palabra: 'sin «?»', regla_134: 'regla anterior',
+  no_espanol: 'no está en español', fragmento: 'fragmento de charla (no es una pregunta completa)'
 };
 const ESTADOS = [['pendiente', 'Pendientes'], ['agregada', 'Agregadas'], ['descartada', 'Descartadas'], ['', 'Todas']];
 

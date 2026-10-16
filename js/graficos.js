@@ -9,8 +9,8 @@
    Todo texto que entra al SVG pasa por esc(): los labels salen de la base. */
 import { esc } from './ui.js';
 
-/* Paleta de gráficos de Dystopia, tal cual (no cambiar los hex acá sin cambiarlos allá). */
-export const CHART_PALETTE = ['#4F46E5', '#0EA5A4', '#F0605D', '#F59E0B', '#8B5CF6', '#65A30D', '#0284C7', '#DB2777'];
+/* Paleta de gráficos: variables de css/tema.css (--chart-1 a --chart-8), así cambia con el tema claro / oscuro. */
+export const CHART_PALETTE = [1, 2, 3, 4, 5, 6, 7, 8].map(n => `var(--chart-${n})`);
 
 let CHART_UID = 0;
 
@@ -130,7 +130,7 @@ export function lineaSvg(puntos, opts = {}) {
       <stop offset="0" stop-color="${esc(color)}" stop-opacity=".22"/><stop offset="1" stop-color="${esc(color)}" stop-opacity="0"/>
     </linearGradient></defs>
     ${ticks}${lineaRef}${trazos}
-    <circle cx="${f1(x(ui))}" cy="${f1(y(Number(ult.value)))}" r="5" fill="${esc(color)}" stroke="#fff" stroke-width="2"/>
+    <circle cx="${f1(x(ui))}" cy="${f1(y(Number(ult.value)))}" r="5" fill="${esc(color)}" stroke="var(--surface)" stroke-width="2"/>
     <text x="${f1(x(ui) - 8)}" y="${f1(y(Number(ult.value)) - 11)}" text-anchor="end" class="line-last">${esc(fmt(Number(ult.value)))}</text>
     ${xl}${hits}
   </svg>`;

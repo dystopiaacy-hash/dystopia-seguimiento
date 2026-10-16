@@ -25,9 +25,9 @@
 .ob-paso-t{flex:1;min-width:0;line-height:1.35;}
 .ob-bloq{display:block;font-size:var(--fs-micro);color:var(--text-faint);}
 .ob-paso-item.hecho{background:var(--success-soft);border-color:transparent;}
-.ob-paso-item.hecho .ob-paso-n{background:var(--success);color:#fff;}
-.ob-paso-item.actual{border-color:var(--accent);background:var(--accent-soft);font-weight:700;}
-.ob-paso-item.actual .ob-paso-n{background:var(--accent);color:#fff;}
+.ob-paso-item.hecho .ob-paso-n{background:var(--success);color:var(--bg);}
+.ob-paso-item.actual{border-color:var(--accent-text);background:var(--accent-soft);font-weight:700;}
+.ob-paso-item.actual .ob-paso-n{background:var(--accent);color:var(--on-accent);}
 .ob-paso-item.bloqueado{opacity:.62;}
 
 /* Un solo paso a la vez. */
@@ -35,7 +35,7 @@
 .ob-titulo{margin:0 0 var(--sp-2);font-size:20px;line-height:1.25;font-weight:800;color:var(--ink);}
 .ob-texto{margin:0 0 var(--sp-4);font-size:var(--fs-body);line-height:1.55;color:var(--text);}
 .ob-meta{font-size:var(--fs-meta);color:var(--text-dim);margin-bottom:var(--sp-3);}
-.ob-sec-prog{font-size:var(--fs-meta);font-weight:700;color:var(--accent);margin:var(--sp-3) 0 var(--sp-4);}
+.ob-sec-prog{font-size:var(--fs-meta);font-weight:700;color:var(--accent-text);margin:var(--sp-3) 0 var(--sp-4);}
 .ob-ayuda{font-size:var(--fs-meta);color:var(--text-dim);margin:-2px 0 var(--sp-2);}
 .ob-error{margin:var(--sp-3) 0;}
 
@@ -87,7 +87,7 @@ button.hoy-toast-link{background:none;border:0;cursor:pointer;font:inherit;paddi
 .onb-pasos .ok{color:var(--success);font-weight:800;}
 .onb-pasos .pend{color:var(--text-faint);}
 .onb-dif{border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--sp-3);margin:var(--sp-2) 0;
-  background:color-mix(in srgb, var(--sem-amarillo) 10%, white);}
+  background:color-mix(in srgb, var(--sem-amarillo) 10%, var(--surface));}
 .onb-dif-acc{display:flex;gap:var(--sp-2);margin-top:var(--sp-2);flex-wrap:wrap;}
 .onb-resp{margin-top:var(--sp-3);}
 .onb-resp summary{cursor:pointer;font-weight:700;padding:var(--sp-2) 0;}

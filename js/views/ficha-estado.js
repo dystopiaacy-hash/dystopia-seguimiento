@@ -21,18 +21,19 @@ export function html(ctx) {
       <div class="est-lab">${esc(titulo)}</div>
       ${texto ? `<div class="est-val">${esc(texto)}</div>` : '<div class="est-val txt-gris">Sin cargar</div>'}
     </div>`;
-  const tiene = !!(r.en_que_esta || r.proximos_pasos);
+  const tiene = !!((!r.en_que_esta_auto && r.en_que_esta) || r.proximos_pasos);
   return `
     <div class="section-title">Estado actual<span class="line"></span></div>
     <div class="card est-card">
       <div class="est-grid">
-        ${bloque('En qué está', r.en_que_esta)}
+        ${r.en_que_esta_auto ? '' : bloque('En qué está', r.en_que_esta)}
         ${bloque('Próximos pasos', r.proximos_pasos)}
       </div>
       <div class="est-pie">
         <span>${tiene && r.estado_fecha
           ? `Según la llamada del ${esc(fmtFecha(r.estado_fecha))}`
-          : 'Todavía no hay una llamada con "En qué está" o "Próximos pasos". Se cargan al registrar la llamada.'}</span>
+          : r.en_que_esta_auto ? 'Todavía no hay próximos pasos cargados en una llamada.'
+            : 'Todavía no hay una llamada con "En qué está" o "Próximos pasos". Se cargan al registrar la llamada.'}</span>
         <span class="est-pie-sem">${pieSem}</span>
       </div>
     </div>`;

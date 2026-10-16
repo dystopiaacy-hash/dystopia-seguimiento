@@ -17,9 +17,9 @@
 .tabla-maestro .data-table td{height:34px;padding:2px 6px;max-width:none;}
 .tabla-maestro .data-table th{padding:0 6px;}
 .tabla-maestro td.m-calc{background:var(--surface-2);color:var(--text-dim);}
-.tabla-maestro th.m-th-edit{color:var(--accent);}
+.tabla-maestro th.m-th-edit{color:var(--accent-text);}
 .tabla-maestro th.m-th-edit.th-sort-on{color:var(--ink);}
-.tabla-maestro th.m-calc{background:#EEF0F4;}
+.tabla-maestro th.m-calc{background:var(--surface-2);}
 
 /* Cliente fijo a la izquierda al scrollear de costado */
 .tabla-maestro .col-nombre{position:sticky;left:0;z-index:1;background:var(--surface);min-width:170px;max-width:220px;
@@ -55,7 +55,7 @@ select.m-edit{cursor:pointer;padding-right:2px;}
 .m-resell-sin{color:var(--text-faint);font-weight:500;}
 .m-resell-renovado{color:var(--success);}
 .m-resell-no_renovado{color:var(--text-faint);}
-.m-resell-propuesta_enviada{color:var(--accent);}
+.m-resell-propuesta_enviada{color:var(--accent-text);}
 .m-resell-call_agendada{color:var(--cyan);}
 .m-resell-contactado,.m-resell-en_proceso{color:var(--sem-amarillo-text);}
 
@@ -84,7 +84,7 @@ select.m-edit{cursor:pointer;padding-right:2px;}
   .tabla-maestro td.m-calc{background:transparent;}
   .tabla-maestro td.m-td-edit{background:transparent;}
   .tabla-maestro td.m-td-edit .m-edit{flex:1;max-width:65%;border-color:var(--border);background:var(--surface);text-align:left;}
-  .tabla-maestro td.m-td-edit::before{color:var(--accent);}
+  .tabla-maestro td.m-td-edit::before{color:var(--accent-text);}
   .tabla-maestro [class*="m-c-"]{min-width:0;}
   .m-cli{justify-content:flex-start;}
   .m-leyenda{display:none;}

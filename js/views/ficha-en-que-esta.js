@@ -6,6 +6,7 @@ import { esc, fmtFecha, fmtFechaHora, toast } from '../ui.js';
 import { puedeEditarPrograma } from '../sesion.js';
 import { mensajeError } from '../datos.js';
 import { traerEnQueEsta, actualizarEnQueEsta } from '../datos-ia.js';
+import { limpiarMarkdown } from '../texto-limpio.js';
 
 /* Lo último cargado: sobrevive a los repintados de la ficha (se pierde al cambiar de alumno). */
 let cache = { id: null, fila: undefined, error: false };
@@ -19,17 +20,15 @@ function cuerpo(ctx) {
     ? '<button type="button" class="btn btn-sm" data-ia-actualizar>Actualizar</button>' : '';
   const f = cache.fila;
   if (!f) {
-    return `<div class="est-val txt-gris">Todavía no hay un resumen automático: se arma cuando el alumno tiene
-        llamadas de Fathom con resumen.</div>
+    return `<div class="est-val txt-gris">Todavía no hay un resumen automático: se arma cuando el alumno tiene llamadas de Fathom con resumen.</div>
       <div class="est-pie"><span></span>${boton}</div>`;
   }
   const reu = Array.isArray(f.reuniones) ? f.reuniones : [];
   const lista = reu.map(r => esc(fmtFecha(r.fecha)) + (r.titulo ? ' · ' + esc(r.titulo) : '')).join('<br>');
   return `
-    <div class="est-val" style="white-space:pre-line">${esc(f.texto)}</div>
+    <div class="est-val" style="white-space:pre-line">${esc(limpiarMarkdown(f.texto))}</div>
     <div class="est-pie">
-      <span>Actualizado el ${esc(fmtFechaHora(f.actualizado_en))} · armado con IA a partir de
-        ${reu.length} ${reu.length === 1 ? 'reunión' : 'reuniones'} de Fathom</span>
+      <span>Actualizado el ${esc(fmtFechaHora(f.actualizado_en))} · armado con IA a partir de ${reu.length} ${reu.length === 1 ? 'reunión' : 'reuniones'} de Fathom</span>
       ${boton}
     </div>
     ${reu.length ? `<details class="hint"><summary>Reuniones usadas</summary>${lista}</details>` : ''}`;

@@ -21,7 +21,7 @@ import { abrirRespuestas } from './formularios-respuestas.js';
 const TIPOS = Object.entries(FORM_TIPO_LABEL);
 
 const COLOR_TIPO = {
-  onboarding: 'var(--accent)',
+  onboarding: 'var(--accent-text)',
   satisfaccion: 'var(--cyan)',
   checkin: 'var(--text-dim)',
   devolucion: 'var(--sem-amarillo)',

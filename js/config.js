@@ -22,6 +22,10 @@ export const ONBOARDING_BASE_URL = 'https://producto.dystopia.com.ar';
 export const LLAMADA_AMARILLO_DESDE = 7;
 export const LLAMADA_ROJO_DESDE = 10;
 
+/* Alumno vencido hace más de estos días y sin renovación en curso: no cuenta como activo (162).
+   Tiene que coincidir con el 30 de la migración 162. */
+export const DIAS_VENCIDO_COMO_ACTIVO = 30;
+
 /* Satisfacción por etapa (106): color del último puntaje. Menos de ROJO_MENOS = rojo,
    de ahí hasta VERDE_DESDE - 1 = amarillo (7 y 8), VERDE_DESDE o más = verde (9 y 10).
    Los avisos a Discord (menos de 7, y 9 o 10 con testimonio) los dispara la base con los mismos números. */

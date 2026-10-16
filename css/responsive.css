@@ -1,7 +1,7 @@
 /* =====================================================================
    Dystopia Seguimiento — breakpoints globales (sidebar y tablas).
    Parte de la hoja de estilos partida. ORDEN DE CARGA (no cambiarlo,
-   la cascada depende de él): base, layout, componentes, responsive,
+   la cascada depende de él): tema, base, layout, componentes, responsive,
    vistas, ficha, vistas-fase4, formularios. index.html los carga todos en
    ese orden; form.html (página pública) carga solo base, componentes y
    formularios, que son las únicas que usa.
@@ -28,13 +28,16 @@
   #app{flex-direction:column;height:auto;min-height:100vh;}
   .sidebar{width:100%;flex-direction:row;flex-wrap:nowrap;overflow:hidden;border-right:none;border-bottom:1px solid var(--border);align-items:center;}
   .brand{padding:var(--sp-3) var(--sp-4);border-bottom:none;border-right:1px solid var(--border-soft);flex-shrink:0;}
+  .nav-subs{margin-bottom:0;}
   .nav-list{flex:1;min-width:0;display:flex;align-items:center;overflow-x:auto;padding:var(--sp-2);}
   .nav-subs{flex-direction:row;align-items:center;flex-shrink:0;margin:0 var(--sp-2) 0 0;padding-left:var(--sp-2);}
   .nav-eyebrow{display:none;}
   .nav-item{flex-shrink:0;width:200px;margin-bottom:0;}
   /* "Salir" siempre visible: el pie queda fijo a la derecha de la barra; el email se oculta. */
   .sidebar-foot{flex-shrink:0;border-top:none;border-left:1px solid var(--border-soft);padding:var(--sp-2) var(--sp-4);}
-  .sidebar-foot > #user-email{display:none;}
+  .perfil{display:none;}
+  .brand-txt .brand-sub{display:none;}
+  .nav-sub svg{display:none;}
   .main-inner{padding:var(--sp-4);}
   .form-grid2,.form-grid4{grid-template-columns:1fr;}
   .upcoming-row{grid-template-columns:56px 8px minmax(0,1fr) auto;}

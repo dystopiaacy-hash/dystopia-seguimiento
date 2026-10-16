@@ -66,6 +66,15 @@ function campoPlan(ctx) {
 
 /* ---------- Bloque de tiempo ---------- */
 
+/* Los avisos reales del programa (aviso_1_dias / aviso_2_dias, Configuración); si no hay ninguno cargado,
+   la ventana general de renovación. */
+function textoAvisos(p) {
+  const dias = [p.aviso_1_dias, p.aviso_2_dias].filter(v => v != null && v !== '' && num(v) > 0).map(num);
+  if (!dias.length) return `el aviso del programa es a ${plural(num(p.aviso_renovacion_dias), 'día')}`;
+  return dias.length === 1 ? `el aviso del programa es a ${plural(dias[0], 'día')}`
+    : `los avisos del programa son a ${dias[0]} y ${plural(dias[1], 'día')}`;
+}
+
 function avisoRenovacion(c, p, renovaciones) {
   const enProceso = (renovaciones || []).some(r => renAbierta(r.estado));
   const d = c.dias_restantes == null ? null : num(c.dias_restantes);
@@ -75,7 +84,7 @@ function avisoRenovacion(c, p, renovaciones) {
   if (['finalizado', 'baja', 'pausado'].includes(c.estado) || d == null || d > num(p.aviso_renovacion_dias)) return '';
   const txt = d < 0
     ? `El programa venció hace ${plural(-d, 'día')} y no hay una renovación en proceso.`
-    : `Quedan ${plural(d, 'día')} de programa (el aviso del programa es a ${plural(num(p.aviso_renovacion_dias), 'día')}).`;
+    : `Quedan ${plural(d, 'día')} de programa (${textoAvisos(p)}).`;
   return `
     <div class="banner banner-rojo">
       <span>${esc(txt)}</span>

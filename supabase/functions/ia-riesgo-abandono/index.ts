@@ -4,7 +4,7 @@
 //   Authorization: Bearer <sb_secret_...> (cron y curl)  o  Bearer <JWT de usuario> (botón "Evaluar ahora")
 //   { "alumno_id": "<uuid>" }     evalúa uno (fundador o edición del programa del alumno), aunque no haya cambiado nada
 //   { "lote": true }              alumnos vivos nuevos o con la huella de señales cambiada (secret key o fundador)
-//       opciones: "max" (default 60, tope 200), "programa": "teo", "solo_contar": true (no llama a la IA)
+//       opciones: "max" (default 150, tope 300), "programa": "teo", "solo_contar": true (no llama a la IA)
 //
 // Fuente (todo ya guardado en la base): resúmenes de las últimas llamadas, "En qué está" (cs_en_que_esta y el manual de la
 // llamada), satisfacción respondida, accionables vencidos, estado de pagos (cuotas atrasadas, sin montos), fechas del ciclo.
@@ -20,8 +20,10 @@ import { llamarClaude, MODELOS } from '../_shared/ia.ts';
 import { autorizar, clienteServicio, CORS, responder } from '../_shared/auth.ts';
 
 const PRESUPUESTO_MS = 100_000;
-const CONCURRENCIA = 4;
-const MAX_LOTE_DEFAULT = 60;
+const CONCURRENCIA = 6;
+// 162: antes 60 por corrida y por orden alfabético, así que los últimos de la lista (L, M, T…) tardaban días en llegar.
+const MAX_LOTE_DEFAULT = 150;
+const MAX_LOTE_TOPE = 300;
 // Estimación para "solo_contar" (Haiku 5.5, effort low): ~5.000 tokens de entrada y ~700 de salida ≈ 0,0009 USD.
 const COSTO_ESTIMADO_ALUMNO = 0.0009;
 
@@ -58,11 +60,16 @@ function leerJson(texto: string): Record<string, unknown> | null {
 }
 
 async function evaluarAlumno(
-  sb: SupabaseClient, id: string, userId: string | null,
+  sb: SupabaseClient, id: string, userId: string | null, pre?: Senales,
 ): Promise<'ok' | 'no_existe' | 'error'> {
-  const { data: sen, error: es } = await sb.rpc('cs_riesgo_senales', { p_programa: null, p_cliente: id });
-  if (es) { console.error('[riesgo] señales:', es.code ?? 'error'); return 'error'; }
-  const s = ((sen ?? []) as Senales[])[0];
+  // En el lote las señales de todos se piden de una vez (cada llamada a cs_riesgo_senales consulta los pagos
+  // del programa entero: una por alumno era lo que más tiempo comía de la corrida).
+  let s = pre;
+  if (!s) {
+    const { data: sen, error: es } = await sb.rpc('cs_riesgo_senales', { p_programa: null, p_cliente: id });
+    if (es) { console.error('[riesgo] señales:', es.code ?? 'error'); return 'error'; }
+    s = ((sen ?? []) as Senales[])[0];
+  }
   if (!s) return 'no_existe';      // no es un alumno vivo
 
   const { data: cli } = await sb.from('cs_clientes').select('fecha_inicio,fecha_fin').eq('id', id).maybeSingle();
@@ -183,7 +190,7 @@ Deno.serve(async (req) => {
       if (f !== true) return responder({ error: 'el lote es solo del fundador' }, 403);
     }
     const programa = typeof cuerpo.programa === 'string' && /^[a-z0-9_-]{1,40}$/.test(cuerpo.programa) ? cuerpo.programa : null;
-    const max = Math.min(Math.max(Number(cuerpo.max) || MAX_LOTE_DEFAULT, 1), 200);
+    const max = Math.min(Math.max(Number(cuerpo.max) || MAX_LOTE_DEFAULT, 1), MAX_LOTE_TOPE);
 
     const { data: cont, error: ec } = await sb.rpc('cs_ia_riesgo_contar', { p_programa: programa });
     if (ec) return responder({ error: 'falta la migración 139 o falló el conteo' }, 500);
@@ -200,6 +207,15 @@ Deno.serve(async (req) => {
     const { data: pend, error: ep } = await sb.rpc('cs_ia_riesgo_pendientes', { p_limite: max, p_programa: programa });
     if (ep) return responder({ error: 'falló la lista de pendientes' }, 500);
     const cola = [...((pend ?? []) as { cliente_id: string }[])];
+    const intentados = cola.length;
+
+    // Señales de todos los vivos de una vez (una sola consulta de pagos por programa). Si falla, cada alumno las pide solo.
+    const senales = new Map<string, Senales>();
+    if (cola.length) {
+      const { data: todas, error: et } = await sb.rpc('cs_riesgo_senales', { p_programa: programa, p_cliente: null });
+      if (et) console.error('[riesgo] señales del lote:', et.code ?? 'error');
+      for (const x of ((todas ?? []) as Senales[])) senales.set(x.cliente_id, x);
+    }
 
     const t0 = Date.now();
     const cuenta = { ok: 0, no_existe: 0, error: 0 };
@@ -209,7 +225,7 @@ Deno.serve(async (req) => {
         if (Date.now() - t0 > PRESUPUESTO_MS) { cortada = true; return; }
         const p = cola.shift()!;
         try {
-          cuenta[await evaluarAlumno(sb!, p.cliente_id, null)]++;
+          cuenta[await evaluarAlumno(sb!, p.cliente_id, null, senales.get(p.cliente_id))]++;
         } catch (e) {
           console.error('[riesgo] alumno:', (e as Error).name);
           cuenta.error++;
@@ -218,7 +234,7 @@ Deno.serve(async (req) => {
     }
     await Promise.all(Array.from({ length: CONCURRENCIA }, trabajador));
     return responder({
-      ok: true, evaluados: cuenta.ok, no_evaluables: cuenta.no_existe, error: cuenta.error,
+      ok: true, intentados, evaluados: cuenta.ok, no_evaluables: cuenta.no_existe, error: cuenta.error,
       cortada_por_tiempo: cortada, faltan_despues: Math.max(faltan - cuenta.ok, 0),
     });
   }
