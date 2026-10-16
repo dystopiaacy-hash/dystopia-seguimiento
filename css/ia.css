@@ -19,4 +19,14 @@
   white-space:pre-wrap;overflow-wrap:anywhere;}
 .chat-ia-msg-yo{background:var(--accent-soft);border-color:var(--accent-line);align-self:flex-end;max-width:90%;}
 .chat-ia-msg-ia{background:var(--surface);}
+/* Markdown de las respuestas (dystopitaMd): el texto ya viene con <br> y <p>, sin saltos crudos. */
+.dy-md{white-space:normal;}
+.dy-md p{margin:0 0 var(--sp-2);}
+.dy-md p:last-child,.dy-md ul:last-child,.dy-md ol:last-child{margin-bottom:0;}
+.dy-md .dy-md-h{font-weight:700;color:var(--ink);}
+.dy-md ul,.dy-md ol{margin:0 0 var(--sp-2);padding-left:var(--sp-5, 20px);}
+.dy-md li{margin:0 0 var(--sp-1);}
+.dy-md strong{font-weight:700;color:var(--ink);}
+.dy-md code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;padding:1px 5px;
+  border-radius:4px;background:var(--border-soft);color:var(--ink);}
 .chat-ia-meta{font-size:var(--fs-micro);color:var(--text-faint);margin-top:var(--sp-1);}

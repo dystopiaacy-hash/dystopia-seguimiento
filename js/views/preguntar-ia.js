@@ -25,6 +25,49 @@ const HERRAMIENTA = {
   fin_pagos: 'pagos'
 };
 
+/* Markdown mínimo y seguro para las respuestas de la IA. Primero se escapa TODO el HTML; recién después se arman
+   las etiquetas propias (strong, em, code, ul, ol, li, p, br). Sin links ni imágenes: quedan como texto.
+   Negrita **x**, cursiva *x* o _x_, código `x`, listas "- " / "* " y "1. ", títulos "#" a "######", saltos de línea. */
+function mdInline(s) {
+  const codigo = [];
+  return s
+    .replace(/`([^`\n]+)`/g, (_, c) => `\u0000${codigo.push(c) - 1}\u0000`)
+    .replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*\w])\*([^*\s][^*\n]*?)\*(?![*\w])/g, '$1<em>$2</em>')
+    .replace(/(^|[^\w])_([^_\s][^_\n]*?)_(?!\w)/g, '$1<em>$2</em>')
+    .replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codigo[Number(i)]}</code>`);
+}
+
+export function dystopitaMd(texto) {
+  const lineas = esc(String(texto == null ? '' : texto).replace(/\u0000/g, '')).split(/\r?\n/);
+  let html = '';
+  let parrafo = [];
+  let lista = null;   // 'ul' | 'ol'
+  const cerrarParrafo = () => { if (parrafo.length) html += `<p>${parrafo.join('<br>')}</p>`; parrafo = []; };
+  const cerrarLista = () => { if (lista) html += `</${lista}>`; lista = null; };
+  for (const linea of lineas) {
+    const vineta = /^\s*[-*]\s+(.+)$/.exec(linea);
+    const numero = /^\s*\d+\.\s+(.+)$/.exec(linea);
+    const titulo = /^\s*#{1,6}\s+(.+)$/.exec(linea);
+    if (vineta || numero) {
+      cerrarParrafo();
+      const tipo = vineta ? 'ul' : 'ol';
+      if (lista !== tipo) { cerrarLista(); html += `<${tipo}>`; lista = tipo; }
+      html += `<li>${mdInline((vineta || numero)[1])}</li>`;
+    } else if (titulo) {
+      cerrarParrafo(); cerrarLista();
+      html += `<p class="dy-md-h">${mdInline(titulo[1])}</p>`;
+    } else if (!linea.trim()) {
+      cerrarParrafo(); cerrarLista();
+    } else {
+      cerrarLista();
+      parrafo.push(mdInline(linea.trim()));
+    }
+  }
+  cerrarParrafo(); cerrarLista();
+  return html;
+}
+
 /* Conserva la conversación al cambiar de pestaña y volver. */
 let hilo = [];
 
@@ -43,7 +86,7 @@ export function vistaPreguntar(el, programaId, vigente) {
   function mensajes() {
     return hilo.map(m => m.rol === 'yo'
       ? `<div class="chat-ia-msg chat-ia-msg-yo">${esc(m.texto)}</div>`
-      : `<div class="chat-ia-msg chat-ia-msg-ia">${esc(m.texto)}${m.consultas && m.consultas.length
+      : `<div class="chat-ia-msg chat-ia-msg-ia"><div class="dy-md">${dystopitaMd(m.texto)}</div>${m.consultas && m.consultas.length
           ? `<div class="chat-ia-meta">Consultó: ${esc(m.consultas.map(c => `${HERRAMIENTA[c.herramienta] || c.herramienta}${c.filas == null ? '' : ` (${c.filas} ${c.filas === 1 ? 'fila' : 'filas'})`}`).join(', '))}</div>` : ''}</div>`
     ).join('');
   }
