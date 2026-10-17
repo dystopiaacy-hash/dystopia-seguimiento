@@ -132,7 +132,7 @@ async function evaluarAlumno(
 
   const r = await llamarClaude({
     app: 'producto', funcion: 'riesgo', modelo: MODELOS.haiku, supabase: sb,
-    user_id: userId, cliente_id: id, max_tokens: 2000, effort: 'low',
+    user_id: userId, cliente_id: s.programa_id, max_tokens: 2000, effort: 'low',
     sistema: SISTEMA,
     mensajes: [{ role: 'user', content: `Alumno: ${s.nombre}\n\n${partes.join('\n\n')}\n\nClasificá el riesgo.` }],
   });

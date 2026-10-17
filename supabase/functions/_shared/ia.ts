@@ -5,7 +5,7 @@
 //
 // Contrato de ia_uso (compartido con el CRM; si cambia, cambia en las dos copias):
 //   app ('producto'|'crm'|'finanzas'|'ventas'), funcion, user_id (null si lo dispara un cron),
-//   cliente_id (texto), modelo, tokens_entrada, tokens_salida, costo_usd, ok, error, ms.
+//   cliente_id (texto: SIEMPRE el cliente de la agencia, 'liam' | 'agus' | 'teo', o 'dystopia' si es uso interno), modelo, tokens_entrada, tokens_salida, costo_usd, ok, error, ms.
 //
 // Secreto de la función: ANTHROPIC_API_KEY (Supabase > Edge Functions > Secrets).
 // La clave y el texto de los alumnos NUNCA van a logs ni a la columna `error`: ahí solo
@@ -87,12 +87,32 @@ const URL_API = 'https://api.anthropic.com/v1/messages';
 const REINTENTOS = 3;
 const ESPERA_MAX_MS = 20000;
 
-export function calcularCosto(modelo: string, entrada: number | null, salida: number | null): number | null {
-  const base = PRECIOS[modelo];
-  if (!base || entrada == null || salida == null) return null;
-  const p = base.sobre100k && entrada > 100_000 ? base.sobre100k : base;
-  return Math.round(((entrada * p.entrada + salida * p.salida) / 1_000_000) * 1e6) / 1e6;
+// Acepta ids con sufijo de fecha (claude-sonnet-5-5-20261001): busca el id exacto y, si no está, el más largo que sea prefijo.
+function precioDe(modelo: string): Precio | null {
+  if (PRECIOS[modelo]) return PRECIOS[modelo];
+  const k = Object.keys(PRECIOS).filter((id) => modelo.startsWith(id + '-')).sort((a, b) => b.length - a.length)[0];
+  return k ? PRECIOS[k] : null;
 }
+
+/** Costo en USD. `cache_*` = tokens de caché que la API informa aparte de input_tokens (escritura 1,25x, lectura 0,1x la entrada). */
+export function calcularCosto(
+  modelo: string, entrada: number | null, salida: number | null,
+  cache?: { escritura?: number | null; lectura?: number | null },
+): number | null {
+  const base = precioDe(modelo);
+  if (!base || entrada == null || salida == null) {
+    console.error('[ia] sin precio o sin tokens para calcular el costo:', modelo);
+    return null;
+  }
+  const esc = cache?.escritura ?? 0;
+  const lec = cache?.lectura ?? 0;
+  const p = base.sobre100k && entrada + esc + lec > 100_000 ? base.sobre100k : base;
+  const usd = (entrada * p.entrada + esc * p.entrada * 1.25 + lec * p.entrada * 0.1 + salida * p.salida) / 1_000_000;
+  return Math.round(usd * 1e6) / 1e6;
+}
+
+/** Cliente de la agencia para ia_uso.cliente_id: el id de programa (liam, agus, teo) o 'dystopia' si no es de ningún cliente. */
+export const CLIENTE_INTERNO = 'dystopia';
 
 function clienteServicio(): SupabaseClient | null {
   const url = Deno.env.get('SUPABASE_URL');
@@ -115,7 +135,7 @@ async function registrar(o: OpcionesClaude, r: ResultadoClaude): Promise<void> {
     const sb = o.supabase ?? clienteServicio();
     if (!sb) { console.error('[ia] no hay cliente de Supabase para registrar el uso'); return; }
     const { error } = await sb.from('ia_uso').insert({
-      app: o.app, funcion: o.funcion, user_id: o.user_id ?? null, cliente_id: o.cliente_id ?? null,
+      app: o.app, funcion: o.funcion, user_id: o.user_id ?? null, cliente_id: o.cliente_id?.trim() || CLIENTE_INTERNO,
       modelo: r.modelo, tokens_entrada: r.tokens_entrada, tokens_salida: r.tokens_salida,
       costo_usd: r.costo_usd, ok: r.ok, error: r.error ? r.error.slice(0, 300) : null, ms: r.ms,
     });
@@ -133,6 +153,8 @@ export async function llamarClaude(o: OpcionesClaude): Promise<ResultadoClaude> 
     ok: false, texto: '', modelo: o.modelo, tokens_entrada: null, tokens_salida: null,
     costo_usd: null, ms: 0, error: null, usos: [], contenido: [], stop_reason: null,
   };
+  let cacheEsc: number | null = null;
+  let cacheLec: number | null = null;
   const clave = (Deno.env.get('ANTHROPIC_API_KEY') ?? '').trim();
   if (!clave) {
     res.error = 'falta el secreto ANTHROPIC_API_KEY';
@@ -167,6 +189,8 @@ export async function llamarClaude(o: OpcionesClaude): Promise<ResultadoClaude> 
         }
         res.tokens_entrada = Number.isFinite(j?.usage?.input_tokens) ? j.usage.input_tokens : null;
         res.tokens_salida = Number.isFinite(j?.usage?.output_tokens) ? j.usage.output_tokens : null;
+        cacheEsc = Number.isFinite(j?.usage?.cache_creation_input_tokens) ? j.usage.cache_creation_input_tokens : null;
+        cacheLec = Number.isFinite(j?.usage?.cache_read_input_tokens) ? j.usage.cache_read_input_tokens : null;
         res.texto = Array.isArray(j?.content)
           ? j.content.filter((b: { type?: string }) => b?.type === 'text').map((b: { text?: string }) => b.text ?? '').join('').trim()
           : '';
@@ -188,7 +212,9 @@ export async function llamarClaude(o: OpcionesClaude): Promise<ResultadoClaude> 
     }
   }
   res.ms = Date.now() - t0;
-  res.costo_usd = calcularCosto(res.modelo, res.tokens_entrada, res.tokens_salida);
+  // Una llamada fallida sin tokens queda con costo null (no se inventa); las que respondieron siempre traen tokens.
+  res.costo_usd = res.tokens_entrada == null ? null
+    : calcularCosto(res.modelo, res.tokens_entrada, res.tokens_salida, { escritura: cacheEsc, lectura: cacheLec });
   await registrar(o, res);
   return res;
 }

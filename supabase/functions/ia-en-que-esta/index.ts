@@ -161,7 +161,7 @@ async function generarParaAlumno(
 
   const r = await llamarClaude({
     app: 'producto', funcion: 'en_que_esta', modelo: MODELOS.haiku, supabase: sb,
-    user_id: userId, cliente_id: cliente.id, max_tokens: 2000, effort: 'low',
+    user_id: userId, cliente_id: cliente.programa_id, max_tokens: 2000, effort: 'low',
     sistema: SISTEMA,
     mensajes: [{ role: 'user', content: `Alumno: ${cliente.nombre}\n\n${material}\n\nArmá el "En qué está".` }],
   });

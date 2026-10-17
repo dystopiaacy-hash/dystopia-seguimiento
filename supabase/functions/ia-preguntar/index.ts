@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
   for (let ronda = 0; ronda < MAX_RONDAS; ronda++) {
     const r = await llamarClaude({
       app: APP_USO[app], funcion: 'chat_interno', modelo: MODELOS.sonnet, supabase: sb,
-      user_id: quien.userId, cliente_id: null, max_tokens: 3000, effort: 'low',
+      user_id: quien.userId, cliente_id: programa ?? 'dystopia', max_tokens: 3000, effort: 'low',
       sistema: sistema(app, programa), mensajes, herramientas: HERRAMIENTAS,
     });
     if (!r.ok) return responder({ ok: false, error: 'la IA no pudo responder ahora (ver ia_uso)' }, 502);
