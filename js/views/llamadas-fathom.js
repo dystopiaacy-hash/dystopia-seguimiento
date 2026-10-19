@@ -19,7 +19,7 @@ import { guardar } from './comunes.js';
 import { tarjetaError } from './programa.js';
 import { montarSelectorAlumno } from './alumno-selector.js';
 import { crearPropuestas } from './llamadas-propuestas.js';
-import { traerHorarios, traerConsultoriasRegistradas } from '../datos-consultorias.js';
+import { traerHorarios, traerConsultoriasRegistradas, traerConsultorProgramas } from '../datos-consultorias.js';
 import { SECCIONES, armarItems, extraItem } from './llamadas-secciones.js';
 
 const PAGINA = 100;   // filas por tanda: en celular cada una es una tarjeta
@@ -237,8 +237,8 @@ export function vistaLlamadas(el, programaId, vigente) {
     try {
       /* Horarios y consultorías registradas (157): si faltan o fallan, la pantalla sigue sin esa sección. */
       const opcional = async f => { try { return await f(); } catch { return undefined; } };
-      const [ls, cs, al, hs, regs] = await Promise.all([traerLlamadasFathom(), traerConsultores(), alumnosAsignables(),
-        opcional(traerHorarios), opcional(traerConsultoriasRegistradas), propuestas.cargar()]);
+      const [ls, cs, al, hs, regs, cps] = await Promise.all([traerLlamadasFathom(), traerConsultores(), alumnosAsignables(),
+        opcional(traerHorarios), opcional(traerConsultoriasRegistradas), opcional(traerConsultorProgramas), propuestas.cargar()]);
       if (!vigente()) return;
       if (ls === undefined || cs === undefined) {
         el.innerHTML = tarjetaError('Falta correr la migración 124', 'Esta pantalla se activa cuando la migración 124 está corrida.');
@@ -251,7 +251,7 @@ export function vistaLlamadas(el, programaId, vigente) {
       /* Consultores activos, y los inactivos solo si tienen llamadas visibles. */
       consultores = cs.filter(c => c.activo || llamadas.some(l => l.consultor === c.id));
       if (filtro.consultor && !consultores.some(c => c.id === filtro.consultor)) filtro.consultor = '';
-      items = armarItems({ llamadas, registradas, horarios, props: propuestas.lista(), alumnos });
+      items = armarItems({ llamadas, registradas, horarios, props: propuestas.lista(), alumnos, consultorProgramas: cps });
       /* Primera vez: abre la primera sección que tenga algo. */
       if (!seccion) seccion = (SECCIONES.find(s => items.some(it => it.seccion === s.key)) || SECCIONES[0]).key;
       pintar();

@@ -9,6 +9,7 @@ import { esc, toast, plural } from '../ui.js';
 import { esFundador, yo } from '../sesion.js';
 import { faltaObjeto, mensajeCs } from '../datos-faltante.js';
 import { opcionesHtml } from './comunes.js';
+import { montarConsultorProgramas } from './config-consultor-programas.js';
 import {
   DIAS_SEMANA, traerHorarios, traerConsultores, guardarHorario, reclasificarConsultorias
 } from '../datos-consultorias.js';
@@ -30,8 +31,8 @@ function filaHtml(h, programas, consultores) {
     <label>Consultor <select data-k="consultor">${opcionesHtml(cons, h.consultor)}</select></label>
     <label>Día <select data-k="dia_semana">${opcionesHtml(DIAS_SEMANA, h.dia_semana)}</select></label>
     <label>Hora (ART) <input type="time" data-k="hora" value="${esc(hhmm(h.hora))}" required></label>
-    <label>Duración (min) <input type="number" data-k="duracion_min" min="15" max="480" step="5" value="${esc(h.duracion_min)}"></label>
-    <label>Tolerancia (min) <input type="number" data-k="tolerancia_min" min="0" max="240" step="5" value="${esc(h.tolerancia_min)}"></label>
+    <label title="Solo informativa: el match usa el arranque, una clase de 40 min a 3 h cuenta igual">Duración habitual (min) <input type="number" data-k="duracion_min" min="15" max="480" step="5" value="${esc(h.duracion_min)}"></label>
+    <label title="Minutos antes o después de la hora en que una reunión cuenta para ESTE horario">Tolerancia (min) <input type="number" data-k="tolerancia_min" min="0" max="240" step="5" value="${esc(h.tolerancia_min)}"></label>
     <label class="cc-activo"><input type="checkbox" data-k="activo"${h.activo ? ' checked' : ''}> Activo</label>
     <label>Nota <input type="text" data-k="nota" maxlength="200" value="${esc(h.nota || '')}"></label>
     <button type="button" class="btn btn-sm btn-accent" data-cc-guardar="${esc(id)}">${h.id ? 'Guardar' : 'Agregar horario'}</button>
@@ -87,8 +88,11 @@ export async function montarConsultorias(box, vigente) {
       <div class="cf-hist">
         <button type="button" class="btn btn-sm" id="cc-reclasificar">Reclasificar llamadas ya sincronizadas</button>
         <span class="hint" id="cc-resultado">Después de cambiar horarios: aplica los horarios actuales a las reuniones que ya entraron
-          (pasan de llamada de un alumno o pendiente a consultoría grupal). No borra nada y se puede repetir.</span>
-      </div>`;
+          (las pendientes o internas que caen en un horario pasan a consultoría grupal, de a 25 por vez). No toca llamadas ya asignadas
+          a un alumno, ni las que una persona confirmó, ni las consultorías ya registradas. No borra nada y se puede repetir.</span>
+      </div>
+      <div id="cc-programas"></div>`;
+    montarConsultorProgramas(box.querySelector('#cc-programas'), vigente);
   }
 
   box.addEventListener('click', async ev => {
@@ -105,11 +109,14 @@ export async function montarConsultorias(box, vigente) {
         toast('Horario guardado. Si ya había reuniones en ese horario, usá «Reclasificar».');
         await pintar();
       } else {
-        const res = await reclasificarConsultorias();
-        const n = (res.llamadas_reclasificadas || 0) + (res.pendientes_reclasificadas || 0);
         const el = box.querySelector('#cc-resultado');
-        if (el) el.textContent = `Listo: ${plural(n, 'reunión reclasificada', 'reuniones reclasificadas')} `
-          + `(${res.llamadas_reclasificadas || 0} eran llamadas de alumnos, ${res.pendientes_reclasificadas || 0} pendientes). `
+        const res = await reclasificarConsultorias(p => {
+          if (el) el.textContent = `Reclasificando… ${p.hechas} hechas, quedan ${p.quedan}.`;
+        });
+        const n = res.pendientes_reclasificadas || 0;
+        if (el) el.textContent = `Listo: ${plural(n, 'pendiente pasó a consultoría', 'pendientes pasaron a consultoría')}`
+          + `${res.quedan > 0 ? ` (quedan ${res.quedan}: volvé a apretar)` : ''}. `
+          + `No se tocaron ${res.omitidas_de_alumno || 0} llamadas ya asignadas a un alumno ni ${res.omitidas_confirmadas || 0} confirmadas por una persona. `
           + `Consultorías en total: ${res.consultorias || 0}.`;
         toast('Reclasificación terminada.');
       }

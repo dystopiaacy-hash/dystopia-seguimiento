@@ -60,11 +60,39 @@ export async function guardarHorario(h) {
   if (error) throw error;
 }
 
-/* { llamadas_reclasificadas, pendientes_reclasificadas, consultorias, preguntas_en_candidatas } */
-export async function reclasificarConsultorias() {
-  const { data, error } = await sb.rpc('cs_consultoria_reclasificar');
+/* Reclasifica por tandas (194): repite hasta que no quede nada o una tanda no avance (tope 40 tandas).
+   onProgreso({ hechas, quedan }) se llama después de cada tanda.
+   -> { pendientes_reclasificadas, quedan, omitidas_de_alumno, omitidas_confirmadas, consultorias } */
+export async function reclasificarConsultorias(onProgreso) {
+  let hechas = 0, ultimo = {};
+  for (let i = 0; i < 40; i++) {
+    const { data, error } = await sb.rpc('cs_consultoria_reclasificar', { p_limite: 25 });
+    if (error) throw error;
+    ultimo = data || {};
+    const n = ultimo.pendientes_reclasificadas || 0;
+    hechas += n;
+    if (onProgreso) onProgreso({ hechas, quedan: ultimo.quedan || 0 });
+    if (!n || !(ultimo.quedan > 0)) break;
+  }
+  return { ...ultimo, pendientes_reclasificadas: hechas };
+}
+
+/* Programas de cada cuenta de Fathom (194): Map consultor -> [programa_id]. undefined = 194 sin correr. */
+export async function traerConsultorProgramas() {
+  const { data, error } = await sb.from('cs_fathom_consultor_programas').select('consultor,programa_id');
+  if (error) {
+    if (faltaObjeto(error)) return undefined;
+    throw error;
+  }
+  const m = new Map();
+  for (const r of data || []) m.set(r.consultor, [...(m.get(r.consultor) || []), r.programa_id]);
+  return m;
+}
+
+/* Reemplaza los programas de un consultor (solo fundador). */
+export async function guardarConsultorProgramas(consultor, programas) {
+  const { error } = await sb.rpc('cs_fathom_consultor_programas_guardar', { p_consultor: consultor, p_programas: programas });
   if (error) throw error;
-  return data || {};
 }
 
 /* { modalidad, modalidad_manual, modalidad_auto, origen } o undefined (157 sin correr). */

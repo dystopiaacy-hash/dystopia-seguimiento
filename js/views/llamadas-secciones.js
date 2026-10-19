@@ -9,6 +9,8 @@
      4. interna automática (nadie de afuera)            -> internas
      5. propuesta pendiente de la IA                    -> según su tipo (queda marcada como propuesta)
      6. el resto                                        -> sin clasificar
+   El PROGRAMA de la llamada, si no sale de la ficha, el horario, el alumno propuesto ni un candidato, sale de la
+   cuenta de Fathom (cs_fathom_consultor_programas, 194) cuando esa cuenta tiene un solo programa.
    Las consultorías ya registradas (cs_consultorias, 157) no están en la vista: se suman aparte y se evita el duplicado
    por consultor + hora de inicio. */
 import { esc } from '../ui.js';
@@ -72,7 +74,7 @@ function comoLlamada(c) {
 }
 
 /* [{ l, seccion, prop, horario, programa, registrada }] para todo lo que hay que mostrar. */
-export function armarItems({ llamadas, registradas, horarios, props, alumnos }) {
+export function armarItems({ llamadas, registradas, horarios, props, alumnos, consultorProgramas }) {
   const propDe = new Map((props || []).map(p => [p.llamada_id, p]));
   const progDe = new Map((alumnos || []).map(a => [a.id, a.programa_id]));
   const hPorId = new Map((horarios || []).map(h => [h.id, h]));
@@ -101,6 +103,11 @@ export function armarItems({ llamadas, registradas, horarios, props, alumnos }) 
     if (!programa) {
       const c = (Array.isArray(l.candidatos) ? l.candidatos : []).map(id => progDe.get(id)).find(Boolean);
       programa = c || null;
+    }
+    /* 194: la cuenta de Fathom tiene UN solo programa -> la llamada queda en ese, aunque no caiga en un horario. */
+    if (!programa && consultorProgramas) {
+      const ps = consultorProgramas.get(l.consultor) || [];
+      if (ps.length === 1) programa = ps[0];
     }
     items.push({ l, seccion, prop, horario, programa, registrada: false });
   }
