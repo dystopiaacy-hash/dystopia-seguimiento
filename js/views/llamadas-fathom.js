@@ -17,6 +17,7 @@ import {
 import { guardar } from './comunes.js';
 import { tarjetaError } from './programa.js';
 import { montarSelectorAlumno } from './alumno-selector.js';
+import { crearPropuestas } from './llamadas-propuestas.js';
 
 /* Alumnos de los programas habilitados a los que el usuario puede asignar (cs_fathom_alumnos, 126:
    solo id, nombre, programa y estado; sirve también al consultor, que no ve las fichas). */
@@ -103,6 +104,8 @@ export function vistaLlamadas(el, programaId, vigente) {
      las ven; la base valida cada acción). */
   let llamadas = [], consultores = [], alumnos = [], tab = null;
   const filtro = { estado: '', desde: '', hasta: '' };
+  /* Propuestas de la IA (186): sección propia arriba de la lista; aceptar / corregir recargan todo. */
+  const propuestas = crearPropuestas({ llamadas: () => llamadas, alumnos: () => alumnos, alCambiar: () => cargar() });
 
   const delTab = () => llamadas.filter(l => (l.consultor || '') === tab);
   /* Las internas (127) quedan ocultas salvo que el filtro de estado sea "Internas". */
@@ -123,6 +126,7 @@ export function vistaLlamadas(el, programaId, vigente) {
     const total = delTab().filter(l => filtro.estado || l.estado !== 'interna').length;
     const act = consultores.find(c => c.id === tab);
     el.innerHTML = `
+      <div id="fa-prop-box" class="pi-seccion"></div>
       <div class="section-title">Llamadas<span class="line"></span></div>
       <div class="hint">Todas las reuniones grabadas en Fathom, separadas por consultor. «Alumno» son las que ya están
         en la ficha de un alumno; «Pendiente» tienen a alguien o un nombre en el título pero no coinciden con ningún
@@ -150,6 +154,7 @@ export function vistaLlamadas(el, programaId, vigente) {
         : `<div class="muted-empty">${total
             ? 'Ninguna llamada coincide con los filtros.'
             : `Todavía no hay llamadas${act ? ' de ' + esc(act.nombre) : ''} para mostrar.`}</div>`}</div>`;
+    propuestas.pintar(el.querySelector('#fa-prop-box'));
   }
 
   function modalAsignar(l) {
@@ -204,7 +209,7 @@ export function vistaLlamadas(el, programaId, vigente) {
 
   async function cargar() {
     try {
-      const [ls, cs, al] = await Promise.all([traerLlamadasFathom(), traerConsultores(), alumnosAsignables()]);
+      const [ls, cs, al] = await Promise.all([traerLlamadasFathom(), traerConsultores(), alumnosAsignables(), propuestas.cargar()]);
       if (!vigente()) return;
       if (ls === undefined || cs === undefined) {
         el.innerHTML = tarjetaError('Falta correr la migración 124', 'Esta pantalla se activa cuando la migración 124 está corrida.');

@@ -1,0 +1,36 @@
+/* Propuestas de la IA para llamadas de Fathom sin asignar (186). Solo variables de tema.css. */
+.pi-seccion{margin-bottom:var(--sp-5);}
+.pi-falta{margin-bottom:var(--sp-3);}
+.pi-barra{display:flex;gap:var(--sp-3);flex-wrap:wrap;align-items:flex-end;margin:var(--sp-3) 0;
+  font-size:var(--fs-meta);color:var(--text-dim);}
+.pi-barra label{display:flex;flex-direction:column;gap:var(--sp-1);}
+.pi-barra select{background:var(--surface-2);border:1px solid transparent;border-radius:var(--radius-sm);
+  min-height:var(--control-h);padding:0 var(--sp-3);color:var(--ink);font-size:var(--fs-meta);}
+.pi-estado{margin:var(--sp-2) 0;padding:var(--sp-2) var(--sp-3);background:var(--surface-2);
+  border-radius:var(--radius-sm);font-size:var(--fs-meta);color:var(--text);overflow-wrap:anywhere;}
+.pi-resultado{border-left:3px solid var(--accent);}
+.pi-lista{padding:0;}
+.pi-fila{display:flex;gap:var(--sp-3);justify-content:space-between;align-items:flex-start;flex-wrap:wrap;
+  padding:var(--sp-3) var(--sp-4);border-top:1px solid var(--border-soft);}
+.pi-fila:first-child{border-top:0;}
+.pi-main{flex:1 1 320px;min-width:0;}
+.pi-tit{font-weight:700;color:var(--ink);overflow-wrap:anywhere;}
+.pi-prop{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;margin:var(--sp-1) 0;}
+.pi-tipo{font-size:var(--fs-micro);font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--accent-text);}
+.pi-flecha{color:var(--text-faint);}
+.pi-sin{color:var(--text-faint);font-style:italic;}
+.pi-conf{font-size:var(--fs-micro);font-weight:800;text-transform:uppercase;letter-spacing:.04em;
+  padding:1px var(--sp-2);border-radius:var(--radius-sm);background:var(--surface-2);}
+.pi-conf-alta{color:var(--success);}
+.pi-conf-media{color:var(--warning-text);}
+.pi-conf-baja{color:var(--danger);}
+.pi-acc{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;}
+@media (max-width:640px){
+  .pi-fila{flex-direction:column;align-items:stretch;padding:var(--sp-3);}
+  .pi-main{flex-basis:auto;}
+  .pi-acc{display:grid;grid-template-columns:1fr 1fr;}
+  .pi-acc .btn-accent{grid-column:1 / -1;}
+  .pi-barra .btn{flex:1 1 100%;}
+  .pi-barra label{flex:1 1 45%;}
+  .pi-barra select{width:100%;}
+}
