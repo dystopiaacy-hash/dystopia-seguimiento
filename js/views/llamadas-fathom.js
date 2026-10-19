@@ -1,5 +1,6 @@
-/* Pantalla "Llamadas" (#/p/:programa/llamadas, 124): las llamadas grabadas en Fathom, una pestaña
-   por consultor (cuenta de Fathom). Estados: alumno (asignada a una ficha), pendiente (con invitados
+/* Pantalla "Llamadas" (#/p/:programa/llamadas, 124): las llamadas grabadas en Fathom, divididas en secciones
+   (consultorías semanales, 1 a 1, clases, ventas, internas, sin clasificar: ver llamadas-secciones.js) con filtros
+   por programa y consultor. Estados: alumno (asignada a una ficha), pendiente (con invitados
    externos, sin alumno) y no es alumno (marcada a mano: prospecto, socio, etc.).
    Es una lista global: no depende del programa desde el que se mira. La pantalla NO decide quién ve
    qué: muestra lo que la RLS devuelve. Llamadas de alumno: quien tiene acceso al programa;
@@ -18,6 +19,10 @@ import { guardar } from './comunes.js';
 import { tarjetaError } from './programa.js';
 import { montarSelectorAlumno } from './alumno-selector.js';
 import { crearPropuestas } from './llamadas-propuestas.js';
+import { traerHorarios, traerConsultoriasRegistradas } from '../datos-consultorias.js';
+import { SECCIONES, armarItems, extraItem } from './llamadas-secciones.js';
+
+const PAGINA = 100;   // filas por tanda: en celular cada una es una tarjeta
 
 /* Alumnos de los programas habilitados a los que el usuario puede asignar (cs_fathom_alumnos, 126:
    solo id, nombre, programa y estado; sirve también al consultor, que no ve las fichas). */
@@ -58,12 +63,14 @@ function conQuien(l, alumnos) {
   return (inv.length ? inv.map(esc).join('<br>') : '—') + motivo + posibles;
 }
 
-function filaLlamada(l, puedeAsignar, alumnos) {
+function filaLlamada(l, puedeAsignar, alumnos, extra = '') {
   const url = urlSegura(l.grabacion_share_url || l.grabacion_url || '');
   const meta = [TIPO_LLAMADA_LABEL[l.tipo], l.duracion_min ? `${l.duracion_min} min` : ''].filter(Boolean).join(' · ');
   const porNombre = l.estado === 'alumno' && l.asignada_por === 'nombre';
   let acciones = '';
-  if (l.estado === 'alumno') {
+  if (l.estado === 'consultoria') {
+    acciones = '';                       // consultoría ya registrada: no se asigna a un alumno
+  } else if (l.estado === 'alumno') {
     /* La base valida el permiso de cada acción; el botón aparece si hay alumnos a quién corregir. */
     if (alumnos.length) {
       acciones = `<span class="ll-item-acc">
@@ -81,12 +88,13 @@ function filaLlamada(l, puedeAsignar, alumnos) {
   }
   /* 187: una llamada "no es alumno" que alguien clasificó (clase, venta, interna, otra) muestra su tipo. */
   const tipoNoAlumno = l.estado === 'no_alumno' ? CLASIFICACION_LABEL[l.clasificacion] : '';
-  const estadoTxt = porNombre
+  const estadoTxt = l.estado === 'consultoria' ? extra
+    : porNombre
     ? `<span class="fa-estado fa-alumno fa-por-nombre">Alumno · por nombre</span>
-       <div class="hint">Asignada por coincidencia de nombre: confirmala o corregila.</div>`
+       <div class="hint">Asignada por coincidencia de nombre: confirmala o corregila.</div>${extra}`
     : tipoNoAlumno
-      ? `<span class="fa-estado fa-clasificada">${esc(tipoNoAlumno)}</span><div class="hint">No es de un alumno.</div>`
-      : `<span class="fa-estado fa-${esc(l.estado)}">${esc(ESTADO_FATHOM_LABEL[l.estado] || l.estado)}</span>`;
+      ? `<span class="fa-estado fa-clasificada">${esc(tipoNoAlumno)}</span><div class="hint">No es de un alumno.</div>${extra}`
+      : `<span class="fa-estado fa-${esc(l.estado)}">${esc(ESTADO_FATHOM_LABEL[l.estado] || l.estado)}</span>${extra}`;
   return `<tr>
       <td data-label="Fecha">${esc(fmtFecha(l.fecha))}</td>
       <td data-label="Con quién">${conQuien(l, alumnos)}</td>
@@ -106,66 +114,72 @@ export function vistaLlamadas(el, programaId, vigente) {
   el.innerHTML = '<div class="loading-inline">Cargando…</div>';
   /* puedeAsignar: se enciende si el usuario ve alguna pendiente/no_alumno (fundador, consultor y cliente;
      el cliente solo las de su programa). La base valida cada acción. */
-  let llamadas = [], consultores = [], alumnos = [], tab = null;
-  const filtro = { estado: '', desde: '', hasta: '' };
+  let llamadas = [], consultores = [], alumnos = [], horarios = [], registradas = [], items = [];
+  let seccion = '', mostrar = PAGINA;
+  const filtro = { estado: '', programa: '', consultor: '', desde: '', hasta: '' };
   /* Propuestas de la IA (186): sección propia arriba de la lista; aceptar / corregir recargan todo. */
   const propuestas = crearPropuestas({ llamadas: () => llamadas, alumnos: () => alumnos, alCambiar: () => cargar() });
 
-  const delTab = () => llamadas.filter(l => (l.consultor || '') === tab);
-  /* Las internas (127) quedan ocultas salvo que el filtro de estado sea "Internas". */
-  const visibles = () => delTab().filter(l =>
-    (filtro.estado
-      ? (filtro.estado === 'por_nombre' ? l.estado === 'alumno' && l.asignada_por === 'nombre'
-        : filtro.estado.startsWith('c_') ? l.estado === 'no_alumno' && l.clasificacion === filtro.estado.slice(2)
-        : filtro.estado === 'no_alumno' ? l.estado === 'no_alumno' && !l.clasificacion
-        : l.estado === filtro.estado)
-      : l.estado !== 'interna')
-    && (!filtro.desde || l.fecha >= filtro.desde)
-    && (!filtro.hasta || l.fecha <= filtro.hasta));
+  const nombreConsultor = id => { const c = consultores.find(x => x.id === id); return c ? c.nombre : id; };
+  const nombrePrograma = id => { const p = (yo.programas || []).find(x => x.id === id); return p ? p.nombre : id; };
+  /* Todos los filtros menos la sección (así los contadores de cada sección respetan programa, consultor y fechas). */
+  const pasa = it => (!filtro.consultor || (it.l.consultor || '') === filtro.consultor)
+    && (!filtro.programa || (filtro.programa === '_sin' ? !it.programa : it.programa === filtro.programa))
+    && (!filtro.estado || (filtro.estado === 'por_nombre' ? it.l.estado === 'alumno' && it.l.asignada_por === 'nombre'
+      : it.l.estado === filtro.estado))
+    && (!filtro.desde || it.l.fecha >= filtro.desde)
+    && (!filtro.hasta || it.l.fecha <= filtro.hasta);
+  const hayFiltro = () => Object.values(filtro).some(Boolean);
 
   function pintar() {
     const puedeAsignar = esFundador() || llamadas.some(l => l.estado !== 'alumno');
-    const cuenta = id => llamadas.filter(l => (l.consultor || '') === id && l.estado !== 'interna').length;
-    const nInternas = delTab().filter(l => l.estado === 'interna').length;
-    const tabs = consultores.map(c => `<button type="button" class="tab-btn${c.id === tab ? ' active' : ''}" data-fa-tab="${esc(c.id)}">
-        ${esc(c.nombre)}${c.activo ? '' : ' (inactivo)'} <span class="fa-n">${cuenta(c.id)}</span></button>`).join('');
-    const lista = visibles();
-    const total = delTab().filter(l => filtro.estado || l.estado !== 'interna').length;
-    const act = consultores.find(c => c.id === tab);
+    const filtrados = items.filter(pasa);
+    const cuenta = k => filtrados.filter(it => it.seccion === k).length;
+    const actual = SECCIONES.find(s => s.key === seccion) || SECCIONES[0];
+    const lista = filtrados.filter(it => it.seccion === actual.key);
+    const visibles = lista.slice(0, mostrar);
+    const tabs = SECCIONES.map(s => `<button type="button" class="tab-btn${s.key === actual.key ? ' active' : ''}" data-fa-sec="${s.key}">
+        ${esc(s.label)} <span class="fa-n">${cuenta(s.key)}</span></button>`).join('');
+    const progs = [...new Set(items.map(it => it.programa).filter(Boolean))].sort();
+    const hayLibres = items.some(it => !it.programa);
+    const cons = consultores.length ? consultores.map(c => [c.id, c.nombre + (c.activo ? '' : ' (inactivo)')])
+      : [...new Set(items.map(it => it.l.consultor).filter(Boolean))].sort().map(c => [c, c]);
+    const opt = (v, t, sel) => `<option value="${esc(v)}"${sel === v ? ' selected' : ''}>${esc(t)}</option>`;
     el.innerHTML = `
       <div id="fa-prop-box" class="pi-seccion"></div>
       <div class="section-title">Llamadas<span class="line"></span></div>
-      <div class="hint">Todas las reuniones grabadas en Fathom, separadas por consultor. «Alumno» son las que ya están
-        en la ficha de un alumno; «Pendiente» tienen a alguien o un nombre en el título pero no coinciden con ningún
-        alumno; «Interna» no tiene a nadie de afuera (solo vos o el equipo; ocultas, se ven con el filtro «Internas»);
-        «No es alumno» las marcó una persona (prospecto, socio, etc.).
-        Se asignan solas por el mail del invitado (principal o extra); si no coincide, por nombre o alias (queda marcada
-        «por nombre» para que la confirmes o corrijas). Al asignar o confirmar a mano, los mails de la llamada y los
-        nombres (invitado o título) quedan como del alumno y la próxima se asigna sola.</div>
+      <div class="hint">Las reuniones grabadas en Fathom, separadas por tipo. Se asignan solas por el mail del invitado
+        (principal o extra); si no coincide, por nombre o alias (queda «por nombre» para que la confirmes o corrijas). Al
+        asignar o confirmar a mano, los mails y nombres de la llamada quedan como del alumno y la próxima se asigna sola.
+        Los contadores respetan los filtros de abajo.</div>
       ${yo.rol === 'cliente' ? `<div class="hint">Ves solo las llamadas de tu programa: las de tus alumnos y las pendientes
         que tienen a un alumno tuyo como posible o propuesto. El resto lo ven el fundador y el consultor.</div>` : ''}
-      ${consultores.length ? `<nav class="tabs tabs-inline" aria-label="Consultores">${tabs}</nav>` : ''}
+      <nav class="tabs fa-secciones" aria-label="Tipo de llamada">${tabs}</nav>
       <div class="fa-filtros">
+        <label>Programa <select id="fa-f-programa">
+          ${opt('', 'Todos', filtro.programa)}${progs.map(p => opt(p, nombrePrograma(p), filtro.programa)).join('')}
+          ${hayLibres ? opt('_sin', 'Sin programa claro', filtro.programa) : ''}
+        </select></label>
+        <label>Consultor <select id="fa-f-consultor">
+          ${opt('', 'Todos', filtro.consultor)}${cons.map(([id, n]) => opt(id, n, filtro.consultor)).join('')}
+        </select></label>
         <label>Estado <select id="fa-f-estado">
-          <option value="">Todos (sin internas)</option>
-          ${Object.entries({
-            ...ESTADO_FATHOM_LABEL, interna: 'Internas', por_nombre: 'Alumno asignado por nombre',
-            ...Object.fromEntries(Object.entries(CLASIFICACION_LABEL).map(([k, v]) => ['c_' + k, v + ' (clasificada)']))
-          })
-            .map(([k, v]) => `<option value="${k}"${filtro.estado === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}
+          ${opt('', 'Todos', filtro.estado)}${opt('pendiente', 'Pendiente', filtro.estado)}
+          ${opt('por_nombre', 'Alumno asignado por nombre', filtro.estado)}${opt('no_alumno', 'No es alumno', filtro.estado)}
         </select></label>
         <label>Desde <input type="date" id="fa-f-desde" value="${esc(filtro.desde)}"></label>
         <label>Hasta <input type="date" id="fa-f-hasta" value="${esc(filtro.hasta)}"></label>
-        ${filtro.estado || filtro.desde || filtro.hasta ? '<button type="button" class="btn btn-sm" id="fa-f-limpiar">Limpiar filtros</button>' : ''}
+        ${hayFiltro() ? '<button type="button" class="btn btn-sm" id="fa-f-limpiar">Limpiar filtros</button>' : ''}
       </div>
-      <div class="card">${lista.length ? `<div class="table-wrap"><table class="tabla tabla-cards">
+      <div class="hint">${esc(actual.ayuda)}</div>
+      <div class="card fa-tabla">${visibles.length ? `<div class="table-wrap"><table class="tabla tabla-cards">
           <thead><tr><th>Fecha</th><th>Con quién</th><th>Llamada</th><th>Estado</th><th></th></tr></thead>
-          <tbody>${lista.map(l => filaLlamada(l, puedeAsignar, alumnos)).join('')}</tbody></table></div>
-          <div class="hint">${esc(plural(lista.length, 'llamada'))}${total !== lista.length ? ` de ${total}` : ''}.
-            ${!filtro.estado && nInternas ? `${esc(plural(nInternas, 'interna oculta', 'internas ocultas'))}: filtrá por «Internas» para verlas.` : ''}</div>`
-        : `<div class="muted-empty">${total
-            ? 'Ninguna llamada coincide con los filtros.'
-            : `Todavía no hay llamadas${act ? ' de ' + esc(act.nombre) : ''} para mostrar.`}</div>`}</div>`;
+          <tbody>${visibles.map(it => filaLlamada(it.l, puedeAsignar, alumnos, extraItem(it, nombreConsultor))).join('')}</tbody></table></div>
+          <div class="hint">${esc(plural(lista.length, 'llamada'))}${visibles.length < lista.length ? `, mostrando ${visibles.length}.
+            <button type="button" class="btn btn-sm" id="fa-mas">Mostrar más</button>` : '.'}</div>`
+        : `<div class="muted-empty">${items.length
+            ? (hayFiltro() ? 'Ninguna llamada de esta sección coincide con los filtros.' : 'No hay llamadas en esta sección.')
+            : 'Todavía no hay llamadas para mostrar.'}</div>`}</div>`;
     propuestas.pintar(el.querySelector('#fa-prop-box'));
   }
 
@@ -221,7 +235,10 @@ export function vistaLlamadas(el, programaId, vigente) {
 
   async function cargar() {
     try {
-      const [ls, cs, al] = await Promise.all([traerLlamadasFathom(), traerConsultores(), alumnosAsignables(), propuestas.cargar()]);
+      /* Horarios y consultorías registradas (157): si faltan o fallan, la pantalla sigue sin esa sección. */
+      const opcional = async f => { try { return await f(); } catch { return undefined; } };
+      const [ls, cs, al, hs, regs] = await Promise.all([traerLlamadasFathom(), traerConsultores(), alumnosAsignables(),
+        opcional(traerHorarios), opcional(traerConsultoriasRegistradas), propuestas.cargar()]);
       if (!vigente()) return;
       if (ls === undefined || cs === undefined) {
         el.innerHTML = tarjetaError('Falta correr la migración 124', 'Esta pantalla se activa cuando la migración 124 está corrida.');
@@ -229,9 +246,14 @@ export function vistaLlamadas(el, programaId, vigente) {
       }
       llamadas = ls;
       alumnos = al;
-      /* Pestañas: consultores activos, y los inactivos solo si tienen llamadas visibles. */
+      horarios = hs || [];
+      registradas = regs || [];
+      /* Consultores activos, y los inactivos solo si tienen llamadas visibles. */
       consultores = cs.filter(c => c.activo || llamadas.some(l => l.consultor === c.id));
-      if (!consultores.some(c => c.id === tab)) tab = consultores.length ? consultores[0].id : null;
+      if (filtro.consultor && !consultores.some(c => c.id === filtro.consultor)) filtro.consultor = '';
+      items = armarItems({ llamadas, registradas, horarios, props: propuestas.lista(), alumnos });
+      /* Primera vez: abre la primera sección que tenga algo. */
+      if (!seccion) seccion = (SECCIONES.find(s => items.some(it => it.seccion === s.key)) || SECCIONES[0]).key;
       pintar();
     } catch (e) {
       if (vigente()) el.innerHTML = tarjetaError('No se pudieron cargar las llamadas', mensajeError(e));
@@ -241,16 +263,22 @@ export function vistaLlamadas(el, programaId, vigente) {
   el.addEventListener('change', ev => {
     const t = ev.target;
     if (t.id === 'fa-f-estado') filtro.estado = t.value;
+    else if (t.id === 'fa-f-programa') filtro.programa = t.value;
+    else if (t.id === 'fa-f-consultor') filtro.consultor = t.value;
     else if (t.id === 'fa-f-desde') filtro.desde = t.value;
     else if (t.id === 'fa-f-hasta') filtro.hasta = t.value;
     else return;
+    mostrar = PAGINA;
     pintar();
   });
 
   el.addEventListener('click', async ev => {
-    const bT = ev.target.closest('[data-fa-tab]');
-    if (bT) { tab = bT.dataset.faTab; pintar(); return; }
-    if (ev.target.closest('#fa-f-limpiar')) { filtro.estado = filtro.desde = filtro.hasta = ''; pintar(); return; }
+    const bT = ev.target.closest('[data-fa-sec]');
+    if (bT) { seccion = bT.dataset.faSec; mostrar = PAGINA; pintar(); return; }
+    if (ev.target.closest('#fa-mas')) { mostrar += PAGINA; pintar(); return; }
+    if (ev.target.closest('#fa-f-limpiar')) {
+      filtro.estado = filtro.programa = filtro.consultor = filtro.desde = filtro.hasta = ''; mostrar = PAGINA; pintar(); return;
+    }
     const bA = ev.target.closest('[data-fa-asignar]');
     if (bA) {
       const l = llamadas.find(x => x.id === bA.dataset.faAsignar);

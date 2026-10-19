@@ -274,5 +274,6 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
     try { props = await traerPropuestas(); } catch (e) { props = []; toast(mensajeError(e), 'error'); }
   }
 
-  return { cargar, pintar };
+  /* Propuestas pendientes (para agrupar las llamadas por tipo propuesto). */
+  return { cargar, pintar, lista: () => props || [] };
 }

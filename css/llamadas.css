@@ -108,6 +108,33 @@
 .cc-fila .cc-activo{flex-direction:row;align-items:center;}
 .cc-clase{font-size:var(--fs-meta);color:var(--text-dim);}
 
+/* Secciones de Llamadas (consultorías semanales, 1 a 1, clases, ventas, internas, sin clasificar) */
+.fa-secciones{margin:var(--sp-3) 0;}
+.fa-secciones .tab-btn{white-space:nowrap;}
+.fa-prop{color:var(--accent-text);}
+.fa-tabla td{overflow-wrap:anywhere;}
+
 @media (max-width:720px){
   .ll-sub{margin-left:var(--sp-3);}
+}
+
+/* Celular: cada llamada es una tarjeta (sin scroll horizontal de la página). */
+@media (max-width:860px){
+  .fa-filtros label{flex:1 1 45%;min-width:0;}
+  .fa-filtros select,.fa-filtros input{width:100%;min-width:0;}
+  .fa-secciones .tab-btn{flex:1 1 auto;}
+  .fa-tabla{background:transparent;border:none;box-shadow:none;padding:0;}
+  .fa-tabla .table-wrap{overflow:visible;background:transparent;border:none;box-shadow:none;}
+  .fa-tabla table,.fa-tabla tbody,.fa-tabla tr,.fa-tabla td{display:block;width:auto;max-width:none;}
+  .fa-tabla thead{display:none;}
+  .fa-tabla tr{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    box-shadow:var(--shadow);margin-bottom:var(--sp-3);padding:var(--sp-2) var(--sp-3);}
+  .fa-tabla td{white-space:normal;border-bottom:1px solid var(--border-soft);padding:var(--sp-2) 0;text-align:left;}
+  .fa-tabla td::before{content:attr(data-label);display:block;font-size:var(--fs-micro);font-weight:700;
+    letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);margin-bottom:2px;}
+  .fa-tabla td[data-label=""]::before{display:none;}
+  .fa-tabla tr td:last-child{border-bottom:none;}
+  .fa-tabla td.acciones:empty{display:none;}
+  .fa-tabla .ll-item-acc{display:grid;grid-template-columns:1fr 1fr;width:100%;}
+  .fa-tabla .ll-item-acc .btn-accent{grid-column:1 / -1;}
 }

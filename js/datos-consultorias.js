@@ -24,6 +24,19 @@ export async function traerHorarios() {
   return data || [];
 }
 
+/* Consultorías ya registradas (las más nuevas primero; la RLS deja solo las de los programas que ve el usuario).
+   [] si falta la 157. */
+export async function traerConsultoriasRegistradas() {
+  const { data, error } = await sb.from('cs_consultorias')
+    .select('id,programa_id,horario_id,consultor,fecha,inicio_at,titulo,duracion_min,grabacion_url,grabacion_share_url,resumen,invitados')
+    .order('inicio_at', { ascending: false }).limit(500);
+  if (error) {
+    if (faltaObjeto(error)) return [];
+    throw error;
+  }
+  return data || [];
+}
+
 /* Cuentas de Fathom (consultores) para elegir en el horario. */
 export async function traerConsultores() {
   const { data, error } = await sb.from('cs_fathom_consultores').select('id,nombre,activo').order('orden').order('id');
