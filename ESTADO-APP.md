@@ -42,6 +42,10 @@
 - `FASE0-PRODUCTO.md` (relevamiento de planillas) y `PLAN-PRODUCTO.md` (plan por fases): leerlos antes de seguir.
 
 ## Qué hicimos últimamente
+1. 19/10/2026, tarea "3 arreglos del QA: Propuestas de la IA y nota del equipo" (JS/CSS SIN PROBAR en navegador, sin node; sin migración, sin commit):
+   - `js/views/llamadas-propuestas.js`: "Aceptar todas las de confianza alta (N)" cuenta y acepta SOLO las de confianza alta con alumno y 1 a 1 que se ven con los filtros Confianza / Consultor (antes contaba todas y llamaba a `aceptarAltas`, que acepta todo en la base). Ahora acepta una por una con `resolverPropuesta(id, 'aceptar')` (misma ruta que el botón de cada tarjeta; si una falla, sigue y avisa). Las altas sin alumno o no 1 a 1 no cuentan y un texto al lado lo explica. Confirmación intacta. La lista ahora sale por fecha de la llamada, de la más nueva a la más vieja (desempate por `inicio_at`). `aceptarAltas` ya no se usa acá (sigue en `datos-fathom-ia.js`).
+   - `js/views/config-fathom-equipo.js` + `css/llamadas.css`: la nota es un textarea que crece con el texto (`.cf-eq-nota`), a todo el ancho en celular.
+   - Pendiente: mirarlo en escritorio y celular. Si el filtro de programa de la pantalla Llamadas debe afectar este botón, hay que pasarlo al módulo (hoy solo ve Confianza y Consultor).
 1. 19/10/2026, tarea "link a Fathom en Propuestas de la IA" (JS SIN PROBAR en navegador, sin node para `--check`; sin migración, sin commit):
    - `js/views/llamadas-propuestas.js`: cada tarjeta suma "Ver en Fathom ↗" en la línea fecha · consultor · duración (`target="_blank" rel="noopener noreferrer"`). Usa `grabacion_share_url`, si no `grabacion_url`, si no nada; pasa por `urlSegura`. No hizo falta tocar la consulta: la llamada (`l`) ya viene de la lista de `cs_fathom_sin_asignar` con esas columnas. La pestaña "Sin clasificar" ya tenía "Ver grabación en Fathom" (`llamadas-fathom.js`). Pendiente: mirarlo en celular.
 1. 19/10/2026, tarea "la IA de Fathom ignora al equipo al buscar al alumno" (SQL, TypeScript y JS SIN PROBAR: sin SQL, deno ni node; migración 193 asignada por el jefe, NO corrida; `ia-fathom-clasificar` v4 sin deployar; sin commit):

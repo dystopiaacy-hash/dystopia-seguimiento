@@ -7,7 +7,7 @@ import { esc, fmtFecha, plural, abrirModal, cerrarModal, confirmar, urlSegura, t
 import { esFundador } from '../sesion.js';
 import { mensajeError } from '../datos.js';
 import {
-  traerPropuestas, resolverPropuesta, aceptarAltas, clasificarPendientes,
+  traerPropuestas, resolverPropuesta, clasificarPendientes,
   TIPO_PROPUESTA_LABEL, CONFIANZA_LABEL
 } from '../datos-fathom-ia.js';
 import { guardar } from './comunes.js';
@@ -30,8 +30,13 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
   /* Solo las propuestas cuya llamada sigue sin asignar y el usuario puede ver. */
   const filas = () => {
     const porId = new Map((llamadas() || []).filter(l => l.estado === 'pendiente' || l.estado === 'interna').map(l => [l.id, l]));
-    return (props || []).map(p => ({ p, l: porId.get(p.llamada_id) })).filter(x => x.l);
+    /* Más nueva primero: por fecha de la llamada y, a igual fecha, por hora de inicio. */
+    const clave = l => `${l.fecha || ''} ${l.inicio_at || ''}`;
+    return (props || []).map(p => ({ p, l: porId.get(p.llamada_id) })).filter(x => x.l)
+      .sort((a, b) => clave(b.l).localeCompare(clave(a.l)));
   };
+  const filtradas = todas => todas.filter(x => (!filtro.conf || x.p.confianza === filtro.conf)
+    && (!filtro.consultor || x.l.consultor === filtro.consultor));
   const esAltaAceptable = p => p.confianza === 'alta' && p.alumno_id && p.tipo === 'consultoria_1a1';
 
   function filaHtml({ p, l }) {
@@ -77,9 +82,10 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
     const todas = filas();
     if (!todas.length && !fund && !estado.resultado) { caja.innerHTML = ''; return; }
     const consultores = [...new Set(todas.map(x => x.l.consultor).filter(Boolean))].sort();
-    const lista = todas.filter(x => (!filtro.conf || x.p.confianza === filtro.conf)
-      && (!filtro.consultor || x.l.consultor === filtro.consultor));
-    const altas = todas.filter(x => esAltaAceptable(x.p)).length;
+    const lista = filtradas(todas);
+    /* Solo las de confianza alta que se ven con los filtros actuales; las altas sin alumno o que no son 1 a 1 no cuentan. */
+    const altas = lista.filter(x => esAltaAceptable(x.p)).length;
+    const altasSin = lista.filter(x => x.p.confianza === 'alta' && !esAltaAceptable(x.p)).length;
     const visibles = lista.slice(0, mostrar);
     const ocupado = estado.clasificando || estado.aceptando;
     caja.innerHTML = `
@@ -91,6 +97,7 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
         ${fund ? `<button type="button" class="btn btn-accent" id="pi-clasificar"${ocupado ? ' disabled' : ''}>${estado.clasificando ? 'Clasificando…' : 'Clasificar pendientes'}</button>` : ''}
         ${fund && todas.length ? `<button type="button" class="btn" id="pi-reclasificar"${ocupado ? ' disabled' : ''}>Re-clasificar propuestas</button>` : ''}
         ${altas ? `<button type="button" class="btn" id="pi-altas"${ocupado ? ' disabled' : ''}>${estado.aceptando ? 'Aceptando…' : `Aceptar todas las de confianza alta (${altas})`}</button>` : ''}
+        ${altasSin ? `<span class="hint">${esc(plural(altasSin, 'propuesta de confianza alta no se acepta', 'propuestas de confianza alta no se aceptan'))} en un clic (sin alumno o no es 1 a 1): revisalas una por una.</span>` : ''}
         <label>Confianza <select id="pi-f-conf"><option value="">Todas</option>
           ${Object.entries(CONFIANZA_LABEL).map(([k, v]) => `<option value="${k}"${filtro.conf === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}
         </select></label>
@@ -166,22 +173,21 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
   }
 
   async function aceptarTodasAltas() {
-    const n = filas().filter(x => esAltaAceptable(x.p)).length;
+    const ids = filtradas(filas()).filter(x => esAltaAceptable(x.p)).map(x => x.p.id);
+    const n = ids.length;
     if (!n || estado.aceptando) return;
     const ok = await confirmar({
       titulo: 'Aceptar las de confianza alta',
       texto: `Se asignan ${plural(n, 'llamada')} a los alumnos propuestos, igual que «Asignar a alumno».`,
-      detalle: 'Son consultorías 1 a 1 donde coincide el mail o el nombre completo. Si alguna falla, el resto sigue.',
+      detalle: 'Solo las de confianza alta con alumno que ves ahora con los filtros actuales. Si alguna falla, el resto sigue.',
       ok: 'Aceptar todas', peligro: false
     });
     if (!ok) return;
     estado.aceptando = true; pintar();
     let aceptadas = 0, fallidas = 0;
     try {
-      for (let i = 0; i < 6; i++) {
-        const r = await aceptarAltas(100);
-        aceptadas += r.aceptadas || 0; fallidas += r.fallidas || 0;
-        if (!r.aceptadas || !r.quedan) break;
+      for (const id of ids) {
+        try { await resolverPropuesta(id, 'aceptar'); aceptadas++; } catch { fallidas++; }
       }
       toast(`${plural(aceptadas, 'llamada asignada', 'llamadas asignadas')}.`
         + (fallidas ? ` ${plural(fallidas, 'no se pudo asignar', 'no se pudieron asignar')}: revisalas una por una.` : ''),

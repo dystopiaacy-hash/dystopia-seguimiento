@@ -31,15 +31,18 @@ export async function montarFathomEquipo(box, vigente) {
           <label class="check-row"><input type="checkbox" data-eq-activo="${esc(f.id)}"${f.activo ? ' checked' : ''}>
             <strong>${esc(f.nombre)}</strong></label>
           <span class="cf-consultor-n">
-            <input type="text" data-eq-nota="${esc(f.id)}" value="${esc(f.nota || '')}" placeholder="Nota (rol, apodo)" maxlength="200">
+            <textarea class="cf-eq-nota" data-eq-nota="${esc(f.id)}" rows="2" placeholder="Nota (rol, apodo)" maxlength="200">${esc(f.nota || '')}</textarea>
             <button type="button" class="btn btn-sm" data-eq-nota-ok="${esc(f.id)}">Guardar nota</button></span>
         </div>`).join('') || '<div class="hint">No hay nombres cargados.</div>'}
       <div class="cf-consultor">
         <input type="text" id="eq-nuevo-nombre" placeholder="Nombre en Fathom (ej. Nombre Apellido)" maxlength="80">
-        <input type="text" id="eq-nuevo-nota" placeholder="Nota (opcional)" maxlength="200">
+        <textarea class="cf-eq-nota" id="eq-nuevo-nota" rows="2" placeholder="Nota (opcional)" maxlength="200"></textarea>
         <button type="button" class="btn btn-sm" id="eq-nuevo">Agregar al equipo</button>
       </div>`;
 
+    /* La nota crece con el texto: no se corta. */
+    const crecer = t => { t.style.height = 'auto'; if (t.scrollHeight > 0) t.style.height = `${t.scrollHeight}px`; };
+    box.querySelectorAll('.cf-eq-nota').forEach(t => { crecer(t); t.addEventListener('input', () => crecer(t)); });
     box.querySelectorAll('[data-eq-activo]').forEach(chk => {
       chk.onchange = async () => {
         chk.disabled = true;

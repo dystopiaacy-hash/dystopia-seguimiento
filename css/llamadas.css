@@ -98,7 +98,11 @@
 .fa-texto{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:var(--sp-1);color:var(--text);}
 .cf-consultor{display:flex;gap:var(--sp-3);flex-wrap:wrap;align-items:center;padding:var(--sp-2) 0;
   border-top:1px solid var(--border-soft);font-size:var(--fs-meta);}
-.cf-consultor-n{flex:1;min-width:200px;}
+.cf-consultor-n{flex:1 1 260px;min-width:0;display:flex;gap:var(--sp-2);align-items:flex-start;flex-wrap:wrap;}
+.cf-eq-nota{flex:1 1 220px;min-width:0;width:100%;box-sizing:border-box;resize:vertical;overflow:hidden;line-height:1.4;
+  background:var(--surface-2);border:1px solid transparent;border-radius:var(--radius-sm);padding:var(--sp-2);
+  color:var(--ink);font:inherit;font-size:var(--fs-meta);}
+#cf-fathom-equipo>.cf-consultor>.cf-eq-nota{flex:1 1 260px;}
 .cc-fila{align-items:flex-end;}
 .cc-fila label{display:flex;flex-direction:column;gap:var(--sp-1);color:var(--text-dim);}
 .cc-fila select,.cc-fila input[type=time],.cc-fila input[type=number],.cc-fila input[type=text]{background:var(--surface-2);
