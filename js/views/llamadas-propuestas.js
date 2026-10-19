@@ -3,7 +3,7 @@
    cs_fathom_prop_resolver, que usa la misma cs_fathom_asignar de la asignación manual (o "No es alumno"
    si no hay alumno), así el resto de la app se entera igual. "Clasificar pendientes" es solo del fundador.
    Lo monta llamadas-fathom.js: crearPropuestas({...}) devuelve { cargar, pintar(caja) }. */
-import { esc, fmtFecha, plural, abrirModal, cerrarModal, confirmar, toast } from '../ui.js';
+import { esc, fmtFecha, plural, abrirModal, cerrarModal, confirmar, urlSegura, toast } from '../ui.js';
 import { esFundador } from '../sesion.js';
 import { mensajeError } from '../datos.js';
 import {
@@ -37,6 +37,8 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
   function filaHtml({ p, l }) {
     const a = p.alumno_id ? delAlumno(p.alumno_id) : null;
     const meta = [fmtFecha(l.fecha), l.consultor, l.duracion_min ? `${l.duracion_min} min` : ''].filter(Boolean).join(' · ');
+    const url = urlSegura(l.grabacion_share_url || l.grabacion_url || '');
+    const verFathom = url ? ` · <a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Ver en Fathom ↗</a>` : '';
     const necesitaAlumno = p.tipo === 'consultoria_1a1' && !p.alumno_id;
     const quien = p.alumno_id
       ? `<strong>${esc(a ? a.nombre : 'Alumno no disponible')}</strong>`
@@ -46,7 +48,7 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
     return `<div class="pi-fila" data-pi="${esc(p.id)}">
       <div class="pi-main">
         <div class="pi-tit">${esc(l.titulo || 'Sin título')}</div>
-        <div class="hint">${esc(meta)}</div>
+        <div class="hint">${esc(meta)}${verFathom}</div>
         <div class="pi-prop">
           <span class="pi-tipo">${esc(TIPO_PROPUESTA_LABEL[p.tipo] || p.tipo)}</span>
           <span class="pi-flecha" aria-hidden="true">→</span> ${quien}
