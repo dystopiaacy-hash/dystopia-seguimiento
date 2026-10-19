@@ -194,6 +194,27 @@ export async function crearConsultor({ id, nombre, secreto, orden }) {
   if (error) throw error;
 }
 
+/* Nombres del equipo (193): undefined = falta la migración. Sin borrar: se desactivan. */
+export async function traerEquipoNombres() {
+  const { data, error } = await sb.from('cs_fathom_equipo_nombres').select('id,nombre,nota,activo').order('nombre');
+  if (error) {
+    if (faltaObjeto(error)) return undefined;
+    throw error;
+  }
+  return data || [];
+}
+
+export async function guardarEquipoNombre(id, cambios) {
+  const { data, error } = await sb.from('cs_fathom_equipo_nombres').update(cambios).eq('id', id).select('id');
+  if (error) throw error;
+  if (!data || !data.length) throw new Error('No se guardó el nombre.');
+}
+
+export async function crearEquipoNombre({ nombre, nota }) {
+  const { error } = await sb.from('cs_fathom_equipo_nombres').insert({ nombre, nota: nota || null, activo: true });
+  if (error) throw error;
+}
+
 /* Última corrida (o null). */
 export async function traerUltimaCorrida() {
   const base = 'inicio,fin,origen,estado,traidas,asignadas,creadas,actualizadas,vinculadas,sin_asignar,ignoradas,errores,parcial,detalle,por_consultor';

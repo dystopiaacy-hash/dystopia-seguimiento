@@ -7,6 +7,7 @@ import { esc } from '../ui.js';
 import { esFundador } from '../sesion.js';
 import { setHeader } from '../layout.js';
 import { htmlFathom, montarFathom } from './config-fathom.js';
+import { htmlFathomEquipo, montarFathomEquipo } from './config-fathom-equipo.js';   // 193
 import { htmlConsultorias, montarConsultorias } from './config-consultorias.js';   // 157
 
 export function vistaConfigGeneral(el, vigente) {
@@ -19,7 +20,14 @@ export function vistaConfigGeneral(el, vigente) {
     <div class="hint">Ajustes que no son de un programa. Los de cada programa (plazos, etapas, plantilla, avisos
       a Discord) están en la Configuración de ese programa.</div>
     ${htmlFathom()}
+    ${htmlFathomEquipo()}
     ${htmlConsultorias()}`;
+  montarFathomEquipo(el.querySelector('#cf-fathom-equipo'), vigente)
+    .catch(e => {
+      console.error('fathom equipo', e);
+      const box = el.querySelector('#cf-fathom-equipo');
+      if (box) box.innerHTML = `<div class="hint">${esc((e && e.message) || 'No se pudo cargar el equipo.')}</div>`;
+    });
   montarFathom(el.querySelector('#cf-fathom'), vigente)
     .catch(e => {
       console.error('fathom', e);

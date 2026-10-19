@@ -15,11 +15,18 @@
 //                                              "Clasificar pendientes" las encadena de a 60).
 //   { "diagnostico": true }                    no llama a la IA: cuenta qué haría, estima el costo y revisa la configuración
 //
-// Qué lee: cs_fathom_sin_asignar (título, fecha, duración, invitados, nombres, resumen y un fragmento de la transcripción) y los
+// Qué lee: cs_fathom_sin_asignar (título, fecha, duración, invitados, nombres, hablantes (192), resumen y un fragmento de la transcripción) y los
 // alumnos de los programas habilitados en cs_fathom_config (nombre, mail principal, mails extra y alias).
+// 192: los hablantes de la transcripción puntúan contra nombre completo / alias (4), nombre y apellido en cualquier orden (3), nombre dentro
+// del mail del alumno o del invitado ("juanperez@" -> Juan Pérez, 3) o una sola palabra del nombre (1). Sin acentos ni mayúsculas.
+// Re-clasificar las pendientes ya propuestas: { "rehacer": true } (encadenar con "rehacer_desde", ver arriba).
 // Cómo decide el alumno: (1) mail exacto de un invitado = un solo alumno vivo => confianza alta SIN preguntarle a la IA;
 // (2) si no, arma una lista corta de candidatos por nombres (título, nombres, mails de los invitados) y se la pasa a Haiku, que
 // elige uno o ninguno. La IA nunca ve a los demás alumnos y su respuesta se valida contra esa lista.
+// 193: antes de matchear se sacan de los hablantes (y de los nombres detectados) los del EQUIPO: la tabla cs_fathom_equipo_nombres (activos) y
+// los nombres de cs_fathom_consultores. Sin acentos ni mayúsculas, el orden nombre/apellido da igual, y un hablante de una sola palabra que
+// coincide con el nombre o el apellido de alguien del equipo también se descarta. Si la 193 no está corrida se sigue solo con los consultores.
+// Una coincidencia por UNA sola palabra del nombre nunca da confianza más alta que "baja" (hace falta nombre completo, alias, mail o 2+ palabras).
 // Qué escribe: SOLO cs_fathom_propuestas (una por llamada). Nada se asigna solo: una persona acepta, corrige o descarta en Producto.
 // Cada pedido a la IA queda en ia_uso (app 'producto', funcion 'fathom_clasificar', cliente_id = programa del candidato principal).
 //
@@ -57,7 +64,9 @@ Tipos:
 Reglas:
 - "alumno" es el código ("A1", "A2"…) de la lista de ESA llamada, o null. Nunca inventes alumnos ni uses códigos de otra llamada.
 - Solo consultoria_1a1 lleva alumno. En los demás tipos, alumno null.
-- confianza "alta": el nombre completo o el mail del candidato coincide con un participante o con el título, y el contexto es de seguimiento. \
+- "hablantes" son los nombres que aparecen hablando en la transcripción (sin el consultor): si uno coincide con el nombre completo de un candidato, \
+es la mejor pista. Tres o más hablantes distintos de afuera suelen indicar una clase grupal.
+- confianza "alta": el nombre completo o el mail del candidato coincide con un participante, un hablante o el título, y el contexto es de seguimiento. \
 "media": coincide solo el nombre de pila, o coincide pero hay otro candidato posible. "baja": solo suposición. Ante la duda, alumno null y confianza baja.
 - Si hay dos candidatos igual de posibles, alumno null.
 - "motivo": una línea en español, máximo 120 caracteres, sin copiar frases largas del material.
@@ -68,12 +77,14 @@ Respondé SOLO con un JSON de esta forma, sin texto antes ni después:
 type Llamada = {
   id: string; estado: string; fecha: string; titulo: string | null; duracion_min: number | null; consultor: string | null;
   resumen: string | null; en_que_esta: string | null; invitados: unknown; nombres: unknown; candidatos: unknown;
+  hablantes?: unknown;   // 192: nombres de los hablantes de la transcripción (sin el consultor)
 };
 type Alumno = {
   id: string; nombre: string; email: string | null; programa_id: string; estado: string;
   tokens: string[]; nombreNorm: string; alias: string[];
+  locales: string[];     // 192: parte local (solo letras) de todos sus mails, para "juanperez@" -> Juan Pérez
 };
-type Cand = { alumno: Alumno; score: number };
+type Cand = { alumno: Alumno; score: number; fuerte: boolean };   // fuerte = algo más que una sola palabra del nombre
 type Fila = {
   llamada_id: string; tipo: Tipo; alumno_id: string | null; confianza: Confianza; motivo: string;
   origen: 'mail' | 'ia'; estado: 'pendiente'; modelo: string | null; costo_usd: number | null;
@@ -100,6 +111,21 @@ function norm(s: string): string {
 const tokensDe = (s: string) => norm(s).split(' ').filter((t) => t.length >= 3 && !STOP.has(t));
 /** Parte local del mail sin puntos ni símbolos ("juan.perez+x@..." -> "juanperezx"): sirve para unir mails secundarios del mismo alumno. */
 const localDe = (mail: string) => mail.toLowerCase().split('@')[0].replace(/[^a-z0-9]/g, '');
+/** Parte local del mail solo con letras ("juan.perez92@x.com" -> "juanperez"). */
+const localLetras = (mail: string) => mail.toLowerCase().split('@')[0].replace(/[^a-z]/g, '');
+/** Combinaciones nombre+apellido de un alumno ("juan perez" -> "juanperez", "perezjuan"), de 7+ letras: sirven para buscarlo dentro de un mail. */
+function combinaciones(a: Alumno): string[] {
+  const t = a.tokens;
+  const out = new Set<string>();
+  for (let i = 0; i < t.length; i++) for (let j = 0; j < t.length; j++) {
+    if (i === j) continue;
+    const c = t[i] + t[j];
+    if (c.length >= 7) out.add(c);
+  }
+  return t.length >= 2 ? [...out] : [];
+}
+/** El mail de un invitado (parte local) contiene el nombre + apellido del alumno ("juanperez@" -> Juan Pérez). */
+const nombreEnLocal = (local: string, a: Alumno) => local.length >= 7 && combinaciones(a).some((c) => local.includes(c));
 const LOCAL_GENERICO = new Set(['info', 'contacto', 'contact', 'hola', 'admin', 'ventas', 'soporte', 'support', 'hello', 'mail', 'email']);
 /** Frases de un título separadas por " - ", "|", ":", "/", "<>" o " x ", sin palabras genéricas ni el nombre del consultor. */
 function frasesDeTitulo(titulo: string, consultor: string | null): string[][] {
@@ -107,6 +133,27 @@ function frasesDeTitulo(titulo: string, consultor: string | null): string[][] {
   return titulo.split(/\s[-–—]\s|[|:/]|<>|\s+x\s+/i)
     .map((seg) => tokensDe(seg).filter((t) => !GENERICAS.has(t) && t !== propio))
     .filter((f) => f.length > 0);
+}
+
+/** 193: nombres del equipo como listas de palabras normalizadas. */
+function armarEquipo(nombres: string[]): string[][] {
+  const out: string[][] = [];
+  for (const n of nombres) {
+    const t = norm(n).split(' ').filter((x) => x && !STOP.has(x));
+    if (t.length) out.push(t);
+  }
+  return out;
+}
+/**
+ * 193: ¿este hablante (o nombre detectado) es del equipo? Una palabra: coincide con alguna palabra de un nombre del equipo.
+ * Varias palabras: las palabras de uno están contenidas en las del otro (cualquier orden), con 2+ palabras en el nombre del equipo.
+ */
+function esDelEquipo(h: string, equipo: string[][]): boolean {
+  const t = norm(h).split(' ').filter((x) => x && !STOP.has(x));
+  if (!t.length) return false;
+  return equipo.some((e) => (t.length === 1
+    ? e.includes(t[0])
+    : e.length >= 2 && (t.every((x) => e.includes(x)) || e.every((x) => t.includes(x)))));
 }
 
 function leerJson(texto: string): unknown {
@@ -137,7 +184,7 @@ async function cargarAlumnos(sb: SupabaseClient, programas: string[]) {
   for (const c of filas) {
     alumnos.set(c.id, {
       id: c.id, nombre: c.nombre, email: c.email ? c.email.toLowerCase().trim() : null, programa_id: c.programa_id, estado: c.estado,
-      tokens: tokensDe(c.nombre), nombreNorm: norm(c.nombre), alias: [],
+      tokens: tokensDe(c.nombre), nombreNorm: norm(c.nombre), alias: [], locales: [],
     });
   }
   const porMail = new Map<string, Set<string>>();
@@ -155,6 +202,11 @@ async function cargarAlumnos(sb: SupabaseClient, programas: string[]) {
   const alias = await paginar<{ cliente_id: string; alias: string }>(
     (d, h) => sb.from('cs_clientes_alias').select('cliente_id,alias').in('programa_id', programas).order('id').range(d, h));
   for (const x of alias ?? []) alumnos.get(x.cliente_id)?.alias.push(norm(x.alias));
+  // 192: partes locales (solo letras) de cada alumno, para encontrar su nombre dentro del mail de otro (y al revés).
+  for (const [mail, ids] of porMail) {
+    const loc = localLetras(mail);
+    if (loc.length >= 6) for (const id of ids) alumnos.get(id)?.locales.push(loc);
+  }
   // Parte local de todos los mails (principal y extra): un invitado con otro dominio pero igual usuario es una pista, no una certeza.
   const porLocal = new Map<string, Set<string>>();
   for (const [mail, ids] of porMail) {
@@ -167,9 +219,37 @@ async function cargarAlumnos(sb: SupabaseClient, programas: string[]) {
 }
 
 /** Candidatos por nombre: palabras del nombre del alumno que aparecen en el título, los nombres o los mails de los invitados. */
-function candidatosPorNombre(l: Llamada, alumnos: Map<string, Alumno>, porLocal: Map<string, Set<string>>): Cand[] {
+/**
+ * 192: puntaje de un alumno contra los hablantes de la transcripción (el mejor hablante). Nombre completo o alias = 4; nombre y apellido
+ * (en cualquier orden, con segundo nombre de más o de menos) = 3; nombre dentro de un mail del alumno ("juanperez@") = 3; una sola
+ * palabra del nombre (nombre de pila o apellido) = 1. Los hablantes ya vienen sin el consultor; se descartan además sus palabras y las genéricas.
+ */
+function puntajeHablantes(hablantes: string[], a: Alumno, propios: Set<string>): number {
+  let mejor = 0;
+  for (const h of hablantes) {
+    const hn = norm(h);
+    if (!hn) continue;
+    const ht = tokensDe(h).filter((t) => !GENERICAS.has(t) && !propios.has(t));
+    if (!ht.length) continue;
+    let s = 0;
+    if (hn === a.nombreNorm || a.alias.some((al) => al && al === hn)) s = 4;
+    else if (ht.length >= 2 && a.tokens.length >= 2
+      && (ht.every((t) => a.tokens.includes(t)) || a.tokens.every((t) => ht.includes(t)))) s = 3;
+    else if (ht.length >= 2 && a.locales.some((loc) => loc.length >= 7 && (loc.includes(ht.join('')) || loc.includes([...ht].reverse().join(''))))) s = 3;
+    else if (ht.some((t) => a.tokens.includes(t))) s = 1;
+    if (s > mejor) mejor = s;
+  }
+  return mejor;
+}
+
+function candidatosPorNombre(
+  l: Llamada, alumnos: Map<string, Alumno>, porLocal: Map<string, Set<string>>, propiosDe: Map<string, Set<string>>,
+): Cand[] {
   const mails = lista(l.invitados);
   const propio = l.consultor ? norm(l.consultor) : '';
+  const propios = propiosDe.get(l.consultor ?? '') ?? new Set<string>();
+  const hablantes = lista(l.hablantes);
+  const locales = mails.map(localLetras).filter((x) => x.length >= 7);
   const fuente = [l.titulo ?? '', ...lista(l.nombres), ...mails.map((m) => m.split('@')[0].replace(/[._\-\d]+/g, ' '))].join(' ');
   const textoNorm = ` ${norm(fuente)} `;
   // Palabras genéricas del título ("Consultoría", "VIP") y el nombre del consultor no cuentan como nombre de alumno.
@@ -185,16 +265,21 @@ function candidatosPorNombre(l: Llamada, alumnos: Map<string, Alumno>, porLocal:
   const out: Cand[] = [];
   for (const a of alumnos.values()) {
     let score = 0;
-    for (const t of a.tokens) if (tk.has(t)) score++;
+    let fuerte = false;
+    let coinciden = 0;
+    for (const t of a.tokens) if (tk.has(t)) { score++; coinciden++; }
+    if (coinciden >= 2) fuerte = true;
     // Nombre completo dentro del texto, o una frase del título ("Consultoría - Pérez Juan") con 2+ palabras del nombre.
     const completo = (a.nombreNorm.includes(' ') && textoNorm.includes(` ${a.nombreNorm} `))
       || frases.some((f) => f.length >= 2 && f.every((t) => a.tokens.includes(t)));
-    if (completo) score += 3;
-    if (a.alias.some((al) => al && textoNorm.includes(` ${al} `))) score += 3;
-    if (porUsuario.has(a.id)) score += 2;
+    if (completo) { score += 3; fuerte = true; }
+    if (a.alias.some((al) => al && textoNorm.includes(` ${al} `))) { score += 3; fuerte = true; }
+    if (hablantes.length) { const ph = puntajeHablantes(hablantes, a, propios); score += ph; if (ph >= 3) fuerte = true; }
+    if (locales.some((loc) => nombreEnLocal(loc, a))) { score += 3; fuerte = true; }   // "juanperez@..." -> Juan Pérez
+    if (porUsuario.has(a.id)) { score += 2; fuerte = true; }
     if (sync.has(a.id)) score += 1;
     if (VIVOS.has(a.estado)) score += 0.5;
-    if (score >= 1) out.push({ alumno: a, score });
+    if (score >= 1) out.push({ alumno: a, score, fuerte });
   }
   return out.sort((x, y) => y.score - x.score).slice(0, MAX_CANDIDATOS);
 }
@@ -230,6 +315,7 @@ function propuestaPorMail(l: Llamada, ids: Set<string>, alumnos: Map<string, Alu
 function contexto(l: Llamada, codigo: string, cands: Cand[], transcripcion: string | null): string {
   const mails = lista(l.invitados).slice(0, 10);
   const nombres = lista(l.nombres).slice(0, 6);
+  const hablantes = lista(l.hablantes).slice(0, 12);
   const resumen = recortar(l.en_que_esta || l.resumen, 700);
   const frag = recortar(transcripcion, 900);
   const alumnos = cands.length
@@ -241,6 +327,7 @@ function contexto(l: Llamada, codigo: string, cands: Cand[], transcripcion: stri
     `fecha: ${l.fecha} · duración: ${l.duracion_min ?? '?'} min · consultor: ${l.consultor ?? '?'}`,
     `participantes (mails): ${mails.length ? mails.join(', ') : '(ninguno)'}`,
     nombres.length ? `nombres detectados: ${nombres.join(', ')}` : '',
+    hablantes.length ? `hablantes en la transcripción (sin el consultor): ${hablantes.map((h) => recortar(h, 60)).join(', ')}` : '',
     resumen ? `resumen: ${resumen}` : '',
     frag ? `inicio de la transcripción: ${frag}` : '',
     'candidatos (código | nombre | mail | programa | estado):', alumnos,
@@ -288,15 +375,18 @@ async function clasificarLote(
     if (!x || !tipo) { fallidas++; return; }
     let alumno: Alumno | null = null;
     let score = 0;
+    let fuerte = false;
     const m = String(x.alumno ?? '').toUpperCase().trim().match(/^A(\d+)$/);
     if (tipo === 'consultoria_1a1' && m) {
       const c = it.cands[Number(m[1]) - 1];
-      if (c) { alumno = c.alumno; score = c.score; }
+      if (c) { alumno = c.alumno; score = c.score; fuerte = c.fuerte; }
     }
     let conf: Confianza = CONFIANZAS.find((c) => c === String(x.confianza ?? '').trim()) ?? 'baja';
     // Salvaguardas: sin alumno una 1 a 1 no puede ser confiable; "alta" exige nombre completo o alias (score >= 2).
     if (tipo === 'consultoria_1a1' && !alumno) conf = 'baja';
     if (alumno && conf === 'alta' && score < 2) conf = 'media';
+    // 193: si lo único que une la llamada con el alumno es UNA palabra de su nombre, como mucho confianza baja.
+    if (alumno && !fuerte) conf = 'baja';
     filas.push({
       llamada_id: it.l.id, tipo, alumno_id: alumno ? alumno.id : null, confianza: conf,
       motivo: recortar(x.motivo, 200) || 'Sin motivo.', origen: 'ia', estado: 'pendiente', modelo,
@@ -344,13 +434,40 @@ Deno.serve(async (req) => {
   const programas = ((cfg?.programas ?? []) as string[]).filter((p) => typeof p === 'string');
   if (!programas.length) return responder({ error: 'no hay programas habilitados en la configuración de Fathom' }, 400);
 
-  let q = sb.from('cs_fathom_sin_asignar')
-    .select('id,estado,fecha,titulo,duracion_min,consultor,resumen,en_que_esta,invitados,nombres,candidatos')
-    .in('estado', estados).order('fecha', { ascending: false }).order('id');
-  if (consultor) q = q.eq('consultor', consultor);
-  if (ids) q = q.in('id', ids);
-  const todas = await paginar<Llamada>((d, h) => q.range(d, h));
+  // 192: con la columna hablantes; si la migración todavía no está corrida se sigue sin ella.
+  const COLS = 'id,estado,fecha,titulo,duracion_min,consultor,resumen,en_que_esta,invitados,nombres,candidatos';
+  const leerLlamadas = (cols: string) => {
+    let q = sb.from('cs_fathom_sin_asignar').select(cols)
+      .in('estado', estados).order('fecha', { ascending: false }).order('id');
+    if (consultor) q = q.eq('consultor', consultor);
+    if (ids) q = q.in('id', ids);
+    return paginar<Llamada>((d, h) => q.range(d, h) as unknown as PromiseLike<{ data: Llamada[] | null; error: unknown }>);
+  };
+  let tieneHablantes = true;
+  let todas = await leerLlamadas(`${COLS},hablantes`);
+  if (!todas) { tieneHablantes = false; todas = await leerLlamadas(COLS); }
   if (!todas) return responder({ error: 'no se pudieron leer las llamadas sin asignar' }, 500);
+
+  // Palabras del nombre de cada consultor (cuenta de Fathom): no cuentan como nombre de alumno.
+  const propiosDe = new Map<string, Set<string>>();
+  const { data: cons } = await sb.from('cs_fathom_consultores').select('id,nombre');
+  for (const c of (cons ?? []) as { id: string; nombre: string | null }[]) propiosDe.set(c.id, new Set(tokensDe(c.nombre ?? '')));
+
+  // 193: nombres del equipo (tabla editable en Configuración) + consultores. Sin la 193 se sigue solo con los consultores.
+  const { data: eq, error: eeq } = await sb.from('cs_fathom_equipo_nombres').select('nombre').eq('activo', true);
+  const tieneEquipo = !eeq;
+  const equipo = armarEquipo([
+    ...((eq ?? []) as { nombre: string }[]).map((x) => x.nombre),
+    ...((cons ?? []) as { nombre: string | null }[]).map((x) => x.nombre ?? ''),
+  ]);
+  let equipoDescartados = 0;
+  for (const l of todas) {
+    const hs = lista(l.hablantes);
+    const hs2 = hs.filter((h) => !esDelEquipo(h, equipo));
+    equipoDescartados += hs.length - hs2.length;
+    l.hablantes = hs2;
+    l.nombres = lista(l.nombres).filter((n) => !esDelEquipo(n, equipo));
+  }
 
   const props = await paginar<{ llamada_id: string; estado: string; updated_at: string }>(
     (d, h) => sb.from('cs_fathom_propuestas').select('llamada_id,estado,updated_at').order('llamada_id').range(d, h));
@@ -372,7 +489,7 @@ Deno.serve(async (req) => {
   const paraIa: Item[] = [];
   for (const l of a_hacer) {
     const f = propuestaPorMail(l, alumnosPorMail(l, porMail), alumnos);
-    if (f) porMailFilas.push(f); else paraIa.push({ l, cands: candidatosPorNombre(l, alumnos, porLocal) });
+    if (f) porMailFilas.push(f); else paraIa.push({ l, cands: candidatosPorNombre(l, alumnos, porLocal, propiosDe) });
   }
 
   if (diagnostico) {
@@ -386,6 +503,10 @@ Deno.serve(async (req) => {
       llamadas_en_alcance: todas.length, por_estado_de_propuesta: porEstado, a_clasificar_ahora: a_hacer.length,
       resueltas_por_mail_sin_ia: porMailFilas.length, van_a_la_ia: paraIa.length,
       sin_ningun_candidato: paraIa.filter((i) => !i.cands.length).length,
+      hablantes_leidos: tieneHablantes,
+      con_hablantes: todas.filter((l) => lista(l.hablantes).length > 0).length,
+      sin_hablantes: todas.filter((l) => lista(l.hablantes).length === 0).length,
+      equipo_leido: tieneEquipo, equipo_nombres: equipo.length, hablantes_del_equipo_descartados: equipoDescartados,
       alumnos_en_el_pool: alumnos.size, mails_extra_leidos: tieneExtra, alias_leidos: tieneAlias,
       pedidos_a_la_ia: Math.ceil(paraIa.length / POR_LOTE), costo_por_llamada_estimado_usd: c,
       costo_estimado_usd: Math.round(paraIa.length * c * 1e4) / 1e4, tope_usd: tope, max_por_corrida: max,

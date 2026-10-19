@@ -32,6 +32,11 @@
 //     historial completo de esa cuenta (desde 2020-01-01 o "desde"); se trae por tandas y se guarda el
 //     cursor en cs_fathom_consultores.hist_*: cada corrida (manual o cron) sigue desde ahi y la corrida
 //     queda 'parcial' hasta completarlo. { "reiniciar": true } lo vuelve a empezar.
+//   - HABLANTES (migracion 192, v5): despues de registrar cada reunion se guardan los nombres de quienes hablan en la
+//     transcripcion (sin el consultor) en cs_fathom_sin_asignar.hablantes (cs_fathom_hablantes_guardar). Backfill de
+//     lo ya sincronizado, leyendo la transcripcion guardada (sin llamar a Fathom):
+//       { "accion": "backfill_hablantes", "limite": 200, "rondas": 5, "despues": "<uuid>" }
+//     Devuelve "siguiente" con el cuerpo para seguir hasta que "terminado" sea true.
 //   - Toda la escritura va por la RPC cs_fathom_registrar (migracion 122): una transaccion
 //     por reunion, sin duplicar, sin pisar lo cargado a mano.
 //
@@ -421,6 +426,26 @@ function coincidenPorNombre(nombres: string[], lista: AlumnoN[], solo?: Set<stri
   return [...(exactos.size ? exactos : parecidos)];
 }
 
+// Hablantes de la transcripcion (192): display_name de cada intervencion, unicos y en orden de aparicion,
+// sin '?' y sin el consultor (todas las palabras del nombre estan en el nombre de la cuenta o de quien grabo).
+function hablantesDe(m: any, propios: string[]): string[] {
+  if (!Array.isArray(m.transcript)) return [];
+  const mios = new Set(propios.flatMap((p) => normNombre(p).split(' ')).filter((x) => x.length >= 2));
+  const vistos = new Set<string>();
+  const out: string[] = [];
+  for (const it of m.transcript) {
+    const nom = String(it?.speaker?.display_name ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    const n = normNombre(nom);
+    if (!n || vistos.has(n)) continue;
+    vistos.add(n);
+    const toks = n.split(' ').filter((x) => x.length >= 2);
+    if (toks.length && toks.every((x) => mios.has(x))) continue;   // es el consultor
+    out.push(nom);
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Una reunion -> payload de cs_fathom_registrar
 // ---------------------------------------------------------------------------
@@ -490,6 +515,32 @@ Deno.serve(async (req) => {
   const RX_FECHA = /^\d{4}-\d{2}-\d{2}$/;
   if (cuerpo.desde != null && !RX_FECHA.test(String(cuerpo.desde))) return responder({ error: '"desde" debe ser YYYY-MM-DD' }, 400);
   if (cuerpo.hasta != null && !RX_FECHA.test(String(cuerpo.hasta))) return responder({ error: '"hasta" debe ser YYYY-MM-DD' }, 400);
+  // 192: completa los hablantes de las llamadas ya sincronizadas desde la transcripcion guardada (no llama a
+  // Fathom ni toca clasificaciones). Reanudable: se repite con "despues" = "ultimo_id" de la respuesta.
+  if (cuerpo.accion === 'backfill_hablantes') {
+    const despues = cuerpo.despues == null ? null : String(cuerpo.despues);
+    if (despues !== null && !/^[0-9a-f-]{36}$/i.test(despues)) return responder({ error: '"despues" debe ser un uuid' }, 400);
+    const limite = Math.min(Math.max(Math.floor(Number(cuerpo.limite) || 200), 1), 500);
+    const maxRondas = Math.min(Math.max(Math.floor(Number(cuerpo.rondas) || 1), 1), 20);
+    const t0 = Date.now();
+    let cursor = despues;
+    const tot = { procesadas: 0, con_hablantes: 0 };
+    let quedan: number | null = null;
+    for (let i = 0; i < maxRondas && Date.now() - t0 < 60_000; i++) {
+      const { data, error } = await sb.rpc('cs_fathom_hablantes_backfill', { p_despues: cursor, p_limite: limite });
+      if (error) return responder({ error: `backfill: ${error.message} (migracion 192 corrida?)`, ...tot, ultimo_id: cursor }, 500);
+      tot.procesadas += Number(data?.procesadas ?? 0);
+      tot.con_hablantes += Number(data?.con_hablantes ?? 0);
+      quedan = Number(data?.quedan_por_revisar ?? 0);
+      if (!data?.ultimo_id) { cursor = null; quedan = 0; break; }
+      cursor = String(data.ultimo_id);
+      if (!quedan) break;
+    }
+    return responder({
+      ok: true, accion: 'backfill_hablantes', ...tot, ultimo_id: cursor, quedan_por_revisar: quedan,
+      terminado: !quedan, siguiente: quedan ? { accion: 'backfill_hablantes', despues: cursor, limite, rondas: maxRondas } : null,
+    });
+  }
   const pideHistorial = cuerpo.historial === true;
   if (pideHistorial && !/^[a-z][a-z0-9_]{1,30}$/.test(String(cuerpo.consultor ?? ''))) {
     return responder({ error: '"historial" necesita "consultor" (id de la cuenta, ej. "joaco")' }, 400);
@@ -570,6 +621,8 @@ Deno.serve(async (req) => {
 
     // 157: si la migracion no esta corrida, cs_consultoria_horario_buscar falla y se sigue como siempre.
     let consultoriasOk = true;
+    // 192: si cs_fathom_hablantes_guardar no existe, se deja de intentar en esta corrida.
+    let hablantesOk = true;
 
     // Una reunion de Fathom -> cs_fathom_registrar. Nada se ignora (127).
     const procesar = async (m: any, cuenta: Cuenta, c: Conteo) => {
@@ -636,6 +689,19 @@ Deno.serve(async (req) => {
         const { data, error } = await sb.rpc('cs_fathom_registrar',
           { p: armarPayload(m, cuenta.id, alumno, candidatos, externos, asignadaPor, interna, aprender) });
         if (error) { falla(c, cuenta.id, m.recording_id, error.message); return; }
+        // 192: hablantes de la transcripcion. Solo escribe la columna hablantes (nada de estado ni de
+        // clasificacion). Sin la 192 corrida se avisa una vez y se sigue.
+        if (hablantesOk) {
+          const hab = hablantesDe(m, propios);
+          if (hab.length) {
+            const { error: eh2 } = await sb.rpc('cs_fathom_hablantes_guardar',
+              { p: { externo_id: `fathom:${m.recording_id}`, hablantes: hab } });
+            if (eh2) {
+              hablantesOk = false;
+              console.warn(`[hablantes] no disponible (migracion 192 corrida?): ${eh2.code ?? 'error'}`);
+            }
+          }
+        }
         const r = String(data?.resultado ?? '');
         if (r === 'creada') c.creadas++;
         else if (r === 'actualizada') c.actualizadas++;
