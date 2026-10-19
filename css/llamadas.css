@@ -84,6 +84,7 @@
 .fa-pendiente{color:var(--text-dim);}
 .fa-no_alumno{color:var(--text-faint);}
 .fa-interna{color:var(--text-faint);font-style:italic;}
+.fa-clasificada{color:var(--accent-text);}
 .cf-hist{display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap;margin-top:var(--sp-1);}
 .al-lista{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin:var(--sp-2) 0;}
 .al-chip{display:inline-flex;align-items:center;gap:var(--sp-2);background:var(--surface-2);

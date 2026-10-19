@@ -12,7 +12,7 @@ import { mensajeError } from '../datos.js';
 import {
   traerLlamadasFathom, traerConsultores, traerAlumnosAsignables, asignarLlamada, marcarNoAlumno,
   reabrirLlamada, confirmarLlamada, corregirLlamada, resumenAprendido,
-  TIPO_LLAMADA_LABEL, ESTADO_FATHOM_LABEL, MOTIVO_LABEL
+  TIPO_LLAMADA_LABEL, ESTADO_FATHOM_LABEL, CLASIFICACION_LABEL, MOTIVO_LABEL
 } from '../datos-fathom.js';
 import { guardar } from './comunes.js';
 import { tarjetaError } from './programa.js';
@@ -79,10 +79,14 @@ function filaLlamada(l, puedeAsignar, alumnos) {
         : `<button type="button" class="btn btn-sm" data-fa-reabrir="${esc(l.id)}">Volver a pendiente</button>`}
     </span>`;
   }
+  /* 187: una llamada "no es alumno" que alguien clasificó (clase, venta, interna, otra) muestra su tipo. */
+  const tipoNoAlumno = l.estado === 'no_alumno' ? CLASIFICACION_LABEL[l.clasificacion] : '';
   const estadoTxt = porNombre
     ? `<span class="fa-estado fa-alumno fa-por-nombre">Alumno · por nombre</span>
        <div class="hint">Asignada por coincidencia de nombre: confirmala o corregila.</div>`
-    : `<span class="fa-estado fa-${esc(l.estado)}">${esc(ESTADO_FATHOM_LABEL[l.estado] || l.estado)}</span>`;
+    : tipoNoAlumno
+      ? `<span class="fa-estado fa-clasificada">${esc(tipoNoAlumno)}</span><div class="hint">No es de un alumno.</div>`
+      : `<span class="fa-estado fa-${esc(l.estado)}">${esc(ESTADO_FATHOM_LABEL[l.estado] || l.estado)}</span>`;
   return `<tr>
       <td data-label="Fecha">${esc(fmtFecha(l.fecha))}</td>
       <td data-label="Con quién">${conQuien(l, alumnos)}</td>
@@ -100,8 +104,8 @@ function filaLlamada(l, puedeAsignar, alumnos) {
 
 export function vistaLlamadas(el, programaId, vigente) {
   el.innerHTML = '<div class="loading-inline">Cargando…</div>';
-  /* puedeAsignar: se enciende si el usuario ve alguna pendiente/no_alumno (solo fundador y cliente
-     las ven; la base valida cada acción). */
+  /* puedeAsignar: se enciende si el usuario ve alguna pendiente/no_alumno (fundador, consultor y cliente;
+     el cliente solo las de su programa). La base valida cada acción. */
   let llamadas = [], consultores = [], alumnos = [], tab = null;
   const filtro = { estado: '', desde: '', hasta: '' };
   /* Propuestas de la IA (186): sección propia arriba de la lista; aceptar / corregir recargan todo. */
@@ -111,7 +115,10 @@ export function vistaLlamadas(el, programaId, vigente) {
   /* Las internas (127) quedan ocultas salvo que el filtro de estado sea "Internas". */
   const visibles = () => delTab().filter(l =>
     (filtro.estado
-      ? (filtro.estado === 'por_nombre' ? l.estado === 'alumno' && l.asignada_por === 'nombre' : l.estado === filtro.estado)
+      ? (filtro.estado === 'por_nombre' ? l.estado === 'alumno' && l.asignada_por === 'nombre'
+        : filtro.estado.startsWith('c_') ? l.estado === 'no_alumno' && l.clasificacion === filtro.estado.slice(2)
+        : filtro.estado === 'no_alumno' ? l.estado === 'no_alumno' && !l.clasificacion
+        : l.estado === filtro.estado)
       : l.estado !== 'interna')
     && (!filtro.desde || l.fecha >= filtro.desde)
     && (!filtro.hasta || l.fecha <= filtro.hasta));
@@ -135,11 +142,16 @@ export function vistaLlamadas(el, programaId, vigente) {
         Se asignan solas por el mail del invitado (principal o extra); si no coincide, por nombre o alias (queda marcada
         «por nombre» para que la confirmes o corrijas). Al asignar o confirmar a mano, los mails de la llamada y los
         nombres (invitado o título) quedan como del alumno y la próxima se asigna sola.</div>
+      ${yo.rol === 'cliente' ? `<div class="hint">Ves solo las llamadas de tu programa: las de tus alumnos y las pendientes
+        que tienen a un alumno tuyo como posible o propuesto. El resto lo ven el fundador y el consultor.</div>` : ''}
       ${consultores.length ? `<nav class="tabs tabs-inline" aria-label="Consultores">${tabs}</nav>` : ''}
       <div class="fa-filtros">
         <label>Estado <select id="fa-f-estado">
           <option value="">Todos (sin internas)</option>
-          ${Object.entries({ ...ESTADO_FATHOM_LABEL, interna: 'Internas', por_nombre: 'Alumno asignado por nombre' })
+          ${Object.entries({
+            ...ESTADO_FATHOM_LABEL, interna: 'Internas', por_nombre: 'Alumno asignado por nombre',
+            ...Object.fromEntries(Object.entries(CLASIFICACION_LABEL).map(([k, v]) => ['c_' + k, v + ' (clasificada)']))
+          })
             .map(([k, v]) => `<option value="${k}"${filtro.estado === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}
         </select></label>
         <label>Desde <input type="date" id="fa-f-desde" value="${esc(filtro.desde)}"></label>
@@ -162,7 +174,7 @@ export function vistaLlamadas(el, programaId, vigente) {
       titulo: 'Asignar a alumno',
       cuerpo: `<p class="hint">${esc(fmtFecha(l.fecha))} · ${esc(l.titulo || 'Sin título')}</p>
         <div class="form-row"><label for="fa-alumno">Alumno *</label><div id="fa-alumno-box"></div></div>
-        <div class="hint">Solo aparecen alumnos de los programas habilitados para Fathom.</div>
+        <div class="hint">${yo.rol === 'cliente' ? 'Solo aparecen alumnos de tu programa.' : 'Solo aparecen alumnos de los programas habilitados para Fathom.'}</div>
         <div id="fa-error" class="login-error"></div>`,
       pie: `<button type="button" class="btn" id="fa-cancelar">Cancelar</button>
             <button type="button" class="btn btn-accent" id="fa-ok">Asignar</button>`

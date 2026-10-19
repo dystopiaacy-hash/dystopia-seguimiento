@@ -9,6 +9,7 @@
 .pi-estado{margin:var(--sp-2) 0;padding:var(--sp-2) var(--sp-3);background:var(--surface-2);
   border-radius:var(--radius-sm);font-size:var(--fs-meta);color:var(--text);overflow-wrap:anywhere;}
 .pi-resultado{border-left:3px solid var(--accent);}
+.pi-prog{display:block;width:100%;height:8px;margin-top:var(--sp-2);accent-color:var(--accent);}
 .pi-lista{padding:0;}
 .pi-fila{display:flex;gap:var(--sp-3);justify-content:space-between;align-items:flex-start;flex-wrap:wrap;
   padding:var(--sp-3) var(--sp-4);border-top:1px solid var(--border-soft);}

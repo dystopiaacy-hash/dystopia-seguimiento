@@ -15,6 +15,8 @@ import { montarSelectorAlumno } from './alumno-selector.js';
 import { resumenAprendido } from '../datos-fathom.js';
 
 const PAGINA = 40;
+const LOTE = 60;            // llamadas por pedido a la función (~30 s); se encadenan hasta terminar
+const MAX_PEDIDOS = 20;     // tope de pedidos encadenados por clic (1.200 llamadas)
 const usd = n => `US$ ${(Number(n) || 0).toFixed(4).replace('.', ',')}`;
 
 export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
@@ -22,7 +24,7 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
   let caja = null;
   const filtro = { conf: '', consultor: '' };
   let mostrar = PAGINA;
-  const estado = { clasificando: false, progreso: '', resultado: '', aceptando: false };
+  const estado = { clasificando: false, progreso: '', hecho: 0, total: 0, resultado: '', aceptando: false };
 
   const delAlumno = id => (alumnos() || []).find(a => a.id === id);
   /* Solo las propuestas cuya llamada sigue sin asignar y el usuario puede ver. */
@@ -39,7 +41,8 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
     const quien = p.alumno_id
       ? `<strong>${esc(a ? a.nombre : 'Alumno no disponible')}</strong>`
       : '<span class="pi-sin">sin alumno</span>';
-    const aceptarTxt = p.alumno_id ? 'Aceptar y asignar' : (necesitaAlumno ? 'Aceptar' : 'Aceptar: no es alumno');
+    /* 187: sin alumno, aceptar deja la llamada guardada con su tipo (clase, venta, interna u otra). */
+    const aceptarTxt = p.alumno_id ? 'Aceptar y asignar' : (necesitaAlumno ? 'Aceptar' : `Aceptar como ${(TIPO_PROPUESTA_LABEL[p.tipo] || p.tipo).toLowerCase()}`);
     return `<div class="pi-fila" data-pi="${esc(p.id)}">
       <div class="pi-main">
         <div class="pi-tit">${esc(l.titulo || 'Sin título')}</div>
@@ -80,9 +83,11 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
     caja.innerHTML = `
       <div class="section-title">Propuestas de la IA<span class="line"></span></div>
       <div class="hint">La IA propone el tipo de cada llamada sin asignar y, si es de un alumno, cuál. Nada se asigna hasta que
-        alguien acepta: «Aceptar» hace lo mismo que «Asignar a alumno» (o «No es alumno» si no hay alumno).</div>
+        alguien acepta: con alumno, «Aceptar» hace lo mismo que «Asignar a alumno»; una clase grupal, venta, interna u otra
+        queda guardada con ese tipo (no es de ningún alumno). Pueden revisarlas el fundador, el consultor de cada llamada y el cliente (solo las de su programa).</div>
       <div class="pi-barra">
         ${fund ? `<button type="button" class="btn btn-accent" id="pi-clasificar"${ocupado ? ' disabled' : ''}>${estado.clasificando ? 'Clasificando…' : 'Clasificar pendientes'}</button>` : ''}
+        ${fund && todas.length ? `<button type="button" class="btn" id="pi-reclasificar"${ocupado ? ' disabled' : ''}>Re-clasificar propuestas</button>` : ''}
         ${altas ? `<button type="button" class="btn" id="pi-altas"${ocupado ? ' disabled' : ''}>${estado.aceptando ? 'Aceptando…' : `Aceptar todas las de confianza alta (${altas})`}</button>` : ''}
         <label>Confianza <select id="pi-f-conf"><option value="">Todas</option>
           ${Object.entries(CONFIANZA_LABEL).map(([k, v]) => `<option value="${k}"${filtro.conf === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}
@@ -91,7 +96,8 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
           ${consultores.map(k => `<option value="${esc(k)}"${filtro.consultor === k ? ' selected' : ''}>${esc(k)}</option>`).join('')}
         </select></label>` : ''}
       </div>
-      ${estado.clasificando ? `<div class="pi-estado" role="status">${esc(estado.progreso || 'Clasificando…')}</div>` : ''}
+      ${estado.clasificando ? `<div class="pi-estado" role="status">${esc(estado.progreso || 'Clasificando…')}
+        ${estado.total ? `<progress class="pi-prog" max="${estado.total}" value="${Math.min(estado.hecho, estado.total)}"></progress>` : ''}</div>` : ''}
       ${!estado.clasificando && estado.resultado ? `<div class="pi-estado pi-resultado" role="status">${esc(estado.resultado)}</div>` : ''}
       <div class="card pi-lista">${visibles.length ? visibles.map(filaHtml).join('')
         : `<div class="muted-empty">${todas.length ? 'Ninguna propuesta coincide con los filtros.'
@@ -111,22 +117,30 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
       + (t.tope ? ' Se frenó por el tope de costo de la corrida: volvé a tocar el botón para seguir.' : '');
   }
 
-  async function clasificar() {
+  /* "Clasificar pendientes" / "Re-clasificar": procesa TODO encadenando pedidos de LOTE llamadas (cada uno tarda
+     ~30 s, bien por debajo del límite de la función) y mostrando el progreso. Se corta si no avanza o por el tope
+     de costo. rehacer = vuelve a proponer las propuestas PENDIENTES (las ya decididas no se tocan: la base las
+     protege). `desde` evita repetir lo que ya se rehízo en esta corrida. */
+  async function clasificar(rehacer) {
     if (estado.clasificando) return;
-    estado.clasificando = true; estado.resultado = ''; estado.progreso = 'Clasificando…';
+    estado.clasificando = true; estado.resultado = ''; estado.progreso = 'Clasificando…'; estado.hecho = 0; estado.total = 0;
     pintar();
+    const desde = new Date().toISOString();
     const t = { procesadas: 0, por_mail: 0, por_ia: 0, alta: 0, media: 0, baja: 0, errores: 0, costo: 0, tope: false };
+    let previo = Infinity;
     try {
-      /* Cada pedido procesa hasta ~120 llamadas; se repite hasta que no queden o no avance. */
-      for (let i = 0; i < 10; i++) {
-        const r = await clasificarPendientes({});
+      for (let i = 0; i < MAX_PEDIDOS; i++) {
+        const r = await clasificarPendientes({ max: LOTE, ...(rehacer ? { rehacer: true, rehacer_desde: desde } : {}) });
         t.procesadas += r.procesadas || 0; t.por_mail += r.por_mail || 0; t.por_ia += r.por_ia || 0;
         t.alta += (r.por_confianza || {}).alta || 0; t.media += (r.por_confianza || {}).media || 0;
         t.baja += (r.por_confianza || {}).baja || 0; t.costo += r.costo_usd || 0;
         t.errores = r.errores || 0; t.tope = !!r.cortada_por_costo;
-        estado.progreso = `Clasificando… ${t.procesadas} listas${r.quedan ? `, faltan ${r.quedan}` : ''}`;
+        if (i === 0) estado.total = (r.procesadas || 0) + (r.quedan || 0);
+        estado.hecho = t.procesadas;
+        estado.progreso = `Clasificando… ${t.procesadas} de ${estado.total}${r.quedan ? ` (faltan ${r.quedan})` : ''}`;
         pintar();
-        if (!r.procesadas || !r.quedan || r.cortada_por_costo) break;
+        if (!r.procesadas || !r.quedan || r.cortada_por_costo || r.quedan >= previo) break;
+        previo = r.quedan;
       }
       estado.resultado = textoResultado(t);
     } catch (e) {
@@ -136,6 +150,17 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
       estado.clasificando = false;
       await alCambiar();
     }
+  }
+
+  async function reclasificar() {
+    if (estado.clasificando) return;
+    const ok = await confirmar({
+      titulo: 'Re-clasificar las propuestas pendientes',
+      texto: 'La IA vuelve a proponer tipo y alumno para las propuestas que todavía nadie decidió, con los alumnos de todos los programas habilitados.',
+      detalle: 'Las propuestas aceptadas, corregidas o descartadas no se tocan y no se crean duplicadas. Cuesta unos centavos de dólar cada ~200 llamadas.',
+      ok: 'Re-clasificar', peligro: false
+    });
+    if (ok) await clasificar(true);
   }
 
   async function aceptarTodasAltas() {
@@ -185,8 +210,8 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
           <select id="pi-c-tipo">${Object.entries(TIPO_PROPUESTA_LABEL)
             .map(([k, v]) => `<option value="${k}"${p.tipo === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></div>
         <div class="form-row"><label for="pi-c-alumno">Alumno</label><div id="pi-c-box"></div></div>
-        <div class="hint">${a ? `Si no elegís otro, en una consultoría 1 a 1 queda ${esc(a.nombre)}. ` : ''}Con alumno, la llamada se
-          asigna a su ficha; sin alumno (y tipo distinto de consultoría 1 a 1) se marca «No es alumno».</div>
+        <div class="hint">${a ? `Si no elegís otro, en una consultoría 1 a 1 queda ${esc(a.nombre)}. ` : ''}Una consultoría 1 a 1 se
+          asigna a la ficha del alumno; clase grupal, venta, interna u otra quedan guardadas con ese tipo, sin alumno.</div>
         <div id="pi-c-error" class="login-error"></div>`,
       pie: `<button type="button" class="btn" id="pi-c-cancelar">Cancelar</button>
             <button type="button" class="btn btn-accent" id="pi-c-ok">Corregir y aplicar</button>`
@@ -203,8 +228,11 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
         return;
       }
       cerrarModal();
-      guardar(async () => avisar(clienteId ? 'Llamada asignada.' : 'Marcada como "no es alumno".',
-        await resolverPropuesta(p.id, 'corregir', { clienteId, tipo })), { ok: '', luego: alCambiar });
+      const base = tipo === 'consultoria_1a1' ? 'Llamada asignada.'
+        : `Guardada como ${(TIPO_PROPUESTA_LABEL[tipo] || tipo).toLowerCase()}.`;
+      guardar(async () => avisar(base,
+        await resolverPropuesta(p.id, 'corregir', { clienteId: tipo === 'consultoria_1a1' ? clienteId : null, tipo })),
+      { ok: '', luego: alCambiar });
     };
   }
 
@@ -221,7 +249,8 @@ export function crearPropuestas({ llamadas, alumnos, alCambiar }) {
     });
     c.addEventListener('click', async ev => {
       const t = ev.target;
-      if (t.closest('#pi-clasificar')) { await clasificar(); return; }
+      if (t.closest('#pi-clasificar')) { await clasificar(false); return; }
+      if (t.closest('#pi-reclasificar')) { await reclasificar(); return; }
       if (t.closest('#pi-altas')) { await aceptarTodasAltas(); return; }
       if (t.closest('#pi-mas')) { mostrar += PAGINA; pintar(); return; }
       const porId = id => filas().find(x => x.p.id === id);

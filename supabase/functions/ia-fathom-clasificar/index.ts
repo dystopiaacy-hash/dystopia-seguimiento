@@ -5,9 +5,14 @@
 //   { }                                        clasifica las pendientes que todavía no tienen propuesta
 //   { "consultor": "teo" }                     solo las de esa cuenta de Fathom
 //   { "ids": ["<uuid>", ...] }                 solo esas llamadas de cs_fathom_sin_asignar
-//   { "rehacer": true }                        vuelve a proponer las que tienen propuesta PENDIENTE (las ya decididas no se tocan)
+//   { "rehacer": true, "rehacer_desde": "<ISO>" }
+//                                              vuelve a proponer las que tienen propuesta PENDIENTE (las ya decididas no se tocan: la base
+//                                              solo actualiza propuestas pendientes, cs_fathom_prop_guardar). Con "rehacer_desde" se saltea
+//                                              lo ya rehecho desde ese instante, así se puede encadenar sin repetir.
 //   { "incluir_internas": true }               suma las llamadas en estado "interna" (por defecto solo "pendiente")
-//   { "max": 120, "tope_usd": 1 }              llamadas por corrida (tope 300) y tope de costo por corrida (máx. 5 USD)
+//   { "max": 60, "tope_usd": 1 }               llamadas por corrida (defecto 120, tope 300) y tope de costo por corrida (máx. 5 USD).
+//                                              Corte por tiempo a los 85 s: devuelve "quedan" para encadenar otra llamada (el botón
+//                                              "Clasificar pendientes" las encadena de a 60).
 //   { "diagnostico": true }                    no llama a la IA: cuenta qué haría, estima el costo y revisa la configuración
 //
 // Qué lee: cs_fathom_sin_asignar (título, fecha, duración, invitados, nombres, resumen y un fragmento de la transcripción) y los
@@ -25,14 +30,14 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.116.0';
 import { calcularCosto, CLIENTE_INTERNO, llamarClaude, MODELOS } from '../_shared/ia.ts';
 import { autorizar, clienteServicio, CORS, responder } from '../_shared/auth.ts';
 
-const PRESUPUESTO_MS = 100_000;
+const PRESUPUESTO_MS = 85_000;    // no se empieza un lote nuevo pasado este tiempo (un lote tarda ~10-20 s)
 const POR_LOTE = 4;               // llamadas por pedido a la IA
 const CONCURRENCIA = 3;
 const MAX_POR_CORRIDA = 120;      // por defecto
 const MAX_ABSOLUTO = 300;
 const TOPE_USD_DEFECTO = 1;
 const TOPE_USD_MAXIMO = 5;
-const MAX_CANDIDATOS = 8;
+const MAX_CANDIDATOS = 10;
 // Estimación para diagnóstico: ~1.000 tokens de entrada y ~400 de salida (con thinking bajo) por llamada, Haiku 5.5.
 const TOKENS_ESTIMADOS = { entrada: 1000, salida: 400 };
 
@@ -77,6 +82,13 @@ type Fila = {
 
 const VIVOS = new Set(['onboarding', 'activo', 'en_renovacion']);
 const STOP = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'y', 'van', 'von', 'da', 'di', 'dos', 'san']);
+// Palabras de un título de reunión que no son parte de un nombre ("Consultoría - Juan Pérez", "Seguimiento VIP | Ana Gómez").
+const GENERICAS = new Set([
+  'consultoria', 'consultorias', 'llamada', 'llamadas', 'reunion', 'reuniones', 'meeting', 'call', 'onboarding', 'seguimiento',
+  'clase', 'clases', 'coaching', 'sesion', 'vip', 'grupal', 'individual', 'weekly', 'semanal', 'mensual', 'dystopia', 'fathom',
+  'zoom', 'meet', 'google', 'equipo', 'team', 'con', 'para', 'por', 'sin', 'entre', 'agencia', 'programa', 'renovacion', 'resell',
+  'mentoria', 'asesoria', 'demo', 'venta', 'ventas', 'cierre', 'discovery', 'intro', 'introduccion',
+]);
 
 const recortar = (s: unknown, n: number) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 const lista = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') as string[] : []);
@@ -86,6 +98,16 @@ function norm(s: string): string {
   return s.normalize('NFD').replace(ACENTOS, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 const tokensDe = (s: string) => norm(s).split(' ').filter((t) => t.length >= 3 && !STOP.has(t));
+/** Parte local del mail sin puntos ni símbolos ("juan.perez+x@..." -> "juanperezx"): sirve para unir mails secundarios del mismo alumno. */
+const localDe = (mail: string) => mail.toLowerCase().split('@')[0].replace(/[^a-z0-9]/g, '');
+const LOCAL_GENERICO = new Set(['info', 'contacto', 'contact', 'hola', 'admin', 'ventas', 'soporte', 'support', 'hello', 'mail', 'email']);
+/** Frases de un título separadas por " - ", "|", ":", "/", "<>" o " x ", sin palabras genéricas ni el nombre del consultor. */
+function frasesDeTitulo(titulo: string, consultor: string | null): string[][] {
+  const propio = consultor ? norm(consultor) : '';
+  return titulo.split(/\s[-–—]\s|[|:/]|<>|\s+x\s+/i)
+    .map((seg) => tokensDe(seg).filter((t) => !GENERICAS.has(t) && t !== propio))
+    .filter((f) => f.length > 0);
+}
 
 function leerJson(texto: string): unknown {
   const t = texto.replace(/```(?:json)?/gi, '');
@@ -133,22 +155,43 @@ async function cargarAlumnos(sb: SupabaseClient, programas: string[]) {
   const alias = await paginar<{ cliente_id: string; alias: string }>(
     (d, h) => sb.from('cs_clientes_alias').select('cliente_id,alias').in('programa_id', programas).order('id').range(d, h));
   for (const x of alias ?? []) alumnos.get(x.cliente_id)?.alias.push(norm(x.alias));
-  return { alumnos, porMail, tieneExtra: extra !== null, tieneAlias: alias !== null };
+  // Parte local de todos los mails (principal y extra): un invitado con otro dominio pero igual usuario es una pista, no una certeza.
+  const porLocal = new Map<string, Set<string>>();
+  for (const [mail, ids] of porMail) {
+    const loc = localDe(mail);
+    if (loc.length < 6 || LOCAL_GENERICO.has(loc)) continue;
+    if (!porLocal.has(loc)) porLocal.set(loc, new Set());
+    for (const id of ids) porLocal.get(loc)!.add(id);
+  }
+  return { alumnos, porMail, porLocal, tieneExtra: extra !== null, tieneAlias: alias !== null };
 }
 
 /** Candidatos por nombre: palabras del nombre del alumno que aparecen en el título, los nombres o los mails de los invitados. */
-function candidatosPorNombre(l: Llamada, alumnos: Map<string, Alumno>): Cand[] {
+function candidatosPorNombre(l: Llamada, alumnos: Map<string, Alumno>, porLocal: Map<string, Set<string>>): Cand[] {
   const mails = lista(l.invitados);
+  const propio = l.consultor ? norm(l.consultor) : '';
   const fuente = [l.titulo ?? '', ...lista(l.nombres), ...mails.map((m) => m.split('@')[0].replace(/[._\-\d]+/g, ' '))].join(' ');
   const textoNorm = ` ${norm(fuente)} `;
-  const tk = new Set(tokensDe(fuente));
+  // Palabras genéricas del título ("Consultoría", "VIP") y el nombre del consultor no cuentan como nombre de alumno.
+  const tk = new Set(tokensDe(fuente).filter((t) => !GENERICAS.has(t) && t !== propio));
+  const frases = frasesDeTitulo(l.titulo ?? '', l.consultor);
   const sync = new Set(lista(l.candidatos));
+  // Mismo usuario de mail con otro dominio (mail secundario no cargado): pista de un alumno concreto.
+  const porUsuario = new Set<string>();
+  for (const m of mails) {
+    const ids = porLocal.get(localDe(m));
+    if (ids && ids.size <= 3) for (const id of ids) porUsuario.add(id);
+  }
   const out: Cand[] = [];
   for (const a of alumnos.values()) {
     let score = 0;
     for (const t of a.tokens) if (tk.has(t)) score++;
-    if (a.nombreNorm.includes(' ') && textoNorm.includes(` ${a.nombreNorm} `)) score += 3;
+    // Nombre completo dentro del texto, o una frase del título ("Consultoría - Pérez Juan") con 2+ palabras del nombre.
+    const completo = (a.nombreNorm.includes(' ') && textoNorm.includes(` ${a.nombreNorm} `))
+      || frases.some((f) => f.length >= 2 && f.every((t) => a.tokens.includes(t)));
+    if (completo) score += 3;
     if (a.alias.some((al) => al && textoNorm.includes(` ${al} `))) score += 3;
+    if (porUsuario.has(a.id)) score += 2;
     if (sync.has(a.id)) score += 1;
     if (VIVOS.has(a.estado)) score += 0.5;
     if (score >= 1) out.push({ alumno: a, score });
@@ -164,14 +207,21 @@ function alumnosPorMail(l: Llamada, porMail: Map<string, Set<string>>): Set<stri
 }
 
 function propuestaPorMail(l: Llamada, ids: Set<string>, alumnos: Map<string, Alumno>): Fila | null {
-  if (ids.size !== 1) return null;
+  if (ids.size < 1) return null;
   if (lista(l.invitados).length > 2) return null;          // varios invitados: que decida la IA (puede ser una clase)
-  const a = alumnos.get([...ids][0]);
+  // Igual que la sync: si el mail está en varias fichas (misma persona, contratos distintos) vale la única que está viva.
+  let elegido = ids.size === 1 ? [...ids][0] : null;
+  if (!elegido) {
+    const vivos = [...ids].filter((id) => VIVOS.has(alumnos.get(id)?.estado ?? ''));
+    if (vivos.length === 1) elegido = vivos[0];
+  }
+  const a = elegido ? alumnos.get(elegido) : undefined;
   if (!a) return null;
   const viva = VIVOS.has(a.estado);
   return {
     llamada_id: l.id, tipo: 'consultoria_1a1', alumno_id: a.id, confianza: viva ? 'alta' : 'media',
-    motivo: viva ? 'El mail de un invitado coincide con el del alumno.' : 'El mail coincide, pero la ficha está finalizada o dada de baja.',
+    motivo: ids.size > 1 ? 'El mail está en varias fichas; esta es la única viva.'
+      : viva ? 'El mail de un invitado coincide con el del alumno.' : 'El mail coincide, pero la ficha está finalizada o dada de baja.',
     origen: 'mail', estado: 'pendiente', modelo: null, costo_usd: 0,
     resuelta_por: null, resuelta_at: null, tipo_final: null, alumno_final: null,
   };
@@ -279,6 +329,9 @@ Deno.serve(async (req) => {
   const ids = Array.isArray(cuerpo.ids)
     ? cuerpo.ids.filter((x): x is string => typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x)).slice(0, 500) : null;
   const rehacer = cuerpo.rehacer === true;
+  // Con rehacer: se saltea lo que ya se rehízo desde este instante (para encadenar varias llamadas sin repetir).
+  const rehacerDesde = typeof cuerpo.rehacer_desde === 'string' && !Number.isNaN(Date.parse(cuerpo.rehacer_desde))
+    ? Date.parse(cuerpo.rehacer_desde) : null;
   const estados = cuerpo.incluir_internas === true ? ['pendiente', 'interna'] : ['pendiente'];
   const max = Math.min(Math.max(Math.floor(Number(cuerpo.max) || MAX_POR_CORRIDA), 1), MAX_ABSOLUTO);
   const tope = Math.min(Math.max(Number(cuerpo.tope_usd) || TOPE_USD_DEFECTO, 0.01), TOPE_USD_MAXIMO);
@@ -299,24 +352,27 @@ Deno.serve(async (req) => {
   const todas = await paginar<Llamada>((d, h) => q.range(d, h));
   if (!todas) return responder({ error: 'no se pudieron leer las llamadas sin asignar' }, 500);
 
-  const props = await paginar<{ llamada_id: string; estado: string }>(
-    (d, h) => sb.from('cs_fathom_propuestas').select('llamada_id,estado').order('llamada_id').range(d, h));
+  const props = await paginar<{ llamada_id: string; estado: string; updated_at: string }>(
+    (d, h) => sb.from('cs_fathom_propuestas').select('llamada_id,estado,updated_at').order('llamada_id').range(d, h));
   if (!props) return responder({ error: 'falta la migración 186 (cs_fathom_propuestas)' }, 500);
   const estadoProp = new Map<string, string>(props.map((p) => [p.llamada_id, p.estado]));
+  const rehechaYa = new Set<string>(
+    rehacerDesde === null ? [] : props.filter((p) => Date.parse(p.updated_at) >= rehacerDesde).map((p) => p.llamada_id));
 
+  // Sin propuesta, o con propuesta PENDIENTE si se pide rehacer. Aceptadas, corregidas y descartadas no se tocan.
   const a_hacer = todas.filter((l) => {
     const e = estadoProp.get(l.id);
-    return !e || (rehacer && e === 'pendiente');
+    return !e || (rehacer && e === 'pendiente' && !rehechaYa.has(l.id));
   });
 
-  const { alumnos, porMail, tieneExtra, tieneAlias } = await cargarAlumnos(sb, programas);
+  const { alumnos, porMail, porLocal, tieneExtra, tieneAlias } = await cargarAlumnos(sb, programas);
 
   // Separa lo que se resuelve por mail (sin IA) de lo que va a la IA.
   const porMailFilas: Fila[] = [];
   const paraIa: Item[] = [];
   for (const l of a_hacer) {
     const f = propuestaPorMail(l, alumnosPorMail(l, porMail), alumnos);
-    if (f) porMailFilas.push(f); else paraIa.push({ l, cands: candidatosPorNombre(l, alumnos) });
+    if (f) porMailFilas.push(f); else paraIa.push({ l, cands: candidatosPorNombre(l, alumnos, porLocal) });
   }
 
   if (diagnostico) {
@@ -343,7 +399,7 @@ Deno.serve(async (req) => {
     procesadas: 0, por_mail: 0, por_ia: 0,
     por_confianza: { alta: 0, media: 0, baja: 0 } as Record<Confianza, number>,
     por_tipo: {} as Record<string, number>,
-    errores: 0, costo_usd: 0, cortada_por_tiempo: false, cortada_por_costo: false,
+    errores: 0, omitidas: 0, costo_usd: 0, cortada_por_tiempo: false, cortada_por_costo: false,
   };
   const contar = (filas: Fila[]) => {
     for (const f of filas) {
@@ -352,10 +408,17 @@ Deno.serve(async (req) => {
       resumen.por_tipo[f.tipo] = (resumen.por_tipo[f.tipo] ?? 0) + 1;
     }
   };
+  // Se guarda por cs_fathom_prop_guardar (187): inserta o actualiza SOLO propuestas pendientes; nunca pisa una ya decidida.
   const guardar = async (filas: Fila[]) => {
     if (!filas.length) return true;
-    const { error } = await sb.from('cs_fathom_propuestas').upsert(filas, { onConflict: 'llamada_id' });
+    const { data, error } = await sb.rpc('cs_fathom_prop_guardar', {
+      p: filas.map((f) => ({
+        llamada_id: f.llamada_id, tipo: f.tipo, alumno_id: f.alumno_id, confianza: f.confianza, motivo: f.motivo,
+        origen: f.origen, modelo: f.modelo, costo_usd: f.costo_usd,
+      })),
+    });
     if (error) { console.error('[fathom_clasificar] guardar:', (error as { code?: string }).code ?? 'error'); resumen.errores += filas.length; return false; }
+    resumen.omitidas += Number((data as { omitidas?: number } | null)?.omitidas ?? 0);
     contar(filas);
     return true;
   };

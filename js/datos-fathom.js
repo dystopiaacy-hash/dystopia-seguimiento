@@ -14,6 +14,10 @@ export const TIPO_LLAMADA_LABEL = {
 export const ESTADO_FATHOM_LABEL = {
   alumno: 'Alumno', pendiente: 'Pendiente', interna: 'Interna', no_alumno: 'No es alumno'
 };
+/* Tipo que una persona le dio a una llamada que NO es de un alumno (187). Estado sigue siendo no_alumno. */
+export const CLASIFICACION_LABEL = {
+  clase_grupal: 'Clase grupal', venta: 'Venta', interna: 'Interna (equipo)', otra: 'Otra'
+};
 /* Cómo se asignó una llamada de alumno (126): mail y nombre las hace la sincronización. */
 export const ASIGNADA_POR_LABEL = { mail: 'Por mail', nombre: 'Por nombre', manual: 'A mano' };
 export const MOTIVO_LABEL = {
