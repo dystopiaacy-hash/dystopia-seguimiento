@@ -73,7 +73,7 @@ export function armarColumnas(base, config) {
     const r = fila.get(c.k);
     return {
       ...c, sistema: true, original: c.lab, lab: (r && r.etiqueta) || c.lab,
-      visible: c.k === 'nombre' || !r || r.visible !== false,
+      visible: c.k === 'nombre' || (r ? r.visible !== false : !c.oculta),   // oculta: sin config se muestra recién cuando el fundador la activa
       orden: r && r.orden != null ? r.orden : (i + 1) * 10
     };
   });

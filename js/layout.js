@@ -12,6 +12,8 @@ export const SECCIONES = [
   ['', 'Dashboard', false],
   ['clientes', 'Clientes', false],
   ['maestro', 'Maestro', false],
+  ['resumen', 'Resumen', false],
+  ['fuera', 'Fuera del maestro', false, false, ['agus']],   // 5º dato: solo esos programas (hoja "Fuera del maestro" de DCAC)
   ['onboarding', 'Onboarding', false],
   ['accionables', 'Accionables', false],
   ['devoluciones', 'Devoluciones', false],
@@ -27,12 +29,17 @@ export const SECCIONES = [
   ['config', 'Configuración', true]
 ];
 
+/* ¿La sección aplica a este programa? (5º dato de SECCIONES: lista de programas, vacío = todos). */
+export const seccionDelPrograma = (sec, programaId) => !sec[4] || sec[4].includes(programaId);
+
 /* Íconos lineales (24x24, trazo fino) de cada sección del programa. */
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICONOS = {
   hoy: ico('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
   clientes: ico('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14.3c2 .7 3.5 2.6 3.5 5.7"/>'),
   maestro: ico('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/>'),
+  resumen: ico('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
+  fuera: ico('<rect x="3" y="4" width="18" height="16" rx="2" stroke-dasharray="3 2"/><path d="M3 10h18"/>'),
   onboarding: ico('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'),
   accionables: ico('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12 2.5 2.5 4.5-5"/>'),
   devoluciones: ico('<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>'),
@@ -144,8 +151,9 @@ export function renderNav(activo = {}) {
       </a>`;
     if (esEste) {
       html += '<div class="nav-subs">';
-      for (const [sub, label, soloFundador, soloGestor] of SECCIONES) {
-        if (!sub || (soloFundador && !esFundador()) || (soloGestor && !puedeGestionarFathom())) continue;
+      for (const sec of SECCIONES) {
+        const [sub, label, soloFundador, soloGestor] = sec;
+        if (!sub || !seccionDelPrograma(sec, p.id) || (soloFundador && !esFundador()) || (soloGestor && !puedeGestionarFathom())) continue;
         html += `<a class="nav-sub${activo.sub === sub ? ' active' : ''}" href="${href('p/' + id + '/' + sub)}">${iconoSub(sub)}${esc(label)}</a>`;
       }
       html += '</div>';

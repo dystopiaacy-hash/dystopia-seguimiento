@@ -16,6 +16,7 @@ import {
   AVANCE_LABEL, AVANCE_COLOR
 } from '../datos.js';
 import { registrarAviso } from '../ciclo.js';
+import { sinVencimiento } from '../sin-vencimiento.js';
 import { guardarCampoExtra, errorColumnas } from '../datos-columnas.js';
 import { opcionesHtml, num } from './comunes.js';
 import { modalCerrarRenovacion } from './renovaciones.js';
@@ -89,7 +90,9 @@ function celdaCliente(f, base) {
 function celdaDias(f, prog) {
   const v = f.fecha_fin || '';
   const inp = `<input type="date" class="m-edit m-fecha" value="${esc(v)}" ${attrs('fecha_fin', f, v, 'Fecha de fin')}>`;
-  if (f.dias_restantes == null) return `<span class="m-dias">${inp}</span>`;
+  if (f.dias_restantes == null) {
+    return `<span class="m-dias">${inp}${sinVencimiento(v) ? '<span class="m-num" title="Producto sin vencimiento">sin venc.</span>' : ''}</span>`;
+  }
   const d = num(f.dias_restantes);
   const nivel = nivelPorDias(d, { amarillo: num(prog && prog.aviso_renovacion_dias), rojo: -1 });
   const tit = d < 0 ? `Venció hace ${plural(-d, 'día')}` : `Quedan ${plural(d, 'día')}`;
@@ -181,7 +184,15 @@ export function columnas(prog, productos) {
     { k: 'proximo_contacto', lab: 'Próximo contacto', cls: 'm-calc', ord: f => f.proximo_contacto || '9999',
       td: f => ir('seguimiento', f, celdaProximo(f)) },
     { k: 'renovaciones_count', lab: 'Renov.', cls: 'm-calc num', ord: f => num(f.renovaciones_count),
-      td: f => ir('renovaciones', f, esc(num(f.renovaciones_count))) }
+      td: f => ir('renovaciones', f, esc(num(f.renovaciones_count))) },
+    /* Hoja de DCAC (agus): fecha de carga, mail y número. Ocultas por defecto; el fundador las muestra
+       desde Columnas (migración de estructura de agus las deja visibles ahí). */
+    { k: 'fecha_inicio', lab: 'Fecha de carga', cls: 'm-calc', oculta: true, ord: f => f.fecha_inicio || '',
+      td: f => esc(fmtFecha(f.fecha_inicio)) },
+    { k: 'email', lab: 'Mail', cls: 'm-c-accion', edit: true, oculta: true, ord: f => txt(f.email) || '~',
+      td: f => inpTexto('email', f, 'Mail', 120) },
+    { k: 'telefono', lab: 'Número', cls: 'm-c-resp', edit: true, oculta: true, ord: f => txt(f.telefono) || '~',
+      td: f => inpTexto('telefono', f, 'Número', 40) }
   ];
 }
 

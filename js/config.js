@@ -26,6 +26,12 @@ export const LLAMADA_ROJO_DESDE = 10;
    Tiene que coincidir con el 30 de la migración 162. */
 export const DIAS_VENCIDO_COMO_ACTIVO = 30;
 
+/* Productos sin vencimiento (Skool de agus). La base exige duracion_dias > 0 y fecha_fin: se usa una
+   duración de 100 años (SIN_VENCIMIENTO_DIAS) y una fecha de fin lejana (desde SIN_VENCIMIENTO_DESDE
+   se muestra "Sin vencimiento" y no se cuentan días restantes). Ver js/sin-vencimiento.js. */
+export const SIN_VENCIMIENTO_DIAS = 36500;
+export const SIN_VENCIMIENTO_DESDE = '2099-01-01';
+
 /* Satisfacción por etapa (106): color del último puntaje. Menos de ROJO_MENOS = rojo,
    de ahí hasta VERDE_DESDE - 1 = amarillo (7 y 8), VERDE_DESDE o más = verde (9 y 10).
    Los avisos a Discord (menos de 7, y 9 o 10 con testimonio) los dispara la base con los mismos números. */

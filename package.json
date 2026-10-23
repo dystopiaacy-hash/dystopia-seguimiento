@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "liam:inspeccionar": "node scripts/generar-importacion-liam.mjs --inspeccionar",
-    "liam:generar": "node scripts/generar-importacion-liam.mjs"
+    "liam:generar": "node scripts/generar-importacion-liam.mjs",
+    "agus:inspeccionar": "node scripts/generar-importacion-agus.mjs --inspeccionar",
+    "agus:generar": "node scripts/generar-importacion-agus.mjs"
   }
 }

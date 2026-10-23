@@ -3,6 +3,7 @@
    cs_v_clientes y cs_v_kpis_programa: acá no se recalculan. */
 import { sb } from './supabase.js';
 import { yo } from './sesion.js';
+import { sinVencimientoFilas, sinVencimientoFila } from './sin-vencimiento.js';
 
 /* Estados que la vista de KPIs considera "clientes vivos". 'pausado' (039) no cuenta:
    sus días no corren y no genera alertas de renovación ni de chequeo. */
@@ -105,7 +106,7 @@ export async function traerClientes(programaId) {
   const { data, error } = await sb.from('cs_v_clientes').select('*')
     .eq('programa_id', programaId).order('nombre');
   if (error) throw error;
-  return data || [];
+  return sinVencimientoFilas(data || []);
 }
 
 export async function traerAlertas(programaId) {
@@ -274,7 +275,7 @@ export const traerRespuestasPrograma = id =>
 export async function traerCliente(id) {
   const { data, error } = await sb.from('cs_v_clientes').select('*').eq('id', id).maybeSingle();
   if (error) throw error;
-  return data;
+  return sinVencimientoFila(data);
 }
 
 async function deCliente(tabla, clienteId, armar) {
@@ -364,12 +365,12 @@ export async function traerMaestro(programaId) {
   const { data, error } = await sb.from('cs_v_maestro').select('*')
     .eq('programa_id', programaId).order('nombre');
   if (error) throw error;
-  return data || [];
+  return sinVencimientoFilas(data || []);
 }
 
 /* Campos de cs_clientes que el CSM edita desde el maestro. Texto vacío = null. */
 const CAMPOS_MAESTRO = ['prioridad', 'responsable', 'proxima_accion', 'proxima_accion_fecha', 'nota_csm', 'testimonio',
-  'nombre', 'etapa', 'producto_id', 'fecha_fin', 'estado'];
+  'nombre', 'etapa', 'producto_id', 'fecha_fin', 'estado', 'email', 'telefono'];
 
 export async function guardarCampoCliente(id, campo, valor) {
   if (!CAMPOS_MAESTRO.includes(campo)) throw new Error('Ese campo no se edita desde el maestro.');

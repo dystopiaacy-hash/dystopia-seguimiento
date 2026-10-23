@@ -2,7 +2,7 @@
    programa y delega en la vista de cada sección. Las secciones que todavía no se
    construyeron muestran su lugar. */
 import { esc } from '../ui.js';
-import { setHeader, SECCIONES } from '../layout.js';
+import { setHeader, SECCIONES, seccionDelPrograma } from '../layout.js';
 import { esFundador, puedeGestionarFathom } from '../sesion.js';
 import { vistaLlamadas } from './llamadas-fathom.js';
 import { vistaHoy } from './hoy.js';
@@ -22,6 +22,8 @@ import { vistaConfig } from './config.js';
 import { vistaSatisfaccion } from './satisfaccion.js';
 import { vistaDudas } from './dudas.js';
 import { vistaPreguntar } from './preguntar-ia.js';   // 140 (IA)
+import { vistaResumen } from './resumen-programa.js';
+import { vistaFueraMaestro } from './fuera-maestro.js';
 
 export function vacio(big, small = '', extra = '') {
   return `<div class="card empty-state"><div class="big">${esc(big)}</div>${small ? `<div class="small">${esc(small)}</div>` : ''}${extra}</div>`;
@@ -36,8 +38,9 @@ export function tarjetaError(titulo, e) {
 export function tabsPrograma(programaId, sub) {
   const id = encodeURIComponent(programaId);
   let html = '<nav class="tabs tabs-prog" aria-label="Secciones del programa">';
-  for (const [s, label, soloFundador, soloGestor] of SECCIONES) {
-    if ((soloFundador && !esFundador()) || (soloGestor && !puedeGestionarFathom())) continue;
+  for (const sec of SECCIONES) {
+    const [s, label, soloFundador, soloGestor] = sec;
+    if (!seccionDelPrograma(sec, programaId) || (soloFundador && !esFundador()) || (soloGestor && !puedeGestionarFathom())) continue;
     const href = '#/p/' + id + (s ? '/' + s : '');
     html += `<a class="tab-btn${sub === s ? ' active' : ''}" href="${href}">${esc(label)}</a>`;
   }
@@ -60,7 +63,7 @@ export function vistaPrograma(el, { p, sub, clienteId, vigente }) {
   }
 
   const seccion = SECCIONES.find(s => s[0] === sub);
-  if (!seccion) {
+  if (!seccion || !seccionDelPrograma(seccion, p.id)) {
     setHeader(p.nombre, p.marca || '');
     el.innerHTML = vacio('No existe esta sección.');
     return null;
@@ -92,6 +95,8 @@ export function vistaPrograma(el, { p, sub, clienteId, vigente }) {
   if (sub === '') return vistaDashboard(cont, p.id, vigente);
   if (sub === 'clientes') return vistaClientes(cont, p.id, vigente);
   if (sub === 'maestro') return vistaMaestro(cont, p.id, vigente);
+  if (sub === 'resumen') return vistaResumen(cont, p.id, vigente);
+  if (sub === 'fuera') return vistaFueraMaestro(cont, p.id, vigente);
   if (sub === 'onboarding') return vistaOnboarding(cont, p.id, vigente);
   if (sub === 'accionables') return vistaAccionables(cont, p.id, vigente);
   if (sub === 'devoluciones') return vistaDevoluciones(cont, p.id, vigente);

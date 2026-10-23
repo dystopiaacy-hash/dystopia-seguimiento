@@ -18,3 +18,5 @@ node_modules/
 # Importaciones con datos personales reales (se generan desde datos/*.csv)
 datos/*.sql
 migraciones/125-producto-alumnos-teo-datos.sql
+migraciones/*-agus-dcac-datos.sql
+informe-dcac-*.md

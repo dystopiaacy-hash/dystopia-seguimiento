@@ -6,6 +6,7 @@ import { esc, hoyAR, sumarDias, fmtFecha, plural, toast, abrirModal, cerrarModal
 import { crearCliente, traerGeneradoAlCrear, mensajeError, ESTADO_LABEL, ONBOARDING_LABEL } from '../datos.js';
 import { traerProductos, opcionesProducto } from '../ciclo.js';
 import { generarYCopiar } from './onboarding-link.js';
+import { productoSinVencimiento } from '../sin-vencimiento.js';
 
 /* Un cliente nuevo arranca en onboarding o ya activo. 'en_renovacion' lo pone el
    trigger al iniciar una renovación, y 'finalizado'/'baja' cierran el ciclo: ninguno
@@ -139,6 +140,7 @@ export async function abrirModalNuevoCliente(p, alCrear) {
     const d = parseInt(duracion.value, 10);
     const f = inicio.value && d > 0 ? sumarDias(inicio.value, d) : '';
     fin.textContent = !f ? 'Poné una fecha de inicio y una duración.'
+      : pr && productoSinVencimiento(pr) ? `Sin vencimiento (${pr.nombre})`
       : pr ? `Termina el ${fmtFecha(f)} (${pr.nombre}: ${d} días)` : `Termina el ${fmtFecha(f)}`;
   }
   inicio.addEventListener('change', pintarFin);

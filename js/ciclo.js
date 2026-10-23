@@ -5,6 +5,7 @@
 import { sb } from './supabase.js';
 import { actualizarFila } from './datos.js';
 import { hoyAR, sumarDias, diasEntre } from './ui.js';
+import { productoSinVencimiento } from './sin-vencimiento.js';
 
 export const TESTIMONIO_LABEL = {
   sin_pedir: 'Sin pedir', pitchiado: 'Pitchiado', coordinado: 'Coordinado',
@@ -41,7 +42,7 @@ export async function traerCicloCliente(id) {
 export function opcionesProducto(productos, actual) {
   return (productos || [])
     .filter(pr => pr.activo || pr.id === actual)
-    .map(pr => [pr.id, `${pr.nombre} (${pr.duracion_dias} días)${pr.activo ? '' : ' · inactivo'}`]);
+    .map(pr => [pr.id, `${pr.nombre} (${productoSinVencimiento(pr) ? 'sin vencimiento' : pr.duracion_dias + ' días'})${pr.activo ? '' : ' · inactivo'}`]);
 }
 
 export const nombreProducto = (productos, id) => {
