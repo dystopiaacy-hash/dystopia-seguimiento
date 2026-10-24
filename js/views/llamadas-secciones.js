@@ -82,10 +82,14 @@ export function armarItems({ llamadas, registradas, horarios, props, alumnos, co
   const yaRegistradas = new Set((registradas || []).map(c => clave(c)));
   const items = [];
 
+  /* Programas de la cuenta de Fathom que grabó (cs_fathom_consultor_programas, 194). */
+  const progsDeCuenta = consultor => (consultorProgramas && consultorProgramas.get(consultor)) || [];
+
   for (const c of registradas || []) {
     const l = comoLlamada(c);
+    const programas = [...new Set([c.programa_id, ...progsDeCuenta(c.consultor)].filter(Boolean))];
     items.push({ l, seccion: 'consultorias', prop: null, horario: hPorId.get(c.horario_id) || horarioDe(l, horarios),
-      programa: c.programa_id || null, registrada: true });
+      programa: c.programa_id || null, programas, registrada: true });
   }
   for (const l of llamadas || []) {
     if (yaRegistradas.has(clave(l))) continue;          // ya figura como consultoría registrada
@@ -109,10 +113,19 @@ export function armarItems({ llamadas, registradas, horarios, props, alumnos, co
       const ps = consultorProgramas.get(l.consultor) || [];
       if (ps.length === 1) programa = ps[0];
     }
-    items.push({ l, seccion, prop, horario, programa, registrada: false });
+    /* Todos los programas a los que pertenece la llamada (para verla dentro de un programa): la cuenta que la grabó,
+       la ficha asignada, el horario, el alumno propuesto por la IA y cualquier candidato de la sync. */
+    const programas = new Set([...progsDeCuenta(l.consultor), l.programa_id, horario && horario.programa_id,
+      prop && prop.alumno_id && progDe.get(prop.alumno_id),
+      ...(Array.isArray(l.candidatos) ? l.candidatos : []).map(id => progDe.get(id))].filter(Boolean));
+    items.push({ l, seccion, prop, horario, programa, programas: [...programas], registrada: false });
   }
   return items;
 }
+
+/* Solo lo que pertenece al programa `programaId` (si no viene, todo: vista general). */
+export const delPrograma = (items, programaId) =>
+  programaId ? items.filter(it => (it.programas || []).includes(programaId)) : items;
 
 const diaTxt = (l, h) => {
   const t = diaHoraArt(l.inicio_at);

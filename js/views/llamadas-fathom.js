@@ -20,7 +20,7 @@ import { tarjetaError } from './programa.js';
 import { montarSelectorAlumno } from './alumno-selector.js';
 import { crearPropuestas } from './llamadas-propuestas.js';
 import { traerHorarios, traerConsultoriasRegistradas, traerConsultorProgramas } from '../datos-consultorias.js';
-import { SECCIONES, armarItems, extraItem } from './llamadas-secciones.js';
+import { SECCIONES, armarItems, extraItem, delPrograma } from './llamadas-secciones.js';
 
 const PAGINA = 100;   // filas por tanda: en celular cada una es una tarjeta
 
@@ -114,11 +114,11 @@ export function vistaLlamadas(el, programaId, vigente) {
   el.innerHTML = '<div class="loading-inline">Cargando…</div>';
   /* puedeAsignar: se enciende si el usuario ve alguna pendiente/no_alumno (fundador, consultor y cliente;
      el cliente solo las de su programa). La base valida cada acción. */
-  let llamadas = [], consultores = [], alumnos = [], horarios = [], registradas = [], items = [];
+  let llamadas = [], visibles = [], consultores = [], alumnos = [], horarios = [], registradas = [], items = [];
   let seccion = '', mostrar = PAGINA;
   const filtro = { estado: '', programa: '', consultor: '', desde: '', hasta: '' };
   /* Propuestas de la IA (186): sección propia arriba de la lista; aceptar / corregir recargan todo. */
-  const propuestas = crearPropuestas({ llamadas: () => llamadas, alumnos: () => alumnos, alCambiar: () => cargar() });
+  const propuestas = crearPropuestas({ llamadas: () => visibles, alumnos: () => alumnos, alCambiar: () => cargar() });
 
   const nombreConsultor = id => { const c = consultores.find(x => x.id === id); return c ? c.nombre : id; };
   const nombrePrograma = id => { const p = (yo.programas || []).find(x => x.id === id); return p ? p.nombre : id; };
@@ -132,7 +132,7 @@ export function vistaLlamadas(el, programaId, vigente) {
   const hayFiltro = () => Object.values(filtro).some(Boolean);
 
   function pintar() {
-    const puedeAsignar = esFundador() || llamadas.some(l => l.estado !== 'alumno');
+    const puedeAsignar = esFundador() || visibles.some(l => l.estado !== 'alumno');
     const filtrados = items.filter(pasa);
     const cuenta = k => filtrados.filter(it => it.seccion === k).length;
     const actual = SECCIONES.find(s => s.key === seccion) || SECCIONES[0];
@@ -140,8 +140,8 @@ export function vistaLlamadas(el, programaId, vigente) {
     const visibles = lista.slice(0, mostrar);
     const tabs = SECCIONES.map(s => `<button type="button" class="tab-btn${s.key === actual.key ? ' active' : ''}" data-fa-sec="${s.key}">
         ${esc(s.label)} <span class="fa-n">${cuenta(s.key)}</span></button>`).join('');
-    const progs = [...new Set(items.map(it => it.programa).filter(Boolean))].sort();
-    const hayLibres = items.some(it => !it.programa);
+    const progs = programaId ? [] : [...new Set(items.map(it => it.programa).filter(Boolean))].sort();
+    const hayLibres = !programaId && items.some(it => !it.programa);
     const cons = consultores.length ? consultores.map(c => [c.id, c.nombre + (c.activo ? '' : ' (inactivo)')])
       : [...new Set(items.map(it => it.l.consultor).filter(Boolean))].sort().map(c => [c, c]);
     const opt = (v, t, sel) => `<option value="${esc(v)}"${sel === v ? ' selected' : ''}>${esc(t)}</option>`;
@@ -156,10 +156,10 @@ export function vistaLlamadas(el, programaId, vigente) {
         que tienen a un alumno tuyo como posible o propuesto. El resto lo ven el fundador y el consultor.</div>` : ''}
       <nav class="tabs fa-secciones" aria-label="Tipo de llamada">${tabs}</nav>
       <div class="fa-filtros">
-        <label>Programa <select id="fa-f-programa">
+        ${programaId ? '' : `<label>Programa <select id="fa-f-programa">
           ${opt('', 'Todos', filtro.programa)}${progs.map(p => opt(p, nombrePrograma(p), filtro.programa)).join('')}
           ${hayLibres ? opt('_sin', 'Sin programa claro', filtro.programa) : ''}
-        </select></label>
+        </select></label>`}
         <label>Consultor <select id="fa-f-consultor">
           ${opt('', 'Todos', filtro.consultor)}${cons.map(([id, n]) => opt(id, n, filtro.consultor)).join('')}
         </select></label>
@@ -248,10 +248,16 @@ export function vistaLlamadas(el, programaId, vigente) {
       alumnos = al;
       horarios = hs || [];
       registradas = regs || [];
+      /* Dentro de un programa se ven SOLO las llamadas de ese programa: la cuenta que las grabó está vinculada a él
+         (cs_fathom_consultor_programas), o tienen un alumno, un candidato o una propuesta de la IA de ese programa.
+         Las demás (de otros programas o sin programa) no se ven acá, tampoco el fundador. */
+      items = delPrograma(armarItems({ llamadas, registradas, horarios, props: propuestas.lista(), alumnos, consultorProgramas: cps }), programaId);
+      const idsVisibles = new Set(items.filter(it => !it.registrada).map(it => it.l.id));
+      visibles = llamadas.filter(l => idsVisibles.has(l.id));
       /* Consultores activos, y los inactivos solo si tienen llamadas visibles. */
-      consultores = cs.filter(c => c.activo || llamadas.some(l => l.consultor === c.id));
+      consultores = cs.filter(c => c.activo || visibles.some(l => l.consultor === c.id));
+      if (programaId) consultores = consultores.filter(c => items.some(it => it.l.consultor === c.id));
       if (filtro.consultor && !consultores.some(c => c.id === filtro.consultor)) filtro.consultor = '';
-      items = armarItems({ llamadas, registradas, horarios, props: propuestas.lista(), alumnos, consultorProgramas: cps });
       /* Primera vez: abre la primera sección que tenga algo. */
       if (!seccion) seccion = (SECCIONES.find(s => items.some(it => it.seccion === s.key)) || SECCIONES[0]).key;
       pintar();
