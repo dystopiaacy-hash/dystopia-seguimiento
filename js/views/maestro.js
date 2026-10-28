@@ -24,6 +24,7 @@ import { columnas, manejarCambio, manejarTecla } from './maestro-celdas.js';
 import { manejarClick, limpiarConfirmaciones } from './maestro-ciclo.js';
 import { armarColumnas } from './maestro-columnas.js';
 import { sumarAvanceOnboarding, columnaOnboarding } from './maestro-onboarding.js';
+import { sumarAccionablesMaestro } from './maestro-accionables.js';
 import { sumarUltimaLlamada, columnaUltimaLlamada, celdaUltimaLlamadaMaestro } from './llamada-semaforo.js';
 import { sumarResumenAlumno, columnasEstado, pasaUpsell, OPCIONES_UPSELL } from './estado-columnas.js';
 import { sumarEstadoPagos } from '../datos-pagos.js';
@@ -330,6 +331,7 @@ export function vistaMaestro(el, programaId, vigente) {
     hayLlamadas = await sumarUltimaLlamada(programaId, filas);
     hayResumen = await sumarResumenAlumno(programaId, filas);   // después de la llamada: la sugerencia de upsell la usa
     hayPagos = await sumarEstadoPagos(filas);   // 133: en lote, sin montos
+    await sumarAccionablesMaestro(programaId, filas, conf);   // 238: columnas que reflejan accionables (liam)
     if (!vigente()) return;
     productos = prods;
     config = conf;

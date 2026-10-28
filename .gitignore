@@ -20,3 +20,7 @@ datos/*.sql
 migraciones/125-producto-alumnos-teo-datos.sql
 migraciones/*-agus-dcac-datos.sql
 informe-dcac-*.md
+migraciones/*-maestros-datos-*.sql
+
+# Sheets de clientes con datos de personas (no se commitean)
+insumos/

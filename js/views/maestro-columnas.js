@@ -8,6 +8,7 @@
    config null (071 sin correr) = el Maestro de siempre. */
 import { esc, urlSegura } from '../ui.js';
 import { opcionesHtml } from './comunes.js';
+import { esColumnaAccionable, celdaAccionable, ordenAccionable } from './maestro-accionables.js';
 
 const txt = v => String(v ?? '').toLowerCase();
 
@@ -57,6 +58,10 @@ function columnaNueva(r) {
     ord: f => (ORDEN[tipo] || ordenTexto)(valor(f))
   };
   col.td = f => CELDA[tipo](col, f, valor(f) ?? '');
+  if (tipo === 'casilla' && esColumnaAccionable(r.clave)) {   // 238: refleja el accionable de la plantilla
+    col.td = f => celdaAccionable(col, f);
+    col.ord = f => ordenAccionable(f, r.clave);
+  }
   return col;
 }
 

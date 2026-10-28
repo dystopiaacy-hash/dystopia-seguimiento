@@ -24,6 +24,7 @@ import { vistaDudas } from './dudas.js';
 import { vistaPreguntar } from './preguntar-ia.js';   // 140 (IA)
 import { vistaResumen } from './resumen-programa.js';
 import { vistaFueraMaestro } from './fuera-maestro.js';
+import { vistaLlamadasProducto } from './llamadas-producto.js';
 
 export function vacio(big, small = '', extra = '') {
   return `<div class="card empty-state"><div class="big">${esc(big)}</div>${small ? `<div class="small">${esc(small)}</div>` : ''}${extra}</div>`;
@@ -97,6 +98,7 @@ export function vistaPrograma(el, { p, sub, clienteId, vigente }) {
   if (sub === 'maestro') return vistaMaestro(cont, p.id, vigente);
   if (sub === 'resumen') return vistaResumen(cont, p.id, vigente);
   if (sub === 'fuera') return vistaFueraMaestro(cont, p.id, vigente);
+  if (sub === 'llamadas-producto') return vistaLlamadasProducto(cont, p.id, vigente);
   if (sub === 'onboarding') return vistaOnboarding(cont, p.id, vigente);
   if (sub === 'accionables') return vistaAccionables(cont, p.id, vigente);
   if (sub === 'devoluciones') return vistaDevoluciones(cont, p.id, vigente);

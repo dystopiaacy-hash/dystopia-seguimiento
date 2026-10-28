@@ -21,6 +21,9 @@ const flag = n => { const i = args.indexOf(n); return i >= 0 ? args.splice(i, 2)
 const inspeccionar = args.includes('--inspeccionar');
 if (inspeccionar) args.splice(args.indexOf('--inspeccionar'), 1);
 const hojaPedida = flag('--hoja');
+/* --numero N (243): escribe migraciones/N-maestros-datos-liam.sql (gitignorado) con respaldo, productos y accionables. Sin él, como siempre (080). */
+const NUMERO = flag('--numero');
+if (NUMERO && !/^\d+$/.test(NUMERO)) { console.error('--numero debe ser un entero (el número lo asigna el jefe).'); process.exit(1); }
 let hoy = flag('--hoy');
 const archivo = args[0] || XLSX_INSUMO;
 if (!hoy) {
@@ -29,6 +32,7 @@ if (!hoy) {
   console.log(`(--hoy no indicado: uso la fecha de modificación del archivo, ${hoy})`);
 }
 if (!/^\d{4}-\d{2}-\d{2}$/.test(hoy)) { console.error('--hoy debe ser AAAA-MM-DD'); process.exit(1); }
+const NOMBRE_SQL = NUMERO ? `${NUMERO}-maestros-datos-liam.sql` : `080-actualizar-liam-${hoy}.sql`;
 
 /* ---------- xlsx -> matriz de textos ---------- */
 function serialAFecha(n) {
@@ -137,15 +141,18 @@ const CONOCIDAS = {
   contexto: ['contextoactualrenovacion', 'contextoactual', 'contexto'],
   testimonio: ['testimonio'],
   inicio: ['joineddate', 'fechadeinicio', 'fechadecarga', 'fecha'],
-  skool: ['losaquedeskool'], wpp: ['losaquedewpp', 'losaquedewhatsapp']
+  skool: ['losaquedeskool'], wpp: ['losaquedewpp', 'losaquedewhatsapp'],
+  d5: ['5d'], d0: ['0d']
 };
 /* Checks que ya conoce la migración 079 (clave fija). */
 const CHECKS_FIJOS = [
   { test: n => n.startsWith('seunio'), clave: 'x_unio_school', etiqueta: 'Se unió a la School' },
   { test: n => n === 'losaquedeapp', clave: 'x_saque_app', etiqueta: '¿Lo saqué de la App?' }
 ];
-/* Pasos que ya son accionables de la plantilla: no se duplican como columna. */
+/* Pasos que ya son accionables de la plantilla: no se duplican como columna (238: el Maestro los muestra con las columnas
+   x_acc_*; la planilla los carga completando el accionable y, de respaldo, en campos_extra). */
 const ES_ACCIONABLE = n => n.startsWith('lepedireferidos') || n.startsWith('fup') || n === '5d' || n === '0d';
+const FUP_COLS = [];   // índices de las columnas "FUP ..." en el orden de la planilla -> fup_1, fup_2, fup_3 (la planilla repite "FUP 3")
 
 const filas = /\.csv$/i.test(archivo) ? parsearCsv(readFileSync(archivo, 'utf8')) : filasDeXlsx(archivo);
 if (filas.length < 2) { console.error('La planilla no tiene filas.'); process.exit(1); }
@@ -164,6 +171,7 @@ enc.forEach((n, i) => {
   if (asignadas.has(i) || n === '') return;
   const fijo = CHECKS_FIJOS.find(c => c.test(n));
   if (fijo) { cols.push({ i, clave: fijo.clave, etiqueta: fijo.etiqueta }); return; }
+  if (n.startsWith('fup')) FUP_COLS.push(i);
   if (ES_ACCIONABLE(n)) return;
   const vals = datos.map(f => String(f[i] ?? '').trim()).filter(v => v !== '');
   if (vals.length && vals.every(v => aBool(v) !== null)) {
@@ -196,18 +204,27 @@ datos.forEach((f, n) => {
 
   const diasTxt = g(col.dias);
   let dias = null;
-  if (/^-?\d+$/.test(diasTxt)) dias = Number(diasTxt);
+  if (/^-?\d+(\.0+)?$/.test(diasTxt)) dias = Number(diasTxt);   // "-149.0" también (el CSV exporta enteros con decimal)
   else if (/^\+\s*\d+$/.test(diasTxt)) mas60.push({ fila, valor: diasTxt });
   else if (diasTxt) avisos.push(`fila ${fila}: días restantes "${diasTxt}" no es un número: se conserva la fecha de fin actual (decidir a mano). `
     + `Producto "${producto}", inicio ${inicio}, estado "${estado}"`);
 
   for (const c of cols) if (aBool(f[c.i]) === true) checks[c.clave] = true;
+  /* 238: 5D / 0D son casillas comunes; Skool / WPP / referidos / FUP son accionables, con la casilla de respaldo en campos_extra. */
+  if (aBool(g(col.d5)) === true) checks.x_aviso_5d = true;
+  if (aBool(g(col.d0)) === true) checks.x_aviso_0d = true;
+  if (aBool(g(col.skool)) === true) checks.x_acc_skool = true;
+  if (aBool(g(col.wpp)) === true) checks.x_acc_wpp = true;
+  const ref = enc.findIndex(h => h.startsWith('lepedireferidos'));
+  const acc = [];   // plantilla_key de los accionables que la planilla marca como hechos
+  if (ref >= 0 && aBool(f[ref]) === true) { checks.x_acc_referidos = true; acc.push('pedir_referidos'); }
+  FUP_COLS.slice(0, 3).forEach((ci, k) => { if (aBool(f[ci]) === true) { checks['x_acc_fup_' + (k + 1)] = true; acc.push('fup_' + (k + 1)); } });
 
   out.push({
     fila, nombre, telefono: g(col.telefono), producto, inicio, dias,
     aviso1: aBool(g(col.aviso1)) === true, aviso2: aBool(g(col.aviso2)) === true,
     estado, contexto: g(col.contexto), testimonio: g(col.testimonio).toUpperCase(),
-    skool: aBool(g(col.skool)) === true, wpp: aBool(g(col.wpp)) === true, checks
+    skool: aBool(g(col.skool)) === true, wpp: aBool(g(col.wpp)) === true, acc, checks
   });
 });
 
@@ -218,16 +235,23 @@ const columnasNuevas = [...cols.map(c => ({ clave: c.clave, etiqueta: c.etiqueta
 /* ---------- SQL ---------- */
 const filasSql = out.map(r => `  (${r.fila}, ${q(r.nombre)}, ${q(r.telefono)}, ${q(r.producto)}, '${r.inicio}', ${r.dias ?? 'null'}, `
   + `${qb(r.aviso1)}, ${qb(r.aviso2)}, ${q(r.estado)}, ${q(r.contexto)}, ${q(r.testimonio)}, ${qb(r.skool)}, ${qb(r.wpp)}, `
-  + `${q(JSON.stringify(r.checks))}::jsonb)`).join(',\n');
+  + `array[${r.acc.map(q).join(', ')}]::text[], ${q(JSON.stringify(r.checks))}::jsonb)`).join(',\n');
 const colsSql = columnasNuevas.map((c, i) => `  (${i + 1}, ${q(c.clave)}, ${q(c.etiqueta)})`).join(',\n');
 
 const sql = `-- =====================================================================
--- 080-actualizar-liam-${hoy}.sql  ·  PRODUCTO: Maestro de liam al día (última foto del Sheet)
+-- ${NOMBRE_SQL}  ·  PRODUCTO: Maestro de liam al día (última foto del Sheet)
 -- =====================================================================
 -- GENERADO por scripts/generar-importacion-liam.mjs desde ${archivo.split(/[\\\\/]/).pop()}
 -- (${out.length} filas, fecha de la planilla ${hoy}). TIENE DATOS PERSONALES: está en
--- .gitignore (datos/*.sql). No lo subas ni lo pegues en chats.
---
+-- .gitignore. No lo subas ni lo pegues en chats.
+--${NUMERO ? `
+-- ${NUMERO}: requiere la 238 CORRIDA (columnas x_acc_* / x_aviso_*, productos BPF Resell / Downsell 8 Meses). Además de lo de siempre:
+--   * respaldo cs_bak_${NUMERO}_liam_clientes (cómo estaba cada ficha que se actualiza, con RLS y sin políticas);
+--   * 5D / 0D / Skool / WPP / referidos / FUP 1-2-3: la planilla COMPLETA el accionable correspondiente si existe (nunca lo reabre) y deja
+--     la casilla de respaldo en campos_extra (x_acc_*, x_aviso_*), que el Maestro usa si el alumno no tiene ese accionable;
+--   * testimonio: solo se carga si la ficha lo tiene "sin_pedir" (gana lo que ya cargó la app);
+--   * fecha de fin y producto SÍ los manda la planilla (días restantes = fórmula de la hoja): el resumen dice cuántas fechas cambian.
+--` : ''}
 -- ORDEN: 079 primero. Después este archivo, DOS veces:
 --   1) tal cual: es un SIMULACRO. Termina con un error que trae el resumen y no
 --      guarda nada.
@@ -244,7 +268,13 @@ const sql = `-- ================================================================
 -- =====================================================================
 begin;
 set local lock_timeout = '8s';
-
+${NUMERO ? `lock table public.cs_clientes, public.cs_accionables, public.cs_renovaciones, public.cs_productos, public.cs_maestro_columnas
+  in share row exclusive mode;
+-- Productos que trae la planilla (ya los da de alta la 238; acá por si faltaran). 240 días confirmado.
+insert into public.cs_productos (programa_id, nombre, duracion_dias, orden, activo)
+values ('liam', 'BPF Resell 8 Meses', 240, 6, true), ('liam', 'BPF Downsell 8 Meses', 240, 7, true)
+on conflict (programa_id, nombre) do nothing;
+` : ''}
 -- 0. PARÁMETROS
 drop table if exists pg_temp.imp_param;
 create temp table imp_param (clave text primary key, valor text not null);
@@ -260,10 +290,10 @@ drop table if exists pg_temp.imp_csv;
 create temp table imp_csv (
   fila int, nombre text not null, telefono text, producto text not null, fecha_inicio date not null,
   dias int, aviso_1 boolean, aviso_2 boolean, estado_resell text, contexto text, testimonio text,
-  sacado_skool boolean, sacado_wpp boolean, checks jsonb not null
+  sacado_skool boolean, sacado_wpp boolean, acc_hechos text[] not null, checks jsonb not null
 );
 insert into imp_csv values
-${filasSql || '  (0, \'\', null, \'\', current_date, null, false, false, null, null, null, false, false, \'{}\'::jsonb)'};
+${filasSql || '  (0, \'\', null, \'\', current_date, null, false, false, null, null, null, false, false, array[]::text[], \'{}\'::jsonb)'};
 ${out.length ? '' : 'delete from imp_csv;'}
 
 drop table if exists pg_temp.imp_cols;
@@ -350,6 +380,13 @@ select f.*,
        (select aviso_2_dias from public.cs_programas where id = 'liam') as a2_dias
 from f;
 
+${NUMERO ? `-- 3b. RESPALDO de las fichas que ya estaban y se actualizan (antes de tocar nada)
+create table public.cs_bak_${NUMERO}_liam_clientes as
+  select c.*, now() as respaldado_at
+  from public.cs_clientes c join imp i on i.cliente_id = c.id and not i.era_nuevo;
+alter table public.cs_bak_${NUMERO}_liam_clientes enable row level security;
+revoke all on table public.cs_bak_${NUMERO}_liam_clientes from anon, authenticated;
+` : ''}
 -- 4. COLUMNAS DE CHECKS NUEVAS (las que traía la planilla)
 insert into public.cs_maestro_columnas (programa_id, clave, sistema, etiqueta, orden, tipo)
 select 'liam', k.clave, false, k.etiqueta,
@@ -393,7 +430,7 @@ begin
     telefono   = coalesce(nullif(btrim(i.telefono), ''), c.telefono),
     producto_id = i.producto_id,
     fecha_fin  = i.fin,
-    testimonio = coalesce(i.testimonio_db, c.testimonio),
+    testimonio = case when c.testimonio = 'sin_pedir' then coalesce(i.testimonio_db, c.testimonio) else c.testimonio end,   -- gana lo que ya cargó la app
     nota_csm   = case when nullif(i.contexto, '') is null or position(i.contexto in coalesce(c.nota_csm, '')) > 0
                       then c.nota_csm
                       else i.contexto || coalesce(' · ' || c.nota_csm, '') end,
@@ -411,7 +448,7 @@ begin
   where not i.era_nuevo and c.id = i.cliente_id
     and (   c.producto_id is distinct from i.producto_id
          or c.fecha_fin is distinct from i.fin
-         or c.testimonio is distinct from coalesce(i.testimonio_db, c.testimonio)
+         or (c.testimonio = 'sin_pedir' and c.testimonio is distinct from coalesce(i.testimonio_db, c.testimonio))
          or (nullif(btrim(i.telefono), '') is not null and c.telefono is distinct from nullif(btrim(i.telefono), ''))
          or (nullif(i.contexto, '') is not null and position(i.contexto in coalesce(c.nota_csm, '')) = 0)
          or (i.aviso_1 and c.aviso_1_at is null) or (i.aviso_2 and c.aviso_2_at is null)
@@ -489,6 +526,13 @@ begin
       or (i.sacado_wpp and a.plantilla_key like 'cierre:cierre\\_whatsapp:%'));
   get diagnostics v_n = row_count;
   insert into imp_log values ('cierres_completados', v_n);
+${NUMERO ? `
+  -- 8b. Referidos y FUP 1-2-3 que la planilla marca como hechos: se completa el accionable (nunca se reabre uno completado).
+  update public.cs_accionables a set estado = 'completado'
+  from imp i
+  where i.cliente_id = a.cliente_id and a.estado <> 'completado' and a.plantilla_key = any (i.acc_hechos);
+  get diagnostics v_n = row_count;
+  insert into imp_log values ('referidos_fup_completados', v_n);` : ''}
 end $$;
 
 -- 9. CONTROLES DUROS + SIMULACRO
@@ -503,7 +547,8 @@ begin
   end if;
   select format(
     'RESUMEN. Filas de la planilla: %s. Clientes nuevos: %s. Actualizados: %s. Pipeline movido: %s, abierto: %s. '
-    || 'Cierres completados: %s. En la app y NO en la planilla (no se tocan): %s. '
+    || 'Cierres completados: %s. Referidos / FUP completados: %s. Fechas de fin que cambian: %s. '
+    || 'En la app y NO en la planilla (no se tocan): %s. '
     || 'Planilla dice Resell/Upsell/Downsell y la app no tiene renovación cerrada como renovado (revisar a mano): %s. '
     || 'NUEVOS (si alguno ya estaba con otro nombre o fecha, corregilo en el CSV): %s',
     (select count(*) from imp),
@@ -512,6 +557,8 @@ begin
     (select n from imp_log where clave = 'pipeline_movido'),
     (select n from imp_log where clave = 'pipeline_abierto'),
     (select n from imp_log where clave = 'cierres_completados'),
+    coalesce((select n from imp_log where clave = 'referidos_fup_completados'), 0),
+    (select count(*) from imp i where not i.era_nuevo and i.fin is distinct from i.fin_actual),
     (select count(*) from public.cs_clientes c where c.programa_id = 'liam'
         and not exists (select 1 from imp i where i.cliente_id = c.id)),
     (select count(*) from imp i where i.categoria in ('resell', 'upsell', 'downsell') and not i.era_nuevo
@@ -542,9 +589,11 @@ select 'columnas casilla', count(*)::text from public.cs_maestro_columnas
  where programa_id = 'liam' and tipo = 'casilla' and not archivada;
 `;
 
-const salida = `datos/080-actualizar-liam-${hoy}.sql`;
-mkdirSync('datos', { recursive: true });
-writeFileSync(salida, sql, 'utf8');
+const salida = NUMERO ? `migraciones/${NOMBRE_SQL}` : `datos/${NOMBRE_SQL}`;
+if (!inspeccionar) {   // --inspeccionar con un CSV no escribe nada, solo cuenta
+  mkdirSync(NUMERO ? 'migraciones' : 'datos', { recursive: true });
+  writeFileSync(salida, sql, 'utf8');
+}
 
 /* Estimación contra la importación anterior (040): mismo nombre + fecha de inicio = ya está. */
 const BASE = 'datos/liam-clientes.csv';

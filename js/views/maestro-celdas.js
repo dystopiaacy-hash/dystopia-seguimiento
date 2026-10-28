@@ -21,6 +21,7 @@ import { guardarCampoExtra, errorColumnas } from '../datos-columnas.js';
 import { opcionesHtml, num } from './comunes.js';
 import { modalCerrarRenovacion } from './renovaciones.js';
 import { columnasCiclo, pedirConfirmacionEstado } from './maestro-ciclo.js';
+import { guardarEstadoAccionable } from './maestro-accionables.js';
 
 const PRIO_ORDEN = { alta: 0, media: 1, baja: 2 };
 const AVANCE_ORDEN = { trabado: 0, demorado: 1, bien: 2 };
@@ -263,20 +264,24 @@ async function guardarCampo(ctl, fila, ctx) {
    Vacío (o casilla sin tildar) borra la clave. */
 async function guardarExtra(ctl, fila, ctx) {
   const clave = ctl.dataset.campo, tipo = ctl.dataset.extra;
-  const actual = tipo === 'casilla' ? (ctl.checked ? '1' : '') : ctl.value.trim();
+  const check = tipo === 'casilla' || tipo === 'accionable';   // accionable (238): casilla que completa / reabre el accionable
+  const actual = check ? (ctl.checked ? '1' : '') : ctl.value.trim();
   if (actual === ctl.dataset.prev) return;
-  const valor = tipo === 'casilla' ? (ctl.checked || null)
+  const valor = check ? (ctl.checked || null)
     : actual === '' ? null : tipo === 'numero' ? Number(actual) : actual;
   marcar(ctl, 'guardando');
   ctl.disabled = true;
   try {
-    await guardarCampoExtra(fila.id, clave, valor);
-    const extra = { ...(fila.campos_extra || {}) };
-    if (valor == null) delete extra[clave];
-    else extra[clave] = valor;
-    fila.campos_extra = extra;
+    if (tipo === 'accionable') await guardarEstadoAccionable(fila, clave, ctl.checked);
+    else {
+      await guardarCampoExtra(fila.id, clave, valor);
+      const extra = { ...(fila.campos_extra || {}) };
+      if (valor == null) delete extra[clave];
+      else extra[clave] = valor;
+      fila.campos_extra = extra;
+    }
     ctl.dataset.prev = actual;
-    if (tipo !== 'casilla') ctl.title = actual;
+    if (!check) ctl.title = actual;
     marcar(ctl, 'ok');
     toast('Guardado.');
     if (tipo === 'link') ctx.repintar();

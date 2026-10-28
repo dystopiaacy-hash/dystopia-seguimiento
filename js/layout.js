@@ -14,6 +14,7 @@ export const SECCIONES = [
   ['maestro', 'Maestro', false],
   ['resumen', 'Resumen', false],
   ['fuera', 'Fuera del maestro', false, false, ['agus']],   // 5º dato: solo esos programas (hoja "Fuera del maestro" de DCAC)
+  ['llamadas-producto', 'Llamadas Producto', false, false, ['liam']],   // hoja "Llamadas Producto" del Maestro de BPF
   ['onboarding', 'Onboarding', false],
   ['accionables', 'Accionables', false],
   ['devoluciones', 'Devoluciones', false],
@@ -40,6 +41,7 @@ const ICONOS = {
   maestro: ico('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/>'),
   resumen: ico('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
   fuera: ico('<rect x="3" y="4" width="18" height="16" rx="2" stroke-dasharray="3 2"/><path d="M3 10h18"/>'),
+  'llamadas-producto': ico('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/><path d="M15 3h6M18 3v5"/>'),
   onboarding: ico('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'),
   accionables: ico('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12 2.5 2.5 4.5-5"/>'),
   devoluciones: ico('<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>'),
