@@ -18,7 +18,9 @@
     { id: 'marketing', label: 'Marketing', url: 'https://mkt.dystopia.com.ar',         roles: ['fundador', 'cliente', 'editor', 'contenido', 'producto'] },
     { id: 'ventas',    label: 'Ventas',    url: 'https://ventas.dystopia.com.ar',      roles: ['fundador', 'cliente', 'closer', 'setter', 'ventas', 'finanzas'] },
     { id: 'producto',  label: 'Producto',  url: 'https://producto.dystopia.com.ar', roles: ['fundador', 'cliente', 'producto'] },
-    { id: 'finanzas',  label: 'Finanzas',  url: 'https://finanzas.dystopia.com.ar',    roles: ['fundador', 'cliente', 'closer', 'setter', 'finanzas', 'ventas'] }
+    { id: 'finanzas',  label: 'Finanzas',  url: 'https://finanzas.dystopia.com.ar',    roles: ['fundador', 'cliente', 'closer', 'setter', 'finanzas', 'ventas'] },
+    /* Pendientes vive en el repo de Marketing (pendientes.html). Solo fundador. */
+    { id: 'pendientes', label: 'Pendientes', url: 'https://mkt.dystopia.com.ar/pendientes', roles: ['fundador'] }
   ];
 
   function esc(s) {
