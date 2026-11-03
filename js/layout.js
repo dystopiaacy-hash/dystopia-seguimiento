@@ -1,5 +1,5 @@
-/* Layout de la app interna (replica Dystopia): sidebar con marca, navegación
-   y pie (email + Salir); header con título de la vista, "En vivo" y rol. */
+/* Layout de la app interna (igual que Ventas): header arriba con marca, áreas, "En vivo", perfil,
+   sol/luna y Salir; debajo la navegación de Producto (programas y secciones); título de la vista y rol. */
 import { esc } from './ui.js';
 import { yo, esFundador, etiquetaRol, puedeGestionarFathom } from './sesion.js';
 import { botonTemaHtml, activarBotonTema } from './tema.js';
@@ -65,7 +65,7 @@ const iconoSub = sub => ICONOS[sub || 'dashboard'] || '';
 export function renderLayout(app, onSalir) {
   const inicial = esc((yo.nombre || yo.email || '?').trim().charAt(0));
   app.innerHTML = `
-    <aside class="sidebar">
+    <header class="appbar">
       <div class="brand">
         <div class="brand-logo" aria-hidden="true">D</div>
         <div class="brand-txt">
@@ -74,20 +74,22 @@ export function renderLayout(app, onSalir) {
         </div>
       </div>
       <nav id="nav-areas"></nav>
-      <div class="perfil" title="${esc(yo.email)}">
-        <div class="perfil-avatar" aria-hidden="true">${inicial}</div>
-        <div class="perfil-txt">
-          <div class="perfil-nombre" id="user-email">${esc(yo.nombre || yo.email)}</div>
-          <div class="perfil-dato">${esc(etiquetaRol())}</div>
+      <div class="appbar-acc">
+        <span class="live-pill" id="live" data-on="0" title="Conectando…"><span class="live-dot"></span><span class="live-txt">En vivo</span></span>
+        <div class="perfil" title="${esc(yo.email)}">
+          <div class="perfil-avatar" aria-hidden="true">${inicial}</div>
+          <div class="perfil-txt">
+            <div class="perfil-nombre" id="user-email">${esc(yo.nombre || yo.email)}</div>
+            <div class="perfil-dato">${esc(etiquetaRol())}</div>
+          </div>
         </div>
+        ${botonTemaHtml()}
+        <button type="button" class="refresh-btn" id="btn-logout">Salir</button>
       </div>
+    </header>
+    <div class="subnav">
       <nav class="nav-list" id="nav" aria-label="Navegación"></nav>
-      <div class="sidebar-foot">
-        <div class="sidebar-foot-acc">
-          <button type="button" class="refresh-btn" id="btn-logout">Salir</button>
-        </div>
-      </div>
-    </aside>
+    </div>
     <main class="main">
       <div class="main-inner">
         <header class="topbar view-head">
@@ -96,9 +98,7 @@ export function renderLayout(app, onSalir) {
             <div class="consultora" id="view-sub"></div>
           </div>
           <div class="view-head-meta">
-            <span class="live-pill" id="live" data-on="0" title="Conectando…"><span class="live-dot"></span>En vivo</span>
             <span class="badge">${esc(etiquetaRol())}</span>
-            ${botonTemaHtml()}
           </div>
         </header>
         <div id="view"></div>
@@ -129,39 +129,43 @@ function href(path) {
   return '#/' + path;
 }
 
-/* activo = { panel: true } | { configGeneral: true } | { programaId, sub } */
+const FLECHA = '<svg class="nav-secs-flecha" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+
+/* activo = { panel: true } | { configGeneral: true } | { programaId, sub }
+   Una fila con Panel / Configuración / programas y, con un programa abierto, otra
+   con sus secciones (en celular, un desplegable). */
 export function renderNav(activo = {}) {
   const nav = document.getElementById('nav');
   if (!nav) return;
-  let html = '';
+  let prog = '';
   if (esFundador()) {
-    html += `
-      <a class="nav-item${activo.panel ? ' active' : ''}" href="${href('panel')}">
-        <span class="nav-icon">${ICONOS.panel}</span>
-        <span class="nav-text"><div class="nav-name">Panel general</div><div class="nav-niche">Todos los programas</div></span>
-      </a>
-      <div class="nav-subs">
-        <a class="nav-sub${activo.configGeneral ? ' active' : ''}" href="${href('config-general')}">${ICONOS.config}Configuración general</a>
-      </div>`;
+    prog += `
+      <a class="nav-item${activo.panel ? ' active' : ''}" href="${href('panel')}"><span class="nav-icon">${ICONOS.panel}</span><span class="nav-name">Panel general</span></a>
+      <a class="nav-item${activo.configGeneral ? ' active' : ''}" href="${href('config-general')}"><span class="nav-icon">${ICONOS.config}</span><span class="nav-name">Configuración general</span></a>
+      <span class="nav-sep" aria-hidden="true"></span>`;
   }
-  html += `<div class="nav-eyebrow">${yo.programas.length === 1 ? 'Programa' : 'Programas'}</div>`;
+  let secs = '';
   for (const p of yo.programas) {
     const id = encodeURIComponent(p.id);
     const esEste = activo.programaId === p.id;
-    html += `
-      <a class="nav-item${esEste && !activo.sub ? ' active' : ''}${p.activo ? '' : ' inactivo'}" href="${href('p/' + id)}">
-        <span class="nav-dot ${p.activo ? 'sem-verde' : 'sem-gris'}" title="${p.activo ? 'Activo' : 'Inactivo'}"></span>
-        <span class="nav-text"><div class="nav-name">${esc(p.nombre)}</div><div class="nav-niche">${esc(p.activo ? (p.marca || 'Activo') : 'Inactivo')}</div></span>
-      </a>`;
-    if (esEste) {
-      html += '<div class="nav-subs">';
-      for (const sec of SECCIONES) {
-        const [sub, label, soloFundador, soloGestor] = sec;
-        if (!sub || !seccionDelPrograma(sec, p.id) || (soloFundador && !esFundador()) || (soloGestor && !puedeGestionarFathom())) continue;
-        html += `<a class="nav-sub${activo.sub === sub ? ' active' : ''}" href="${href('p/' + id + '/' + sub)}">${iconoSub(sub)}${esc(label)}</a>`;
-      }
-      html += '</div>';
+    const raiz = esEste && !activo.sub;
+    prog += `<a class="nav-item${raiz ? ' active' : esEste ? ' abierto' : ''}${p.activo ? '' : ' inactivo'}" href="${href('p/' + id)}" title="${esc(p.activo ? (p.marca || 'Activo') : 'Inactivo')}"><span class="nav-dot ${p.activo ? 'sem-verde' : 'sem-gris'}"></span><span class="nav-name">${esc(p.nombre)}</span></a>`;
+    if (!esEste) continue;
+    let actual = 'Dashboard';
+    let items = '';
+    for (const sec of SECCIONES) {
+      const [sub, label, soloFundador, soloGestor] = sec;
+      if (!sub || !seccionDelPrograma(sec, p.id) || (soloFundador && !esFundador()) || (soloGestor && !puedeGestionarFathom())) continue;
+      const on = activo.sub === sub;
+      if (on) actual = label;
+      items += `<a class="nav-sub${on ? ' active' : ''}" href="${href('p/' + id + '/' + sub)}">${iconoSub(sub)}${esc(label)}</a>`;
     }
+    secs = `
+      <button type="button" class="nav-secs-toggle" aria-expanded="false">Secciones: <span class="nav-secs-act">${esc(actual)}</span>${FLECHA}</button>
+      <div class="nav-fila nav-secs">${items}</div>`;
   }
-  nav.innerHTML = html;
+  nav.classList.remove('abierta');
+  nav.innerHTML = `<div class="nav-fila nav-fila-prog">${prog}</div>${secs}`;
+  const toggle = nav.querySelector('.nav-secs-toggle');
+  if (toggle) toggle.onclick = () => toggle.setAttribute('aria-expanded', String(nav.classList.toggle('abierta')));
 }

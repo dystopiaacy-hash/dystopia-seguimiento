@@ -20,7 +20,7 @@
 .cmp-num-nd{font-size:var(--fs-card);font-weight:600;letter-spacing:0;color:var(--text-3);padding:14px 0;}
 .cmp-barra{height:10px;border-radius:var(--r-pill);background:var(--surface-inset);overflow:hidden;}
 .cmp-barra span{display:block;height:100%;border-radius:var(--r-pill);}
-.cmp-barra-a{background:var(--accent-soft);}
+.cmp-barra-a{background:var(--accent-light);}
 .cmp-barra-b{background:var(--accent);}
 .cmp-card-pie{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-2) var(--sp-3);}
 .cmp-chip{display:inline-block;padding:4px 10px;border-radius:var(--r-pill);font-size:var(--fs-meta);font-weight:600;}
