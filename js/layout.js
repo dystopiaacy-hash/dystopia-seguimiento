@@ -27,6 +27,7 @@ export const SECCIONES = [
   ['preguntar', 'Preguntale a la IA', false, true],
   ['formularios', 'Formularios', false],
   ['metricas', 'Métricas', false],
+  ['comparar', 'Comparar', false],
   ['config', 'Configuración', true]
 ];
 
@@ -54,6 +55,7 @@ const ICONOS = {
   preguntar: ico('<path d="M4 5h16v11H9l-5 4z"/>'),
   formularios: ico('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>'),
   metricas: ico('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
+  comparar: ico('<path d="M8 4v16M16 4v16M4 8l4-4 4 4M12 16l4 4 4-4"/>'),
   config: ico('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
   panel: ico('<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>'),
   dashboard: ico('<path d="M3 12a9 9 0 0 1 18 0"/><path d="m12 12 4-4"/><path d="M5 20h14"/>')
@@ -82,7 +84,6 @@ export function renderLayout(app, onSalir) {
       <nav class="nav-list" id="nav" aria-label="Navegación"></nav>
       <div class="sidebar-foot">
         <div class="sidebar-foot-acc">
-          ${botonTemaHtml()}
           <button type="button" class="refresh-btn" id="btn-logout">Salir</button>
         </div>
       </div>
@@ -97,6 +98,7 @@ export function renderLayout(app, onSalir) {
           <div class="view-head-meta">
             <span class="live-pill" id="live" data-on="0" title="Conectando…"><span class="live-dot"></span>En vivo</span>
             <span class="badge">${esc(etiquetaRol())}</span>
+            ${botonTemaHtml()}
           </div>
         </header>
         <div id="view"></div>

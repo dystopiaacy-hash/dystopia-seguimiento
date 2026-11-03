@@ -18,7 +18,7 @@
 .brand-sub{font-weight:500;font-size:var(--fs-micro);color:var(--text-faint);line-height:1.3;}
 /* Tarjeta de perfil */
 .perfil{display:flex;align-items:center;gap:var(--sp-3);margin:0 var(--sp-3) var(--sp-2);padding:var(--sp-2) var(--sp-3);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);min-width:0;}
-.perfil-avatar{width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);display:grid;place-items:center;font-weight:700;font-size:var(--fs-meta);flex-shrink:0;text-transform:uppercase;}
+.perfil-avatar{width:30px;height:30px;border-radius:50%;background:var(--accent-bg);color:var(--accent-text);display:grid;place-items:center;font-weight:700;font-size:var(--fs-meta);flex-shrink:0;text-transform:uppercase;}
 .perfil-txt{min-width:0;flex:1;}
 .perfil-nombre{font-weight:600;font-size:var(--fs-meta);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;}
 .perfil-dato{font-size:var(--fs-micro);color:var(--text-faint);line-height:1.3;}
@@ -59,7 +59,7 @@
 .client-head{padding-top:0;}
 .client-head h1{font-family:var(--font-sans);font-weight:700;font-size:var(--fs-page);line-height:1.2;margin:0 0 var(--sp-1);color:var(--ink);letter-spacing:-.4px;}
 .client-head .consultora{color:var(--text-faint);font-size:var(--fs-body);font-weight:400;margin-bottom:var(--sp-2);}
-.niche-tag{display:inline-block;font-weight:600;font-size:var(--fs-micro);background:var(--accent-soft);border-radius:999px;padding:var(--sp-1) var(--sp-3);color:var(--accent-text);}
+.niche-tag{display:inline-block;font-weight:600;font-size:var(--fs-micro);background:var(--accent-bg);border-radius:999px;padding:var(--sp-1) var(--sp-3);color:var(--accent-text);}
 
 /* ===== TABS: texto con subrayado en la activa ===== */
 .tabs{display:flex;gap:var(--sp-1);border-bottom:1px solid var(--border);flex-wrap:wrap;}

@@ -18,6 +18,7 @@ import { vistaRenovaciones } from './renovaciones.js';
 import { vistaRevision } from './revision.js';
 import { vistaFormularios } from './formularios.js';
 import { vistaMetricas } from './metricas.js';
+import { vistaComparar } from './comparar.js';
 import { vistaConfig } from './config.js';
 import { vistaSatisfaccion } from './satisfaccion.js';
 import { vistaDudas } from './dudas.js';
@@ -111,6 +112,7 @@ export function vistaPrograma(el, { p, sub, clienteId, vigente }) {
   if (sub === 'preguntar') return vistaPreguntar(cont, p.id, vigente);
   if (sub === 'formularios') return vistaFormularios(cont, p.id, vigente);
   if (sub === 'metricas') return vistaMetricas(cont, p.id, vigente);
+  if (sub === 'comparar') return vistaComparar(cont, p.id, vigente);
   if (sub === 'config') return vistaConfig(cont, p.id, vigente);
 
   cont.innerHTML = vacio(label, 'Esta sección se construye en una fase siguiente.');

@@ -26,7 +26,7 @@
 .ob-bloq{display:block;font-size:var(--fs-micro);color:var(--text-faint);}
 .ob-paso-item.hecho{background:var(--success-soft);border-color:transparent;}
 .ob-paso-item.hecho .ob-paso-n{background:var(--success);color:var(--bg);}
-.ob-paso-item.actual{border-color:var(--accent-text);background:var(--accent-soft);font-weight:700;}
+.ob-paso-item.actual{border-color:var(--accent-text);background:var(--accent-bg);font-weight:700;}
 .ob-paso-item.actual .ob-paso-n{background:var(--accent);color:var(--on-accent);}
 .ob-paso-item.bloqueado{opacity:.62;}
 

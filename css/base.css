@@ -17,8 +17,8 @@
   --estado-pausado:#8f84c9;
 
   /* Escala tipográfica: página > sección > tarjeta > cuerpo > metadata > micro-label */
-  --fs-page:24px; --fs-section:18px; --fs-card:15px; --fs-body:13px; --fs-meta:12px; --fs-micro:11px;
-  --fs-kpi:28px; --fs-kpi-lg:32px;
+  --fs-page:clamp(28px,4vw,44px); --fs-section:18px; --fs-card:18px; --fs-body:14px; --fs-meta:13px; --fs-micro:12px;
+  --fs-kpi:36px; --fs-kpi-lg:52px;
   /* Espaciado en múltiplos de 4px */
   --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px; --sp-10:40px;
   --row-h:40px; --control-h:36px; --control-h-sm:28px;
@@ -27,8 +27,8 @@
 html,body{height:100%;}
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;}
 button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
-a{color:var(--accent-text);text-decoration:none;}
-a:hover{text-decoration:underline;}
+a{color:var(--link);text-decoration:none;}
+a:hover{color:var(--link-hover);text-decoration:underline;}
 :focus-visible{outline:2px solid var(--accent-text);outline-offset:2px;}
 ::selection{background:var(--accent-line);}
 ::-webkit-scrollbar{width:10px;height:10px;}

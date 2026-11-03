@@ -17,7 +17,7 @@
 .chat-ia-hilo{display:flex;flex-direction:column;gap:var(--sp-3);}
 .chat-ia-msg{padding:var(--sp-3) var(--sp-4);border-radius:var(--radius, 10px);border:1px solid var(--border);
   white-space:pre-wrap;overflow-wrap:anywhere;}
-.chat-ia-msg-yo{background:var(--accent-soft);border-color:var(--accent-line);align-self:flex-end;max-width:90%;}
+.chat-ia-msg-yo{background:var(--accent-bg);border-color:var(--accent-line);align-self:flex-end;max-width:90%;}
 .chat-ia-msg-ia{background:var(--surface);}
 /* Markdown de las respuestas (dystopitaMd): el texto ya viene con <br> y <p>, sin saltos crudos. */
 .dy-md{white-space:normal;}

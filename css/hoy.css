@@ -15,7 +15,7 @@
 .hoy-filtros{margin-bottom:var(--sp-5);}
 .hoy-chip{background:var(--surface);border:1px solid var(--border);border-radius:999px;min-height:var(--control-h-sm);padding:0 var(--sp-3);cursor:pointer;font-weight:600;font-size:var(--fs-meta);color:var(--text-dim);display:inline-flex;align-items:center;gap:var(--sp-1);white-space:nowrap;}
 .hoy-chip:hover{color:var(--ink);border-color:var(--accent-line);}
-.hoy-chip.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-text);font-weight:700;}
+.hoy-chip.on{background:var(--accent-bg);border-color:var(--accent-line);color:var(--accent-text);font-weight:700;}
 .hoy-chip:focus-visible{outline:2px solid var(--accent-line);outline-offset:1px;}
 .hoy-chip-n{font-variant-numeric:tabular-nums;color:var(--text-faint);font-weight:600;}
 .hoy-chip.on .hoy-chip-n{color:var(--accent-text);}
@@ -30,7 +30,7 @@
 .hoy-card.hoy-hoy{--hoy-color:var(--sem-amarillo);}
 .hoy-card.hoy-proximo{--hoy-color:var(--border);}
 /* Seleccionada (J/K): borde de 2px (el padding compensa el px extra) y fondo apenas tintado. */
-.hoy-card.sel{border:2px solid var(--accent);border-left:3px solid var(--hoy-color);padding:calc(var(--sp-3) - 1px) calc(var(--sp-4) - 1px) calc(var(--sp-3) - 1px) var(--sp-4);background:linear-gradient(var(--accent-soft),var(--accent-soft)),var(--surface);}
+.hoy-card.sel{border:2px solid var(--accent);border-left:3px solid var(--hoy-color);padding:calc(var(--sp-3) - 1px) calc(var(--sp-4) - 1px) calc(var(--sp-3) - 1px) var(--sp-4);background:linear-gradient(var(--accent-bg),var(--accent-bg)),var(--surface);}
 .hoy-card.ocupada{opacity:.6;}
 
 .hoy-card-main{min-width:0;}

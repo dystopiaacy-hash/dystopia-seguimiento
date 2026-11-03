@@ -56,26 +56,26 @@
 
 /* ---------- Panel ---------- */
 .dy-panel{position:fixed;z-index:90;display:flex;flex-direction:column;isolation:isolate;
-  background-color:var(--surface,#fff);color:var(--text);
+  background-color:var(--surface);color:var(--text);
   border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);overflow:hidden;
   animation:dy-abre .14s ease-out;}
 .dy-panel[hidden]{display:none;}
 @keyframes dy-abre{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
 .dy-panel-cab{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
-  background:var(--accent);color:#fff;}
+  background:var(--accent);color:var(--on-accent);}
 .dy-panel-cab h2{margin:0;font-size:var(--fs-card);font-weight:700;letter-spacing:.02em;}
-.dy-x{width:var(--control-h-sm);height:var(--control-h-sm);border:0;border-radius:var(--radius-sm);background:transparent;color:#fff;
+.dy-x{width:var(--control-h-sm);height:var(--control-h-sm);border:0;border-radius:var(--radius-sm);background:transparent;color:var(--on-accent);
   font-size:22px;line-height:1;cursor:pointer;}
-.dy-x:hover{background:rgba(255,255,255,.18);}
-.dy-x:focus-visible{outline:2px solid #fff;outline-offset:1px;}
-.dy-chat{flex:1;min-height:0;padding:var(--sp-3);display:flex;flex-direction:column;background-color:var(--surface,#fff);}
-.dy-chat-in{flex:1;min-height:0;background-color:var(--surface,#fff);}
+.dy-x:hover{background:var(--accent-bg);color:var(--accent-text);}
+.dy-x:focus-visible{outline:2px solid var(--on-accent);outline-offset:1px;}
+.dy-chat{flex:1;min-height:0;padding:var(--sp-3);display:flex;flex-direction:column;background-color:var(--surface);}
+.dy-chat-in{flex:1;min-height:0;background-color:var(--surface);}
 .dy-chat .chat-ia{max-width:none;height:100%;gap:var(--sp-3);}
 .dy-chat .chat-ia > .card{padding:var(--sp-3);}
 .dy-chat .chat-ia > .card .hint{display:none;}
 .dy-chat .chat-ia > .card p{margin:0 0 var(--sp-2);}
-.dy-chat .chat-ia-hilo{flex:1;min-height:0;overflow-y:auto;background-color:var(--surface,#fff);}
-.dy-chat .chat-ia-msg-ia{background-color:var(--surface-2,#f3f4f7);}
+.dy-chat .chat-ia-hilo{flex:1;min-height:0;overflow-y:auto;background-color:var(--surface);}
+.dy-chat .chat-ia-msg-ia{background-color:var(--surface-2);}
 .dy-chat .chat-ia-form{flex-wrap:nowrap;align-items:flex-end;flex-shrink:0;}
 .dy-chat .chat-ia-form textarea{min-width:0;}
 .dy-chat .chat-ia-form .btn{flex-shrink:0;position:relative;z-index:1;}

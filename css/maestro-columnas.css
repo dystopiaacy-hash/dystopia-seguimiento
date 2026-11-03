@@ -21,7 +21,7 @@
 /* Flecha que abre la ficha (o el link de una columna de tipo link) */
 .m-abrir{flex:none;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;
   border-radius:var(--radius-sm);color:var(--text-faint);text-decoration:none;font-weight:700;}
-.m-abrir:hover,.m-abrir:focus-visible{background:var(--accent-soft);color:var(--accent-text);}
+.m-abrir:hover,.m-abrir:focus-visible{background:var(--accent-bg);color:var(--accent-text);}
 
 /* ---------- Calculadas: no se editan, el clic abre lo que las cambia ---------- */
 .m-ir{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;min-height:26px;padding:0 4px;
@@ -72,7 +72,7 @@
 .mc-input{flex:1;min-width:0;height:30px;padding:0 8px;border:1px solid transparent;border-radius:var(--radius-sm);
   background:transparent;color:var(--ink);font-size:var(--fs-meta);}
 .mc-input:hover{border-color:var(--border);}
-.mc-input:focus{outline:none;border-color:var(--accent-line);background:var(--surface);box-shadow:0 0 0 3px var(--accent-soft);}
+.mc-input:focus{outline:none;border-color:var(--accent-line);background:var(--surface);box-shadow:0 0 0 3px var(--accent-bg);}
 .mc-nombre{font-weight:600;}
 .mc-ic{flex:none;display:inline-flex;align-items:center;justify-content:center;width:30px;padding:0;}
 .mc-arrastrando{opacity:.5;}

@@ -1,28 +1,27 @@
 /* nav-areas — barra común de las 4 áreas de Dystopia.
    ESTE ARCHIVO ES IDÉNTICO EN LOS 4 REPOS. No editarlo en un solo repo.
-   Usa los tokens de css/tema.css (--accent-text, --border, ...) con valores de
-   respaldo del tema claro, así se ve bien aunque algún repo no defina alguno.
+   Usa los tokens de css/tema.css (diseño "E · Pastel suave"): contenedor pill
+   sobre --surface, ítem activo con --nav-active-bg.
    Cargarlo DESPUÉS de las hojas del repo (o sea, al final). */
 
 .nav-areas{
   display:flex;flex-direction:column;gap:2px;
   padding:8px 12px;
-  border-bottom:1px solid var(--border,#e4e4e7);
 }
 .nav-area{
   display:block;
-  padding:5px 12px;border-radius:8px;
-  font-family:var(--font-sans,'Inter',system-ui,sans-serif);
-  font-weight:500;font-size:12px;line-height:1.4;
-  color:var(--text-dim,#52525b);
+  padding:8px 16px;border-radius:var(--r-pill);
+  font-family:var(--font);
+  font-weight:500;font-size:14px;line-height:1.4;
+  color:var(--text-2);
   text-decoration:none !important;
   white-space:nowrap;
   transition:background .12s,color .12s;
 }
-a.nav-area:hover{background:var(--surface-2,#f4f4f5);color:var(--ink,#18181b);}
+a.nav-area:hover{background:var(--accent-bg);color:var(--text);}
 .nav-area.activa{
-  background:var(--accent-soft,rgba(79,70,229,.08));
-  color:var(--accent-text,#4f46e5);
+  background:var(--nav-active-bg);
+  color:var(--nav-active-text);
   font-weight:600;cursor:default;
 }
 
@@ -33,9 +32,8 @@ a.nav-area:hover{background:var(--surface-2,#f4f4f5);color:var(--ink,#18181b);}
   *:has(> .nav-areas){flex-wrap:wrap;}
   .nav-areas{
     order:99;flex:0 0 100%;width:100%;
-    flex-direction:row;gap:4px;overflow-x:auto;
+    flex-direction:row;gap:6px;overflow-x:auto;
     padding:6px 12px;
-    border-bottom:none;border-top:1px solid var(--border-soft,#efeff1);
   }
-  .nav-area{flex-shrink:0;padding:6px 12px;}
+  .nav-area{flex-shrink:0;}
 }

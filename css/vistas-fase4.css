@@ -84,7 +84,7 @@
 .rev-motivos-lista li{margin-bottom:2px;}
 
 /* La próxima acción es lo que se lee primero: va destacada. */
-.rev-accion{display:flex;flex-direction:column;gap:2px;background:var(--accent-soft);
+.rev-accion{display:flex;flex-direction:column;gap:2px;background:var(--accent-bg);
   border-left:3px solid var(--accent);border-radius:var(--radius-sm);
   padding:var(--sp-2) var(--sp-3);margin-bottom:var(--sp-4);}
 .rev-accion-lab{font-size:var(--fs-micro);letter-spacing:.06em;text-transform:uppercase;
@@ -109,7 +109,7 @@
   border:none;border-radius:var(--radius-sm);padding:0 var(--sp-2);min-height:var(--row-h);
   cursor:pointer;text-align:left;font-size:var(--fs-meta);}
 .rev-cola-fila:hover{background:var(--surface-2);}
-.rev-cola-fila.is-actual{background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-line);}
+.rev-cola-fila.is-actual{background:var(--accent-bg);box-shadow:inset 0 0 0 1px var(--accent-line);}
 .rev-cola-nombre{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font-weight:600;color:var(--ink);}
 .rev-cola-estado{font-size:var(--fs-micro);font-weight:700;color:var(--text-faint);white-space:nowrap;}

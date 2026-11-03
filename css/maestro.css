@@ -41,7 +41,7 @@
 .m-edit{width:100%;height:28px;padding:0 6px;border:1px solid transparent;border-radius:var(--radius-sm);
   background:transparent;color:var(--ink);font-size:var(--fs-meta);text-overflow:ellipsis;}
 .m-edit:hover{border-color:var(--border);background:var(--surface);}
-.m-edit:focus{outline:none;border-color:var(--accent-line);background:var(--surface);box-shadow:0 0 0 3px var(--accent-soft);}
+.m-edit:focus{outline:none;border-color:var(--accent-line);background:var(--surface);box-shadow:0 0 0 3px var(--accent-bg);}
 .m-edit:disabled{opacity:.6;cursor:progress;}
 .m-edit::placeholder{color:var(--text-faint);}
 select.m-edit{cursor:pointer;padding-right:2px;}
@@ -64,7 +64,7 @@ select.m-edit{cursor:pointer;padding-right:2px;}
 .m-fecha.m-hoy{color:var(--sem-amarillo-text);font-weight:700;}
 
 /* Estado del guardado de la celda */
-.tabla-maestro td.m-guardando{background:var(--accent-soft);}
+.tabla-maestro td.m-guardando{background:var(--accent-bg);}
 .tabla-maestro td.m-ok{box-shadow:inset 0 0 0 2px var(--success);transition:box-shadow .3s;}
 .tabla-maestro td.m-error{box-shadow:inset 0 0 0 2px var(--danger);background:var(--danger-soft);}
 

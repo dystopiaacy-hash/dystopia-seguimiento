@@ -128,7 +128,7 @@
   width:100%;text-align:left;background:transparent;border:none;border-bottom:1px solid var(--border-soft);
   padding:var(--sp-3) var(--sp-2);cursor:pointer;font:inherit;color:inherit;}
 .resp-row:last-child{border-bottom:none;}
-.resp-row:hover{background:var(--accent-soft);}
+.resp-row:hover{background:var(--accent-bg);}
 .resp-fecha{font-family:var(--font-mono);font-size:var(--fs-meta);font-weight:700;color:var(--text-dim);}
 .resp-nombre{font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .resp-puntaje{font-family:var(--font-mono);font-weight:700;color:var(--ink);font-size:var(--fs-meta);}
