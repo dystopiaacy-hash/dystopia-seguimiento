@@ -9,6 +9,10 @@
    ===================================================================== */
 
 /* ---------- Estructura ---------- */
+.sidebar{border-right:0;background:var(--surface);}
+.sidebar-foot{border-top:0;}
+.brand-logo{border-radius:var(--r-tile);width:34px;height:34px;}
+.brand-mark{font-size:18px;font-weight:800;}
 .main-inner{padding:12px 32px 56px;max-width:1320px;}
 .topbar{margin-bottom:22px;align-items:center;}
 .client-head h1{font-weight:800;letter-spacing:-.03em;line-height:1.1;}
@@ -33,6 +37,7 @@
 .ops-bar-track{height:10px;border-radius:var(--r-pill);background:var(--surface-inset);}
 .ops-bar-fill{border-radius:var(--r-pill);}
 .chart-title,.section-title{font-weight:700;}
+.perfil{background:var(--surface-inset);border-radius:var(--r-tile);}
 .modal-box{border-radius:var(--r-card);padding:28px;}
 .modal-box .subhead,.modal-foot{border-top-color:var(--border-soft);}
 .empty-state .big{font-weight:700;}
@@ -40,7 +45,18 @@
 /* Franja de alerta / acción */
 .alert,.aviso,.callout{background:var(--surface-inset);border-radius:var(--r-tile);padding:14px 16px;}
 
-/* La navegación (header, áreas, pills de programas y secciones) está en layout.css. */
+/* ---------- Navegación ---------- */
+.nav-item,.nav-sub{border-radius:var(--r-pill);}
+.nav-item{padding:8px 14px;}
+.nav-item:hover,.nav-sub:hover{background:var(--accent-bg);}
+.nav-item.active,.nav-sub.active{background:var(--nav-active-bg);}
+.nav-item.active .nav-name,.nav-item.active .nav-niche,.nav-sub.active{color:var(--nav-active-text);}
+.nav-item.active .nav-count{background:var(--accent-bg);color:var(--accent-text);}
+.nav-sub.active svg{color:var(--nav-active-text);}
+.nav-item .nav-name{font-size:var(--fs-body);}
+.nav-item .nav-count{background:var(--accent-bg);color:var(--accent-text);}
+.nav-eyebrow{font-size:var(--fs-micro);color:var(--text-3);}
+.nav-sub{font-size:var(--fs-body);padding:8px 14px;}
 
 /* Pestañas internas del cliente: pills; la activa va en --nav-active-bg */
 .tabs{border-bottom:0;gap:6px;}
@@ -61,8 +77,6 @@
 .search-input:focus{background:var(--surface);box-shadow:0 0 0 2px var(--accent-line);}
 .refresh-btn{border:0;background:var(--surface-inset);color:var(--text-2);}
 .refresh-btn:hover{background:var(--accent-bg);color:var(--accent-text);}
-.appbar .refresh-btn{background:var(--surface);}
-.appbar .refresh-btn:hover{color:var(--text);}
 .modal-close{background:var(--surface-inset);}
 .form-row input:focus,.form-row select:focus,.form-row textarea:focus{box-shadow:0 0 0 2px var(--accent-line);border-color:var(--accent);}
 .form-row label{font-size:var(--fs-meta);}
